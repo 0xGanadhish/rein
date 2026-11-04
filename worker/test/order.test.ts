@@ -43,6 +43,7 @@ class FakeDesk implements DeskClient {
   async menu() { return []; }
   async stats() { return {} as DeskStats; }
   async submit_watch_request(): Promise<number> { throw new Error('not used'); }
+  async submit_x402_request(): Promise<number> { throw new Error('not used'); }
   async prompt(): Promise<DeskPrompt> { return { model: 'm', prefix: 'P[', suffix: ']S' }; }
   async signers() { return ['0xsigner']; }
   async get_signed_tx(id: number) { return this.signedTx.get(id) ?? null; }

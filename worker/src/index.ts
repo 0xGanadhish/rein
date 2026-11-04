@@ -169,6 +169,16 @@ export default {
     return handle(request, env, {
       kick: async () => runAll(env, env.NEAR_NETWORK, nowS(), await realCronDeps(env)),
       health: async () => checkHealth(env.NEAR_NETWORK, await realHealthDeps(env)),
+      payments: async () => {
+        const deps = await realCronDeps(env);
+        return {
+          fetch: (input, init) => fetch(input, init),
+          desk: deps.order.desk,
+          tick: () => tick(env, env.NEAR_NETWORK, deps.order),
+          sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+          now: () => Date.now(),
+        };
+      },
     });
   },
   async scheduled(_controller, env, ctx) {

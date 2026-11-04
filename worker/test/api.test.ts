@@ -16,7 +16,8 @@ const STATS: DeskStats = { sales_near: '3000000000000000000000000', sales_usdc: 
 const TABLES = ['orders', 'docs', 'posts', 'watch_snapshots', 'watch_baselines', 'watch_requests', 'meta', 'cursors', 'judge_calls', 'locks'];
 
 const get = (path: string, deps: Partial<ApiDeps> = {}) =>
-  handle(new Request(`https://rein.test${path}`), env, { kick: async () => ({}), health: async () => { throw new Error('unused'); }, ...deps });
+  handle(new Request(`https://rein.test${path}`), env, { kick: async () => ({}), health: async () => { throw new Error('unused'); },
+    payments: async () => { throw new Error('unused'); }, ...deps });
 
 describe('api', () => {
   beforeAll(async () => { await applyD1Migrations(env.DB, env.TEST_MIGRATIONS); });
@@ -108,7 +109,7 @@ describe('api', () => {
       },
       watch: { desk, read: async () => ({ apyBps: 500, utilBps: 5000, totalAssets: 5_000_000n }) },
     };
-    const kick = () => handle(new Request('https://rein.test/v1/kick', { method: 'POST' }), env, { kick: () => runAll(env, 'testnet', T, deps), health: null! });
+    const kick = () => handle(new Request('https://rein.test/v1/kick', { method: 'POST' }), env, { kick: () => runAll(env, 'testnet', T, deps), health: null!, payments: null! });
     const dump = async () => Promise.all(['orders', 'posts', 'watch_snapshots', 'watch_baselines', 'watch_requests'].map(async (t) => (await env.DB.prepare(`SELECT * FROM ${t}`).all()).results));
 
     const first = await (await kick()).json();
