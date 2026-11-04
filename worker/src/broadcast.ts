@@ -5,7 +5,7 @@ import { base, monad, monadTestnet } from 'viem/chains';
 import type { DeskChain, DeskOrder } from './deskTypes';
 import type { ChainClient, Receipt } from './order';
 
-const CHAINS = { 'monad-testnet': monadTestnet, monad, base } as const;
+export const CHAINS = { 'monad-testnet': monadTestnet, monad, base } as const;
 
 /** Oracle each chain posts verdicts to. Null until it is deployed there; simulation then refuses every post. */
 export const ORACLES: Record<DeskChain, Address | null> = { 'monad-testnet': null, monad: null, base: null };
