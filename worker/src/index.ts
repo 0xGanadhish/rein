@@ -1,5 +1,6 @@
 import { createPublicClient, http, keccak256, toBytes, type Address } from 'viem';
 import type { DeskChain } from '../../shared/desk';
+import { erc4626Abi } from './abis';
 import { handle } from './api';
 import { CHAINS, viemChain } from './broadcast';
 import type { DeskClient, DeskOrder } from './deskTypes';
@@ -10,7 +11,8 @@ import { judge } from './judge';
 import { withLock } from './lock';
 import { mirror, realMirrorDeps, type MirrorDeps } from './mirror';
 import { processOrder, type ChainClient, type OrderDeps, type OrderOutcome } from './order';
-import { realWatchDeps, watchOnce, type WatchDeps } from './watch';
+import { readVault } from './vendor/vaultReader';
+import { netOutPct1h, realWatchDeps, watchOnce, type WatchDeps } from './watch';
 
 const OPEN_LIMIT = 20;
 const SCAN_LIMIT = 100;
@@ -51,8 +53,20 @@ function realDeps(env: Env, desk: DeskClient): OrderDeps {
   const chains = new Map<DeskChain, ChainClient>();
   return {
     desk,
-    read: async () => { throw new Error('vault reader not wired'); },
-    flows: async () => { throw new Error('flow reader not wired'); },
+    async read(c, vault) {
+      const client = createPublicClient({ chain: CHAINS[c], transport: http(rpcFor(env, c), { retryCount: 2 }) });
+      const [block, name, stats, prev] = await Promise.all([
+        client.getBlockNumber(),
+        client.readContract({ address: vault as Address, abi: erc4626Abi, functionName: 'name' }),
+        readVault(env, c, { address: vault, mirror: c === 'monad-testnet' }, { client }),
+        env.DB.prepare('SELECT apy_bps FROM watch_snapshots WHERE chain = ? AND vault = ? ORDER BY at DESC LIMIT 1')
+          .bind(c, vault.toLowerCase()).first<number | null>('apy_bps'),
+      ]);
+      // Vaults without an APY source read as 0, as the watch feed has no APY for them either.
+      const apyBps = stats.apyBps ?? 0;
+      return { block, name, pps: stats.pps, totalAssets: stats.totalAssets, liquidityPct: stats.liquidityPct, apyBps, apyBpsPrev: prev ?? apyBps, utilBps: stats.utilBps };
+    },
+    flows: async (c, vault) => ({ netOutPct1h: await netOutPct1h(env.DB, c, vault, Math.floor(Date.now() / 1000)) }),
     judge: async (doc, prompt, opts) => {
       const j = await judge(doc, prompt, { ...opts, apiKey: env.NEAR_AI_API_KEY });
       const orderId = Number(/\|order=(\d+)\|/.exec(doc)?.[1] ?? -1);

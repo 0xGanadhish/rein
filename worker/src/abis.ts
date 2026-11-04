@@ -12,6 +12,7 @@ export const oracleAbi = parseAbi([
 ]);
 
 export const erc4626Abi = parseAbi([
+  'function name() view returns (string)',
   'function totalAssets() view returns (uint256)',
   'function decimals() view returns (uint8)',
   'function convertToAssets(uint256 shares) view returns (uint256)',

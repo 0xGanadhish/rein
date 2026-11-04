@@ -42,6 +42,18 @@ export function realWatchDeps(env: Env, desk: DeskClient): WatchDeps {
   };
 }
 
+/**
+ * Net outflow over the last hour as a percent of assets, from the watch snapshots: the oldest one in the hour against
+ * the newest. 0 with fewer than two.
+ */
+export async function netOutPct1h(db: D1Database, chain: DeskChain, vault: string, now: number): Promise<number> {
+  const { results } = await db.prepare(`SELECT assets FROM watch_snapshots WHERE chain = ? AND vault = ? AND at >= ? ORDER BY at`)
+    .bind(chain, vault.toLowerCase(), now - OUTFLOW_WINDOW_S).all<{ assets: string }>();
+  if (results.length < 2) return 0;
+  const [first, last] = [BigInt(results[0].assets), BigInt(results.at(-1)!.assets)];
+  return first === 0n ? 0 : Number(((first - last) * 10_000n) / first) / 100;
+}
+
 interface Baseline { at: number; apy_bps: number | null; util_bps: number }
 
 /** Why this reading should be judged again, or null. */
