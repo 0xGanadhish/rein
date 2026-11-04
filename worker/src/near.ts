@@ -27,7 +27,7 @@ export function nearDesk(env: Env): DeskClient {
   return {
     open_orders: (limit) => view<DeskOrder[]>('open_orders', { limit }),
     list_orders: (from, limit) => view<DeskOrder[]>('list_orders', { from, limit }),
-    get_order: async (id) => (await view<DeskOrder | null>('get_order', { id })) ?? null,
+    get_order: async (id) => (await view<DeskOrder | null>('get_order', { order_id: id })) ?? null,
     policy: () => view<DeskPolicy>('policy'),
     menu: (chain) => view<string[]>('menu', { chain }),
     stats: () => view<DeskStats>('stats'),

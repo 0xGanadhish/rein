@@ -79,6 +79,64 @@ pub struct Order {
     pub amount: u128,
     pub created_s: u32,
     pub status: OrderStatus,
+    /// The reading being confirmed or posted. `None` until `fulfil`.
+    pub reading: Option<Box<Reading>>,
+}
+
+/// A verified reading and the post built from it.
+#[near(serializers = [borsh])]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Reading {
+    pub verdict: Verdict,
+    pub confidence_bps: u16,
+    pub risk_bps: u16,
+    /// `keccak256(doc)`.
+    pub state_hash: [u8; 32],
+    /// When `fulfil` accepted the first reading.
+    pub first_at: u32,
+    /// Hash of the unsigned post last sent to the signer.
+    pub payload_hash: [u8; 32],
+    /// Signed type-2 transaction, until delivery.
+    pub signed_tx: Option<Vec<u8>>,
+    /// EVM transaction hash reported at delivery.
+    pub delivered_tx: Option<String>,
+}
+
+/// What the agent chooses for a post. Everything else comes from the reading and the policy.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TxParams {
+    pub nonce: u64,
+    pub max_fee_per_gas: U128,
+    pub max_priority_fee_per_gas: U128,
+}
+
+/// One value per chain. JSON keys are the chain names.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PerChain<T> {
+    #[serde(rename = "monad-testnet")]
+    pub monad_testnet: T,
+    pub monad: T,
+    pub base: T,
+}
+
+impl<T> PerChain<T> {
+    pub fn get(&self, c: Chain) -> &T {
+        match c {
+            Chain::MonadTestnet => &self.monad_testnet,
+            Chain::Monad => &self.monad,
+            Chain::Base => &self.base,
+        }
+    }
+
+    pub fn get_mut(&mut self, c: Chain) -> &mut T {
+        match c {
+            Chain::MonadTestnet => &mut self.monad_testnet,
+            Chain::Monad => &mut self.monad,
+            Chain::Base => &mut self.base,
+        }
+    }
 }
 
 /// JSON view of an [`Order`].
@@ -148,7 +206,17 @@ pub struct Policy {
     pub usdc_token: Option<AccountId>,
     pub agent: AccountId,
     pub treasury: AccountId,
+    /// Rein oracle per chain, 0x hex. `None` refuses posts to that chain.
+    pub oracle: PerChain<Option<String>>,
+    /// Gas limit of a post, per chain.
+    pub gas_limit: PerChain<u64>,
+    /// Highest `max_fee_per_gas` the desk signs, wei, per chain.
+    pub max_fee_cap: PerChain<U128>,
+    /// Chain Signatures contract.
+    pub signer: AccountId,
 }
+
+const GWEI: u128 = 1_000_000_000;
 
 impl Policy {
     pub fn mainnet(agent: AccountId, treasury: AccountId, usdc_token: AccountId) -> Self {
@@ -170,6 +238,18 @@ impl Policy {
             usdc_token: Some(usdc_token),
             agent,
             treasury,
+            oracle: PerChain::default(),
+            gas_limit: PerChain {
+                monad_testnet: 200_000,
+                monad: 200_000,
+                base: 200_000,
+            },
+            max_fee_cap: PerChain {
+                monad_testnet: U128(500 * GWEI),
+                monad: U128(500 * GWEI),
+                base: U128(5 * GWEI),
+            },
+            signer: "v1.signer".parse().unwrap(),
         }
     }
 
@@ -181,6 +261,7 @@ impl Policy {
             watch_daily_max: 200,
             price_near: U128(NearToken::from_millinear(100).as_yoctonear()),
             usdc_token: None,
+            signer: "v1.signer-prod.testnet".parse().unwrap(),
             ..Self::mainnet(agent, treasury.clone(), treasury)
         }
     }
@@ -199,6 +280,26 @@ pub struct Stats {
     pub refunds: u64,
     /// Unfinished paid orders.
     pub open_paid: u32,
+    /// Model tokens across accepted readings.
+    pub inference_tokens_in: u64,
+    pub inference_tokens_out: u64,
+    /// EVM gas spent on posts, wei, as reported by the agent.
+    pub gas_wei: PerChain<U128>,
+    /// Split credited to the treasury and the agent when orders are signed.
+    pub paid_treasury: Amounts,
+    pub paid_agent: Amounts,
+    /// USDC from the split whose transfer failed, claimable with `claim_owed`.
+    pub owed: U128,
+    /// Watch orders opened.
+    pub watch_orders: u64,
+}
+
+/// yoctoNEAR and USDC base units.
+#[near(serializers = [json])]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct Amounts {
+    pub near: U128,
+    pub usdc: U128,
 }
 
 pub fn vault_hex(v: &[u8; 20]) -> String {

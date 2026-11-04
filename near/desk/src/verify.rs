@@ -74,7 +74,7 @@ fn field<'a>(
         .ok_or(err)
 }
 
-fn hex(bytes: &[u8]) -> String {
+pub(crate) fn hex(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut s = String::with_capacity(bytes.len() * 2);
     for b in bytes {
@@ -500,6 +500,7 @@ mod tests {
             amount: 1,
             created_s: CREATED,
             status: OrderStatus::Open,
+            reading: None,
         }
     }
 
@@ -855,6 +856,7 @@ mod tests {
         let mut desk = Desk::new(
             owner.clone(),
             Policy::mainnet(accounts(2), accounts(3), accounts(4)),
+            format!("0x{}", "00".repeat(20)),
         );
         desk.set_menu(Chain::Base, VAULT.into(), true);
         let p = prompt();

@@ -9,7 +9,7 @@ use crate::{now_s, Desk, DeskExt};
 
 /// Finished orders become prunable this long after creation.
 pub const PRUNE_AFTER_S: u32 = 7 * 86_400;
-const GAS_FOR_FT_TRANSFER: Gas = Gas::from_tgas(10);
+pub(crate) const GAS_FOR_FT_TRANSFER: Gas = Gas::from_tgas(10);
 
 #[ext_contract(ext_ft)]
 pub trait FungibleToken {
@@ -191,7 +191,7 @@ impl Desk {
             Source::Near => t.sales_near += amount,
             Source::Usdc => t.sales_usdc += amount,
             Source::X402 => t.sales_x402_usdc += amount,
-            Source::Watch => {}
+            Source::Watch => t.watch_orders += 1,
         }
         if source.is_paid() {
             t.open_paid += 1;
@@ -205,6 +205,7 @@ impl Desk {
             amount,
             created_s: now,
             status: OrderStatus::Open,
+            reading: None,
         };
         self.orders.insert(id, order);
         Ok(id)
