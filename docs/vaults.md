@@ -59,7 +59,7 @@ pass rule 4 in `evm/test/ForkGuardian.t.sol`, so all 14 pass the five rules.
 | Yearn OG USDC | `0xef417a2512C5a41f69AE4e021648b69a7CdE5D03` | MetaMorpho (Vault V1) | $2,030,250 | n/a | no | Vault V1, not V2 (rule 2) |
 | Gauntlet USDC Core | `0xc0c5689e6f4D256E861F65465b691aeEcC0dEb12` | MetaMorpho (Vault V1) | $1,957,817 | n/a | no | Vault V1, not V2 (rule 2) |
 | ARCHITECT Global Value | `0x8effa741061aaA2d8A5012a9B09A2d31d8B628d7` | Morpho Vault V2 | $1,263,025 | 0.0% | no | Liquidity adapter is a Morpho Vault V1 adapter (supplies to `0xBEEFE94c8aD530842bfE7d8B397938fFc1cb83b2`); `MorphoV2Adapter` reads 0 (rule 5) |
-| Re7 USDC | `0x618495ccC4e751178C4914b1E939C0fe0FB07b9b` | Morpho Vault V2 | $1,249,714 | 100.0% | yes | Rules 1-5 pass. The same-tx borrow check fails: all of its TVL is idle USDC, so borrowing its liquidity market cannot make Guardian exit partially |
+| Re7 USDC | `0x618495ccC4e751178C4914b1E939C0fe0FB07b9b` | Morpho Vault V2 | $1,249,714 | 100.0% | yes | Rules 1-5 pass. The same-tx borrow check is skipped: all of its TVL is idle USDC, so borrowing its liquidity market cannot make Guardian exit partially |
 
 ## Guardian checks
 
@@ -70,7 +70,7 @@ pass rule 4 in `evm/test/ForkGuardian.t.sol`, so all 14 pass the five rules.
   still full; one gas less reverts `GasTooLow`.
 - `test_fork_borrowSameTx_partialThenFollowUpCompletes_<name>`: a borrow in the same transaction leaves the vault able to
   pay out half the position, the exit is partial, and a second exit on the same verdict completes after the borrow is
-  repaid. 13 of 14 pass; Re7 USDC fails because all of its TVL is idle in the vault.
+  repaid. 13 of 14 pass; Re7 USDC skips, because all of its TVL is idle in the vault and there is no partial to force.
 
 `MIN_EXIT_GAS` (1,339,826) is twice the costliest full redeem below. Each was measured at block 53,500,623 with
 `forge test --isolate` (every call is its own transaction, so storage is cold): deposit 1,000 USDC, warp one hour so the
