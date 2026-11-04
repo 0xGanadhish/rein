@@ -9,7 +9,8 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-near-sdk = { workspace = true }
+# `unstable` exposes `env::ecrecover` (a stable host function on mainnet).
+near-sdk = { workspace = true, features = ["unstable"] }
 
 [dev-dependencies]
 near-sdk = { workspace = true, features = ["unit-testing"] }
@@ -18,3 +19,4 @@ near-sandbox = "0.4.0"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 serde_json = "1"
+secp256k1 = { version = "0.27", features = ["recovery"] }

@@ -2,7 +2,8 @@ use near_sdk::json_types::U128;
 use near_sdk::near;
 
 use crate::types::{vault_hex, Chain, OrderView, Policy, Stats};
-use crate::{Desk, DeskExt};
+use crate::verify::{parse_signature, verify_reading, Prompt};
+use crate::{now_s, Desk, DeskExt};
 
 #[near]
 impl Desk {
@@ -48,6 +49,46 @@ impl Desk {
             sales_x402_usdc: U128(t.sales_x402_usdc),
             refunds: t.refunds,
             open_paid: t.open_paid,
+        }
+    }
+
+    pub fn prompt(&self) -> Prompt {
+        self.prompt.clone()
+    }
+
+    /// Accepted model signing addresses, as 0x-lowercase hex.
+    pub fn signers(&self) -> Vec<String> {
+        self.signers.iter().map(vault_hex).collect()
+    }
+
+    /// Checks a reading for `order_id` as delivery would, now. Returns `ok` or the reason.
+    /// `signature` is 65 bytes `r || s || v` in hex, 0x optional.
+    pub fn check_reading(
+        &self,
+        order_id: u64,
+        doc: String,
+        response: String,
+        signature: String,
+    ) -> String {
+        let Some(order) = self.orders.get(&order_id) else {
+            return "no such order".into();
+        };
+        let Some(sig) = parse_signature(&signature) else {
+            return "bad signature".into();
+        };
+        let r = verify_reading(
+            &self.prompt,
+            &self.signers,
+            order,
+            &doc,
+            &response,
+            &sig,
+            now_s(),
+            self.policy.doc_max_age_s,
+        );
+        match r {
+            Ok(_) => "ok".into(),
+            Err(e) => e.into(),
         }
     }
 }

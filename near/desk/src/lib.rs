@@ -3,6 +3,7 @@
 pub mod orders;
 pub mod policy;
 pub mod types;
+pub mod verify;
 pub mod views;
 
 use near_sdk::store::key::Identity;
@@ -11,6 +12,7 @@ use near_sdk::{env, near, require, AccountId, PanicOnDefault};
 
 use policy::WatchDay;
 use types::{parse_vault, Chain, Order, Policy, VaultKey};
+use verify::Prompt;
 
 /// Running totals behind the `stats` view.
 #[near(serializers = [borsh])]
@@ -39,6 +41,10 @@ pub struct Desk {
     global_posts: Vec<u32>,
     watch: WatchDay,
     totals: Totals,
+    /// Model, and the request text around the doc. Owner-set.
+    prompt: Prompt,
+    /// Model signing addresses the owner accepts.
+    signers: Vec<[u8; 20]>,
 }
 
 #[near]
@@ -57,6 +63,8 @@ impl Desk {
             global_posts: Vec::new(),
             watch: WatchDay::default(),
             totals: Totals::default(),
+            prompt: Prompt::default(),
+            signers: Vec::new(),
         }
     }
 
@@ -81,6 +89,25 @@ impl Desk {
             self.menu.insert(key);
         } else {
             self.menu.remove(&key);
+        }
+    }
+
+    pub fn set_prompt(&mut self, model: String, prefix: String, suffix: String) {
+        self.assert_owner();
+        self.prompt = Prompt {
+            model,
+            prefix,
+            suffix,
+        };
+    }
+
+    /// Accepts or drops a model signing address (0x hex, any case).
+    pub fn set_signer(&mut self, address: String, on: bool) {
+        self.assert_owner();
+        let a = parse_vault(&address).unwrap_or_else(|_| env::panic_str("bad address"));
+        self.signers.retain(|s| *s != a);
+        if on {
+            self.signers.push(a);
         }
     }
 
