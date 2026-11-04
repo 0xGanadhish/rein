@@ -1,4 +1,4 @@
-import type { DeskChain } from './deskTypes';
+import type { DeskChain } from '../../shared/desk';
 
 export type NearNetwork = 'testnet' | 'mainnet';
 

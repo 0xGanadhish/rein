@@ -2,6 +2,7 @@ import { applyD1Migrations } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { keccak256 } from 'viem';
 import { beforeAll, describe, expect, it } from 'vitest';
+import type { DeskPolicy } from '../../shared/desk';
 import type { DeskClient, DeskOrder, DeskPrompt, DeskTx } from '../src/deskTypes';
 import type { VaultReading } from '../src/doc';
 import { postArgs } from '../src/broadcast';
@@ -38,7 +39,7 @@ class FakeDesk implements DeskClient {
   async open_orders() { return [...this.orders.values()].filter((o) => o.status === 'open'); }
   async list_orders() { return [...this.orders.values()]; }
   async get_order(id: number) { const o = this.orders.get(id); return o ? { ...o } : null; }
-  async policy() { return {}; }
+  async policy() { return {} as DeskPolicy; }
   async prompt(): Promise<DeskPrompt> { return { model: 'm', prefix: 'P[', suffix: ']S' }; }
   async signers() { return ['0xsigner']; }
   async get_signed_tx(id: number) { return this.signedTx.get(id) ?? null; }

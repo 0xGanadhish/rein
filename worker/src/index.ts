@@ -1,5 +1,6 @@
 import { viemChain } from './broadcast';
-import type { DeskChain, DeskClient, DeskOrder } from './deskTypes';
+import type { DeskChain } from '../../shared/desk';
+import type { DeskClient, DeskOrder } from './deskTypes';
 import { rpcFor, type Env, type NearNetwork } from './env';
 import { judge } from './judge';
 import { withLock } from './lock';

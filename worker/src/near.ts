@@ -2,6 +2,7 @@ import { Account } from '@near-js/accounts';
 import { JsonRpcProvider } from '@near-js/providers';
 import { KeyPairSigner } from '@near-js/signers';
 import type { KeyPairString } from '@near-js/crypto';
+import type { DeskPolicy } from '../../shared/desk';
 import type { DeskClient, DeskOrder, DeskPrompt, DeskTx } from './deskTypes';
 import { NEAR_RPC, type Env } from './env';
 
@@ -27,7 +28,7 @@ export function nearDesk(env: Env): DeskClient {
     open_orders: (limit) => view<DeskOrder[]>('open_orders', { limit }),
     list_orders: (from, limit) => view<DeskOrder[]>('list_orders', { from, limit }),
     get_order: async (id) => (await view<DeskOrder | null>('get_order', { id })) ?? null,
-    policy: () => view<Record<string, unknown>>('policy'),
+    policy: () => view<DeskPolicy>('policy'),
     prompt: () => view<DeskPrompt>('prompt'),
     signers: () => view<string[]>('signers'),
     get_signed_tx: async (order_id) => (await view<string | null>('get_signed_tx', { order_id })) ?? null,
