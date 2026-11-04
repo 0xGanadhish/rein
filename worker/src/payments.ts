@@ -60,6 +60,23 @@ export interface PaymentDeps {
   now(): number;
 }
 
+/**
+ * The desk, but `get_signed_tx` keeps answering with the last signed tx it saw for an order. Delivery clears the tx on
+ * the desk, and the order loop reads it before broadcasting, so a paid request that waited through a whole tick can
+ * still return it. Give the order loop and the x402 route the same wrapped desk.
+ */
+export function rememberSignedTx<D extends Pick<DeskClient, 'get_signed_tx'>>(desk: D): D {
+  const seen = new Map<number, string>();
+  return {
+    ...desk,
+    async get_signed_tx(order_id: number) {
+      const tx = await desk.get_signed_tx(order_id);
+      if (tx) seen.set(order_id, tx);
+      return tx ?? seen.get(order_id) ?? null;
+    },
+  };
+}
+
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
 

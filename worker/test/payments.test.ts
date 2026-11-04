@@ -5,7 +5,7 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DeskChain, DeskPolicy } from '../../shared/desk';
 import { handle } from '../src/api';
 import type { DeskOrder } from '../src/deskTypes';
-import { ONECLICK, PINGPAY, SIGN_WAIT_MS, type PaymentDeps } from '../src/payments';
+import { ONECLICK, PINGPAY, SIGN_WAIT_MS, rememberSignedTx, type PaymentDeps } from '../src/payments';
 
 const VAULT = '0x00000000000000000000000000000000000000aa';
 const USDC = 'usdc.fakes.testnet';
@@ -25,14 +25,26 @@ class Fakes {
   clock = T0;
   orders = new Map<number, DeskOrder>();
   nextId = 40;
-  /** What a tick does to an open order. */
-  outcome: 'signed' | 'rejected' | 'stuck' = 'signed';
+  /** `delivered` runs the whole order loop in one tick: it reads the signed tx, broadcasts, and delivery clears it. */
+  outcome: 'signed' | 'delivered' | 'rejected' | 'stuck' = 'signed';
   refusal: string | null = null;
   valid = true;
 
   named(name: string) { return this.calls.filter((c) => c[0] === name); }
 
   deps(): PaymentDeps {
+    const desk = rememberSignedTx({
+      policy: async () => ({ price_usdc: '1000000', usdc_token: USDC }) as DeskPolicy,
+      submit_x402_request: async (chain: DeskChain, vault: string, payment_ref: string, amount: string) => {
+        this.calls.push(['submit_x402_request', chain, vault, payment_ref, amount]);
+        if (this.refusal) throw new Error(`Smart contract panicked: ${this.refusal}`);
+        const id = this.nextId++;
+        this.orders.set(id, { id, source: 'x402', payer: null, chain, vault, amount, created_s: this.clock / 1000, status: 'open' });
+        return id;
+      },
+      get_order: async (id: number) => (this.orders.has(id) ? { ...this.orders.get(id)! } : null),
+      get_signed_tx: async (id: number) => (this.orders.get(id)?.status === 'signed' ? SIGNED : null),
+    });
     return {
       fetch: async (input, init) => {
         const url = String(input);
@@ -46,22 +58,15 @@ class Fakes {
         if (url === PINGPAY.base + PINGPAY.settlePath) return Response.json({ success: true, transaction: 'settle-tx', network: 'near:testnet', payer: 'buyer.testnet' });
         return new Response('unexpected', { status: 500 });
       },
-      desk: {
-        policy: async () => ({ price_usdc: '1000000', usdc_token: USDC }) as DeskPolicy,
-        submit_x402_request: async (chain: DeskChain, vault: string, payment_ref: string, amount: string) => {
-          this.calls.push(['submit_x402_request', chain, vault, payment_ref, amount]);
-          if (this.refusal) throw new Error(`Smart contract panicked: ${this.refusal}`);
-          const id = this.nextId++;
-          this.orders.set(id, { id, source: 'x402', payer: null, chain, vault, amount, created_s: this.clock / 1000, status: 'open' });
-          return id;
-        },
-        get_order: async (id) => (this.orders.has(id) ? { ...this.orders.get(id)! } : null),
-        get_signed_tx: async (id) => (this.orders.get(id)?.status === 'signed' ? SIGNED : null),
-      },
+      desk,
       tick: async () => {
         this.calls.push(['tick']);
         for (const o of this.orders.values()) {
-          if (o.status === 'open' && this.outcome !== 'stuck') o.status = this.outcome;
+          if (o.status !== 'open' || this.outcome === 'stuck') continue;
+          if (this.outcome !== 'delivered') { o.status = this.outcome; continue; }
+          o.status = 'signed';
+          await desk.get_signed_tx(o.id);
+          o.status = 'delivered';
         }
       },
       sleep: async (ms) => { this.clock += ms; },
@@ -188,5 +193,14 @@ describe('payments', () => {
     fakes.refusal = null;
     expect((await judge(fakes, payment('n6'))).status).toBe(409);
     expect(fakes.named('submit_x402_request')).toHaveLength(2);
+  });
+
+  it('x402_settles_after_delivery_clears_signed_tx', async () => {
+    const fakes = new Fakes();
+    fakes.outcome = 'delivered';
+    const res = await judge(fakes, payment('n-delivered'));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ orderId: 40, signedTx: SIGNED, verdict: { verdict: 'EXIT' } });
+    expect(fakes.named('fetch').filter(([, url]) => url === PINGPAY.base + PINGPAY.settlePath)).toHaveLength(1);
   });
 });
