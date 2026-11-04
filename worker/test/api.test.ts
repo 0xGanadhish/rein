@@ -12,7 +12,11 @@ import type { OraclePost } from '../src/mirror';
 
 const T = 1_793_774_400;
 const VAULT = '0x00000000000000000000000000000000000000aa';
-const STATS: DeskStats = { sales_near: '3000000000000000000000000', sales_usdc: '2000000', sales_x402_usdc: '1000000', refunds: 1, open_paid: 0 };
+const STATS: DeskStats = {
+  sales_near: '3000000000000000000000000', sales_usdc: '2000000', sales_x402_usdc: '1000000', refunds: 1, open_paid: 0,
+  inference_tokens_in: 0, inference_tokens_out: 0, gas_wei: { 'monad-testnet': '0', monad: '0', base: '0' },
+  paid_treasury: { near: '0', usdc: '0' }, paid_agent: { near: '0', usdc: '0' }, owed: '0', watch_orders: 0,
+};
 const TABLES = ['orders', 'docs', 'posts', 'watch_snapshots', 'watch_baselines', 'watch_requests', 'meta', 'cursors', 'judge_calls', 'locks'];
 
 const get = (path: string, deps: Partial<ApiDeps> = {}) =>
