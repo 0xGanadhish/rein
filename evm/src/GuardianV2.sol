@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {TareRiskOracle} from "./TareRiskOracle.sol";
+import {ILiquidityAdapter} from "./interfaces/ILiquidityAdapter.sol";
 
 /// @title GuardianV2
 /// @notice Keeperless auto-exit. Anyone may call `exit`; it succeeds only when the oracle's latest verdict on
@@ -21,6 +22,10 @@ contract GuardianV2 {
     uint16 public constant MAX_CONFIDENCE_BPS = 9_900;
     uint32 public constant MIN_MAX_AGE = 60;
     uint32 public constant MAX_MAX_AGE = 3_600;
+    /// Gas `exit` must have left when it reaches the redeem, so a caller can't starve the full redeem into the
+    /// partial branch. Twice the costliest full redeem of 1,000 USDC measured on the Base vaults in
+    /// shared/addresses.base.json (gtUSDCf: 669,913 gas, cold, with an hour of interest to accrue).
+    uint256 public constant MIN_EXIT_GAS = 1_339_826;
 
     address public immutable admin;
     TareRiskOracle public immutable oracle;
@@ -44,6 +49,7 @@ contract GuardianV2 {
     error NothingToExit();
     error VerdictAlreadyUsed();
     error ZeroArg();
+    error GasTooLow();
 
     event Enabled(address indexed owner, address indexed vault, uint16 minConfidenceBps, uint32 maxAge);
     event Disabled(address indexed owner, address indexed vault);
@@ -90,7 +96,8 @@ contract GuardianV2 {
 
     /// @notice Redeem `owner`'s shares back to `owner` when the rule's conditions hold. Callable by anyone.
     /// @dev Tries the full position first, because real vaults under-report maxRedeem (Morpho Vault V2
-    /// always returns 0; Euler Earn returns one share short). Falls back to maxRedeem for a partial exit.
+    /// always returns 0; Euler Earn returns one share short). Falls back to maxRedeem for a partial exit, or, when
+    /// maxRedeem reads 0, to the shares the oracle's liquidity adapter says the vault can pay out now.
     function exit(address vault, address owner) external returns (uint256 assets) {
         uint256 id = _checkVerdict(vault, owner);
 
@@ -99,10 +106,12 @@ contract GuardianV2 {
         if (a < shares) shares = a;
         if (shares == 0) revert NothingToExit();
 
+        if (gasleft() < MIN_EXIT_GAS) revert GasTooLow();
         try IERC4626(vault).redeem(shares, owner, owner) returns (uint256 got) {
             assets = got;
         } catch {
             uint256 m = IERC4626(vault).maxRedeem(owner);
+            if (m == 0) m = _liquidShares(vault);
             if (m < shares) shares = m;
             if (shares == 0) revert NothingToExit();
             assets = IERC4626(vault).redeem(shares, owner, owner);
@@ -112,7 +121,18 @@ contract GuardianV2 {
         emit Exited(owner, vault, id, msg.sender, shares, assets, remaining);
     }
 
-    /// @dev The six exit conditions (spec 4.3), in order, plus the verdict-floor check. Returns the verdict id that authorises the exit.
+    /// @dev Shares `vault` can pay out now by the oracle's liquidity adapter; 0 if it has none or the read reverts.
+    function _liquidShares(address vault) internal view returns (uint256) {
+        address adapter = oracle.adapterOf(vault);
+        if (adapter == address(0)) return 0;
+        try ILiquidityAdapter(adapter).availableLiquidity(vault) returns (uint256 liquidity) {
+            return IERC4626(vault).convertToShares(liquidity);
+        } catch {
+            return 0;
+        }
+    }
+
+    /// @dev The six exit conditions, in order, plus the verdict-floor check. Returns the verdict id that authorises the exit.
     function _checkVerdict(address vault, address owner) internal view returns (uint256 id) {
         if (!approvedVault[vault]) revert VaultNotApproved();
         Rule memory rule = rules[owner][vault];
