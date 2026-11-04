@@ -1,7 +1,9 @@
 //! Sandbox tests against the release wasm. Build it first:
-//! `cargo near build non-reproducible-wasm` in `near/desk` and `near/mocks/ft`.
+//! `cargo near build non-reproducible-wasm` in `near/desk`, `near/mocks/ft` and `near/mocks/signer`.
 
+use desk::evm;
 use desk::types::{Chain, OrderStatus, OrderView, Policy, Source, Stats, VaultKey};
+use desk::verify::signed_text;
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::{json, Value};
 use near_workspaces::network::Sandbox;
@@ -36,10 +38,12 @@ struct Env {
     _node: near_sandbox::Sandbox,
     owner: Account,
     agent: Account,
+    treasury: Account,
     alice: Account,
     bob: Account,
     desk: Contract,
     ft: Contract,
+    signer: Contract,
 }
 
 async fn setup() -> anyhow::Result<Env> {
@@ -99,11 +103,32 @@ async fn setup_with(tweak: impl FnOnce(&mut Policy)) -> anyhow::Result<Env> {
             .into_result()?;
     }
 
+    let signer = worker.dev_deploy(&wasm("mock_signer")).await?;
+    signer.call("new").transact().await?.into_result()?;
+
     let mut policy = Policy::mainnet(agent.id().clone(), treasury.id().clone(), ft.id().clone());
+    policy.signer = signer.id().clone();
+    policy.oracle.base = Some(ORACLE.into());
     tweak(&mut policy);
     let desk = worker.dev_deploy(&wasm("desk")).await?;
     desk.call("new")
-        .args_json(json!({ "owner": owner.id(), "policy": policy }))
+        .args_json(json!({
+            "owner": owner.id(),
+            "policy": policy,
+            "derived_address": hex0x(&address(&MOCK_SIGNER_KEY)),
+        }))
+        .transact()
+        .await?
+        .into_result()?;
+    owner
+        .call(desk.id(), "set_prompt")
+        .args_json(json!({ "model": MODEL, "prefix": PREFIX, "suffix": SUFFIX }))
+        .transact()
+        .await?
+        .into_result()?;
+    owner
+        .call(desk.id(), "set_signer")
+        .args_json(json!({ "address": hex0x(&address(&MODEL_KEY)), "on": true }))
         .transact()
         .await?
         .into_result()?;
@@ -120,10 +145,12 @@ async fn setup_with(tweak: impl FnOnce(&mut Policy)) -> anyhow::Result<Env> {
         _node: node,
         owner,
         agent,
+        treasury,
         alice,
         bob,
         desk,
         ft,
+        signer,
     })
 }
 
@@ -840,5 +867,820 @@ async fn owner_cannot_withdraw_escrow() -> anyhow::Result<()> {
         1_000_000_000 - 20 * PRICE_USDC
     );
     assert!(e.near_balance(&e.owner).await? <= owner_before);
+    Ok(())
+}
+
+// ---- Signing ----
+
+const MODEL: &str = "z-ai/glm-5.3-flash";
+const PREFIX: &str = r#"{"model":"z-ai/glm-5.3-flash","messages":[{"role":"user","content":""#;
+const SUFFIX: &str = r#""}],"temperature":0}"#;
+const ORACLE: &str = "0x00000000000000000000000000000000000000a1";
+/// The mock signer's fixed key; its address is the desk's derived address.
+const MOCK_SIGNER_KEY: [u8; 32] = [0x42; 32];
+/// The test model's key, approved with `set_signer`.
+const MODEL_KEY: [u8; 32] = [0x07; 32];
+const GWEI: u128 = 1_000_000_000;
+const BASE_GAS_LIMIT: u64 = 200_000;
+const TX_HASH: &str = "0xabababababababababababababababababababababababababababababababab";
+
+fn secret(k: &[u8; 32]) -> secp256k1::SecretKey {
+    secp256k1::SecretKey::from_slice(k).unwrap()
+}
+
+fn address(k: &[u8; 32]) -> [u8; 20] {
+    let pk = secret(k)
+        .public_key(&secp256k1::Secp256k1::new())
+        .serialize_uncompressed();
+    near_sdk::env::keccak256_array(&pk[1..])[12..]
+        .try_into()
+        .unwrap()
+}
+
+fn hex0x(b: &[u8]) -> String {
+    let mut s = String::from("0x");
+    for x in b {
+        s.push_str(&format!("{x:02x}"));
+    }
+    s
+}
+
+/// `r || s || v` over `hash` with `k`, `v` = recovery id + `v_base`.
+fn sign_hash(k: &[u8; 32], hash: &[u8; 32], v_base: u8) -> [u8; 65] {
+    let m = secp256k1::Message::from_slice(hash).unwrap();
+    let (id, rs) = secp256k1::Secp256k1::new()
+        .sign_ecdsa_recoverable(&m, &secret(k))
+        .serialize_compact();
+    let mut out = [0u8; 65];
+    out[..64].copy_from_slice(&rs);
+    out[64] = v_base + id.to_i32() as u8;
+    out
+}
+
+/// A model reading as the Worker would pass it.
+#[derive(Clone)]
+struct Reading {
+    doc: String,
+    response: String,
+    signature: String,
+}
+
+impl Reading {
+    /// The model's answer to `doc`, signed by the approved model key.
+    fn new(doc: String, action: &str, confidence_bps: u16, risk_bps: u16) -> Self {
+        let content = json!(format!(
+            r#"{{"action":"{action}","confidence_bps":{confidence_bps},"withdrawal_risk_bps":{risk_bps}}}"#
+        ));
+        let response = format!(
+            r#"{{"id":"chatcmpl-1","model":"{MODEL}","choices":[{{"index":0,"message":{{"role":"assistant","content":{content}}},"finish_reason":"stop"}}],"usage":{{"prompt_tokens":812,"completion_tokens":34,"total_tokens":846}}}}"#
+        );
+        let request = [PREFIX, doc.as_str(), SUFFIX].concat();
+        let text = signed_text(MODEL, request.as_bytes(), response.as_bytes());
+        let mut msg = format!("\x19Ethereum Signed Message:\n{}", text.len()).into_bytes();
+        msg.extend_from_slice(text.as_bytes());
+        let sig = sign_hash(&MODEL_KEY, &near_sdk::env::keccak256_array(&msg), 27);
+        Self {
+            doc,
+            response,
+            signature: hex0x(&sig),
+        }
+    }
+
+    fn args(&self, order_id: u64, tx: Value) -> Value {
+        json!({
+            "order_id": order_id,
+            "doc": self.doc,
+            "response": self.response,
+            "signature": self.signature,
+            "tx": tx,
+        })
+    }
+}
+
+fn tx(nonce: u64) -> Value {
+    tx_fees(nonce, 2 * GWEI, GWEI)
+}
+
+fn tx_fees(nonce: u64, max_fee: u128, max_prio: u128) -> Value {
+    json!({
+        "nonce": nonce,
+        "max_fee_per_gas": U128(max_fee),
+        "max_priority_fee_per_gas": U128(max_prio),
+    })
+}
+
+/// The post the desk should sign on Base for `doc` with default fees, signed by the mock key.
+fn expected_post(
+    vault: &str,
+    verdict: u8,
+    confidence_bps: u16,
+    risk_bps: u16,
+    doc: &str,
+    nonce: u64,
+) -> String {
+    let vault = desk::types::parse_vault(vault).unwrap();
+    let oracle = desk::types::parse_vault(ORACLE).unwrap();
+    let state_hash = near_sdk::env::keccak256_array(doc.as_bytes());
+    let data = evm::post_calldata(&vault, verdict, confidence_bps, risk_bps, &state_hash);
+    let (fee, prio) = (2 * GWEI, GWEI);
+    let unsigned = evm::unsigned_1559(8453, nonce, prio, fee, BASE_GAS_LIMIT, &oracle, &data);
+    let sig = sign_hash(&MOCK_SIGNER_KEY, &evm::payload_hash(&unsigned), 0);
+    hex0x(&evm::assemble_signed(
+        8453,
+        nonce,
+        prio,
+        fee,
+        BASE_GAS_LIMIT,
+        &oracle,
+        &data,
+        &sig,
+    ))
+}
+
+fn failure_text(r: ExecutionFinalResult) -> String {
+    format!("{:?}", r.into_result().expect_err("call should fail"))
+}
+
+impl Env {
+    /// A fresh doc for `order_id` on Base, `at` = the current block time.
+    async fn reading(
+        &self,
+        order_id: u64,
+        vault: &str,
+        action: &str,
+        confidence_bps: u16,
+        risk_bps: u16,
+    ) -> anyhow::Result<Reading> {
+        let at = self.now_s().await?;
+        let doc = format!(
+            "rein-v1|order={order_id}|chain=base|vault={vault}|at={at}|block={at}|pps=1000000|assets=5000|liquidity=4000|apy_bps=812|apy_bps_prev=790|util_bps=8000|net_out_pct_1h=0|name=Steady USDC"
+        );
+        Ok(Reading::new(doc, action, confidence_bps, risk_bps))
+    }
+
+    async fn fulfil(
+        &self,
+        who: &Account,
+        id: u64,
+        r: &Reading,
+        tx: Value,
+    ) -> anyhow::Result<ExecutionFinalResult> {
+        self.call(who, "fulfil", r.args(id, tx)).await
+    }
+
+    async fn confirm(
+        &self,
+        who: &Account,
+        id: u64,
+        r: &Reading,
+        tx: Value,
+    ) -> anyhow::Result<ExecutionFinalResult> {
+        self.call(who, "confirm_exit", r.args(id, tx)).await
+    }
+
+    async fn status(&self, id: u64) -> anyhow::Result<OrderStatus> {
+        Ok(self.order(id).await?.expect("order exists").status)
+    }
+
+    async fn signed_tx(&self, id: u64) -> anyhow::Result<Option<String>> {
+        Ok(self
+            .desk
+            .view("get_signed_tx")
+            .args_json(json!({ "order_id": id }))
+            .await?
+            .json()?)
+    }
+
+    async fn signer_calls(&self) -> anyhow::Result<u32> {
+        Ok(self.signer.view("calls").await?.json()?)
+    }
+
+    async fn signer_mode(&self, mode: &str) -> anyhow::Result<()> {
+        self.signer
+            .call("set_mode")
+            .args_json(json!({ "mode": mode }))
+            .transact()
+            .await?
+            .into_result()?;
+        Ok(())
+    }
+
+    /// Opens a NEAR order on `vault` and signs a HOLD for it.
+    async fn signed_hold(&self, vault: &str, nonce: u64) -> anyhow::Result<(u64, Reading)> {
+        let id = id_of(self.order_near(&self.alice, vault, price_near()).await?)?;
+        let r = self.reading(id, vault, "hold", 8100, 1200).await?;
+        self.fulfil(&self.agent, id, &r, tx(nonce))
+            .await?
+            .into_result()?;
+        assert_eq!(self.status(id).await?, OrderStatus::Signed);
+        Ok((id, r))
+    }
+
+    /// Sets the mock token's balance for the desk (no transfer).
+    async fn patch_desk_usdc(&self, amount: u128) -> anyhow::Result<()> {
+        let key = [b"b".to_vec(), near_sdk::borsh::to_vec(self.desk.id())?].concat();
+        self.worker
+            .patch_state(self.ft.id(), &key, &near_sdk::borsh::to_vec(&amount)?)
+            .await?;
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn hold_fulfil_signs_once() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let (id, r) = e.signed_hold(V1, 0).await?;
+    assert_eq!(
+        e.signed_tx(id).await?,
+        Some(expected_post(V1, 0, 8100, 1200, &r.doc, 0))
+    );
+    assert_eq!(e.signer_calls().await?, 1);
+    let s = e.stats().await?;
+    assert_eq!((s.inference_tokens_in, s.inference_tokens_out), (812, 34));
+
+    let again = e.reading(id, V1, "hold", 8100, 1200).await?;
+    let err = failure_text(e.fulfil(&e.agent, id, &again, tx(1)).await?);
+    assert!(err.contains("order is not open"), "{err}");
+    assert_eq!(e.signer_calls().await?, 1);
+    Ok(())
+}
+
+#[tokio::test]
+async fn invalid_reading_leaves_order_open() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let mut r = e.reading(id, V1, "hold", 8100, 1200).await?;
+    r.response = r.response.replace("8100", "8101");
+    let err = failure_text(e.fulfil(&e.agent, id, &r, tx(0)).await?);
+    assert!(err.contains("unknown signer"), "{err}");
+
+    let other = e.reading(id, V2, "hold", 8100, 1200).await?;
+    let err = failure_text(e.fulfil(&e.agent, id, &other, tx(0)).await?);
+    assert!(err.contains("wrong vault"), "{err}");
+
+    assert_eq!(e.status(id).await?, OrderStatus::Open);
+    assert_eq!(e.signed_tx(id).await?, None);
+    assert_eq!(e.signer_calls().await?, 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn fee_above_cap_refused() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let r = e.reading(id, V1, "hold", 8100, 1200).await?;
+    // Base cap is 5 gwei.
+    let err = failure_text(
+        e.fulfil(&e.agent, id, &r, tx_fees(0, 5 * GWEI + 1, GWEI))
+            .await?,
+    );
+    assert!(err.contains("fee above cap"), "{err}");
+    let err = failure_text(
+        e.fulfil(&e.agent, id, &r, tx_fees(0, GWEI, 2 * GWEI))
+            .await?,
+    );
+    assert!(err.contains("priority fee above max fee"), "{err}");
+    assert_eq!(e.status(id).await?, OrderStatus::Open);
+    assert_eq!(e.signer_calls().await?, 0);
+
+    e.fulfil(&e.agent, id, &r, tx_fees(0, 5 * GWEI, GWEI))
+        .await?
+        .into_result()?;
+    assert_eq!(e.status(id).await?, OrderStatus::Signed);
+    Ok(())
+}
+
+#[tokio::test]
+async fn exit_needs_two_readings() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let r = e.reading(id, V1, "exit", 8100, 6400).await?;
+    e.fulfil(&e.agent, id, &r, tx(0)).await?.into_result()?;
+    assert_eq!(e.status(id).await?, OrderStatus::ExitPending);
+    assert_eq!(e.signed_tx(id).await?, None);
+    assert_eq!(e.signer_calls().await?, 0);
+    let raw: Value = e
+        .desk
+        .view("get_order")
+        .args_json(json!({ "order_id": id }))
+        .await?
+        .json()?;
+    assert_eq!(raw["status"], "exit_pending");
+    Ok(())
+}
+
+#[tokio::test]
+async fn confirm_before_30s_refused() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let r1 = e.reading(id, V1, "exit", 8100, 6400).await?;
+    e.fulfil(&e.agent, id, &r1, tx(0)).await?.into_result()?;
+    e.advance(10).await?;
+    let r2 = e.reading(id, V1, "exit", 8200, 6500).await?;
+    let err = failure_text(e.confirm(&e.agent, id, &r2, tx(0)).await?);
+    assert!(err.contains("exit confirmed too early"), "{err}");
+    assert_eq!(e.status(id).await?, OrderStatus::ExitPending);
+    assert_eq!(e.signer_calls().await?, 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn confirm_after_300s_returns_to_open() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let r1 = e.reading(id, V1, "exit", 8100, 6400).await?;
+    e.fulfil(&e.agent, id, &r1, tx(0)).await?.into_result()?;
+    e.advance(301).await?;
+    assert_eq!(e.status(id).await?, OrderStatus::Open);
+    let r2 = e.reading(id, V1, "exit", 8200, 6500).await?;
+    let err = failure_text(e.confirm(&e.agent, id, &r2, tx(0)).await?);
+    assert!(err.contains("order is not exit_pending"), "{err}");
+    assert_eq!(e.signer_calls().await?, 0);
+
+    // Open again: a fresh reading starts over.
+    let r3 = e.reading(id, V1, "hold", 7000, 1000).await?;
+    e.fulfil(&e.agent, id, &r3, tx(0)).await?.into_result()?;
+    assert_eq!(e.status(id).await?, OrderStatus::Signed);
+    Ok(())
+}
+
+#[tokio::test]
+async fn confirm_same_state_hash_refused() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let r1 = e.reading(id, V1, "exit", 8100, 6400).await?;
+    e.fulfil(&e.agent, id, &r1, tx(0)).await?.into_result()?;
+    e.advance(30).await?;
+    let err = failure_text(e.confirm(&e.agent, id, &r1, tx(0)).await?);
+    assert!(err.contains("same state_hash"), "{err}");
+    assert_eq!(e.status(id).await?, OrderStatus::ExitPending);
+    assert_eq!(e.signer_calls().await?, 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn confirm_exit_signs_exit() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let r1 = e.reading(id, V1, "exit", 8100, 6400).await?;
+    e.fulfil(&e.agent, id, &r1, tx(0)).await?.into_result()?;
+    e.advance(30).await?;
+    let r2 = e.reading(id, V1, "exit", 9000, 7000).await?;
+    e.confirm(&e.agent, id, &r2, tx(0)).await?.into_result()?;
+    assert_eq!(e.status(id).await?, OrderStatus::Signed);
+    assert_eq!(
+        e.signed_tx(id).await?,
+        Some(expected_post(V1, 1, 9000, 7000, &r2.doc, 0))
+    );
+    assert_eq!(e.signer_calls().await?, 1);
+    Ok(())
+}
+
+#[tokio::test]
+async fn confirm_hold_signs_hold() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let r1 = e.reading(id, V1, "exit", 8100, 6400).await?;
+    e.fulfil(&e.agent, id, &r1, tx(0)).await?.into_result()?;
+    e.advance(30).await?;
+    let r2 = e.reading(id, V1, "hold", 6000, 2000).await?;
+    e.confirm(&e.agent, id, &r2, tx(0)).await?.into_result()?;
+    assert_eq!(e.status(id).await?, OrderStatus::Signed);
+    assert_eq!(
+        e.signed_tx(id).await?,
+        Some(expected_post(V1, 0, 6000, 2000, &r2.doc, 0))
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn exit_pending_not_counted_against_caps() -> anyhow::Result<()> {
+    let e = setup_with(|p| p.global_max = 1).await?;
+    let a = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let b = id_of(e.order_near(&e.alice, V2, price_near()).await?)?;
+    let r = e.reading(a, V1, "exit", 8100, 6400).await?;
+    e.fulfil(&e.agent, a, &r, tx(0)).await?.into_result()?;
+    assert_eq!(e.status(a).await?, OrderStatus::ExitPending);
+
+    // The pending EXIT used none of the one-post global cap.
+    let r = e.reading(b, V2, "hold", 8100, 1200).await?;
+    e.fulfil(&e.agent, b, &r, tx(0)).await?.into_result()?;
+    assert_eq!(e.status(b).await?, OrderStatus::Signed);
+
+    // Now the cap is used: a new order and the EXIT's confirmation are refused.
+    assert!(e.order_near(&e.bob, V3, price_near()).await?.is_failure());
+    e.advance(30).await?;
+    let r2 = e.reading(a, V1, "exit", 9000, 7000).await?;
+    let err = failure_text(e.confirm(&e.agent, a, &r2, tx(1)).await?);
+    assert!(err.contains("global cap"), "{err}");
+    assert_eq!(e.status(a).await?, OrderStatus::ExitPending);
+    Ok(())
+}
+
+#[tokio::test]
+async fn signed_counts_against_spacing() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let (id, _) = e.signed_hold(V1, 0).await?;
+    e.call(
+        &e.agent,
+        "report_delivery",
+        json!({ "order_id": id, "tx_hash": TX_HASH }),
+    )
+    .await?
+    .into_result()?;
+    // V1 is free again, but its post was under 600 s ago.
+    assert!(e.order_near(&e.alice, V1, price_near()).await?.is_failure());
+    e.advance(600).await?;
+    id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn resign_keeps_verdict_counts_once() -> anyhow::Result<()> {
+    let e = setup_with(|p| p.global_max = 2).await?;
+    let treasury_before = e.near_balance(&e.treasury).await?;
+    let (id, r) = e.signed_hold(V1, 0).await?;
+    let first = e.signed_tx(id).await?.unwrap();
+
+    e.call(&e.agent, "resign", json!({ "order_id": id, "tx": tx(1) }))
+        .await?
+        .into_result()?;
+    assert_eq!(e.status(id).await?, OrderStatus::Signed);
+    let second = e.signed_tx(id).await?.unwrap();
+    assert_ne!(first, second);
+    assert_eq!(second, expected_post(V1, 0, 8100, 1200, &r.doc, 1));
+    assert_eq!(e.signer_calls().await?, 2);
+
+    // Two posts fit the cap of 2 only if the re-sign was not counted.
+    e.signed_hold(V2, 0).await?;
+    assert!(e.order_near(&e.bob, V3, price_near()).await?.is_failure());
+
+    // And the split was paid once per order.
+    let to_treasury = price_near().as_yoctonear() * 7 / 10;
+    assert_eq!(e.stats().await?.paid_treasury.near, U128(2 * to_treasury));
+    assert_eq!(
+        e.near_balance(&e.treasury).await?,
+        treasury_before.saturating_add(NearToken::from_yoctonear(2 * to_treasury))
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn refund_refused_while_signing() -> anyhow::Result<()> {
+    let e = setup().await?;
+    e.signer_mode("hold").await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let r = e.reading(id, V1, "hold", 8100, 1200).await?;
+    let pending = e
+        .agent
+        .call(e.desk.id(), "fulfil")
+        .args_json(r.args(id, tx(0)))
+        .max_gas()
+        .transact_async()
+        .await?;
+    for _ in 0..100 {
+        if e.status(id).await? == OrderStatus::Signing {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert_eq!(e.status(id).await?, OrderStatus::Signing);
+
+    e.call(&e.owner, "kill_switch", json!({ "on": true }))
+        .await?
+        .into_result()?;
+    let err = failure_text(e.call(&e.bob, "refund", json!({ "order_id": id })).await?);
+    assert!(err.contains("order is not refundable"), "{err}");
+    let err = failure_text(
+        e.call(&e.agent, "reject", json!({ "order_id": id, "reason": "x" }))
+            .await?,
+    );
+    assert!(err.contains("order is not refundable"), "{err}");
+    e.call(&e.owner, "kill_switch", json!({ "on": false }))
+        .await?
+        .into_result()?;
+    let err = failure_text(e.fulfil(&e.agent, id, &r, tx(1)).await?);
+    assert!(err.contains("order is not open"), "{err}");
+    let err = failure_text(
+        e.call(&e.agent, "resign", json!({ "order_id": id, "tx": tx(1) }))
+            .await?,
+    );
+    assert!(err.contains("order is not signed"), "{err}");
+    assert_eq!(e.status(id).await?, OrderStatus::Signing);
+
+    e.signer.call("release").transact().await?.into_result()?;
+    pending.await?.into_result()?;
+    assert_eq!(e.status(id).await?, OrderStatus::Signed);
+    assert_eq!(e.stats().await?.refunds, 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn sign_failure_restores_state() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let treasury_before = e.near_balance(&e.treasury).await?;
+    e.signer_mode("fail").await?;
+
+    // HOLD: back to open, no post counted, nothing paid.
+    let a = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let r = e.reading(a, V1, "hold", 8100, 1200).await?;
+    let res = e.fulfil(&e.agent, a, &r, tx(0)).await?;
+    assert!(res.logs().iter().any(|l| l.contains("signing failed")));
+    assert_eq!(e.status(a).await?, OrderStatus::Open);
+    assert_eq!(e.signed_tx(a).await?, None);
+
+    // EXIT confirmation: back to exit_pending with the first reading.
+    let b = id_of(e.order_near(&e.alice, V2, price_near()).await?)?;
+    let r1 = e.reading(b, V2, "exit", 8100, 6400).await?;
+    e.fulfil(&e.agent, b, &r1, tx(1)).await?.into_result()?;
+    e.advance(30).await?;
+    let r2 = e.reading(b, V2, "exit", 9000, 7000).await?;
+    e.confirm(&e.agent, b, &r2, tx(1)).await?.into_result()?;
+    assert_eq!(e.status(b).await?, OrderStatus::ExitPending);
+    assert_eq!(e.stats().await?.paid_treasury.near, U128(0));
+    assert_eq!(e.near_balance(&e.treasury).await?, treasury_before);
+
+    // Both go through once the signer works, inside V1's 600 s spacing.
+    e.signer_mode("ok").await?;
+    let r = e.reading(a, V1, "hold", 8100, 1200).await?;
+    e.fulfil(&e.agent, a, &r, tx(0)).await?.into_result()?;
+    assert_eq!(e.status(a).await?, OrderStatus::Signed);
+    // r1 is still the stored first reading: a confirmation on its state is refused.
+    let err = failure_text(e.confirm(&e.agent, b, &r1, tx(1)).await?);
+    assert!(err.contains("same state_hash"), "{err}");
+    e.confirm(&e.agent, b, &r2, tx(1)).await?.into_result()?;
+    assert_eq!(e.status(b).await?, OrderStatus::Signed);
+    assert_eq!(
+        e.signed_tx(b).await?,
+        Some(expected_post(V2, 1, 9000, 7000, &r2.doc, 1))
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn report_delivery_marks_delivered_and_frees_tx() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let (id, _) = e.signed_hold(V1, 0).await?;
+    assert_eq!(e.stats().await?.open_paid, 1);
+    let err = failure_text(
+        e.call(
+            &e.agent,
+            "report_delivery",
+            json!({ "order_id": id, "tx_hash": "0x12" }),
+        )
+        .await?,
+    );
+    assert!(err.contains("bad tx_hash"), "{err}");
+
+    e.call(
+        &e.agent,
+        "report_delivery",
+        json!({ "order_id": id, "tx_hash": TX_HASH }),
+    )
+    .await?
+    .into_result()?;
+    assert_eq!(e.status(id).await?, OrderStatus::Delivered);
+    assert_eq!(e.signed_tx(id).await?, None);
+    assert_eq!(e.stats().await?.open_paid, 0);
+    let open: Vec<OrderView> = e
+        .desk
+        .view("open_orders")
+        .args_json(json!({ "limit": 10 }))
+        .await?
+        .json()?;
+    assert!(open.is_empty());
+    assert!(e
+        .call(
+            &e.agent,
+            "report_delivery",
+            json!({ "order_id": id, "tx_hash": TX_HASH })
+        )
+        .await?
+        .is_failure());
+    assert!(e
+        .call(&e.agent, "resign", json!({ "order_id": id, "tx": tx(1) }))
+        .await?
+        .is_failure());
+    Ok(())
+}
+
+#[tokio::test]
+async fn split_70_30_on_signed_near() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let treasury_before = e.near_balance(&e.treasury).await?;
+    let agent_before = e.near_balance(&e.agent).await?;
+    e.signed_hold(V1, 0).await?;
+
+    let price = price_near().as_yoctonear();
+    let (to_treasury, to_agent) = (price * 7 / 10, price * 3 / 10);
+    assert_eq!(
+        e.near_balance(&e.treasury).await?,
+        treasury_before.saturating_add(NearToken::from_yoctonear(to_treasury))
+    );
+    // The agent also paid gas for its calls.
+    let agent_after = e.near_balance(&e.agent).await?;
+    assert!(
+        agent_after.saturating_add(gas_only())
+            > agent_before.saturating_add(NearToken::from_yoctonear(to_agent)),
+        "agent {agent_before} -> {agent_after}"
+    );
+    assert!(agent_after > agent_before);
+    let s = e.stats().await?;
+    assert_eq!(s.paid_treasury.near, U128(to_treasury));
+    assert_eq!(s.paid_agent.near, U128(to_agent));
+    assert_eq!(s.paid_treasury.usdc, U128(0));
+    Ok(())
+}
+
+#[tokio::test]
+async fn split_70_30_on_signed_usdc() -> anyhow::Result<()> {
+    let e = setup().await?;
+    e.order_usdc(&e.alice, PRICE_USDC, &usdc_msg(V1))
+        .await?
+        .into_result()?;
+    let r = e.reading(0, V1, "rotate", 7000, 3000).await?;
+    e.fulfil(&e.agent, 0, &r, tx(0)).await?.into_result()?;
+    assert_eq!(e.status(0).await?, OrderStatus::Signed);
+    assert_eq!(
+        e.signed_tx(0).await?,
+        Some(expected_post(V1, 2, 7000, 3000, &r.doc, 0))
+    );
+    assert_eq!(e.usdc_balance(e.treasury.id()).await?, 700_000);
+    assert_eq!(e.usdc_balance(e.agent.id()).await?, 300_000);
+    assert_eq!(e.usdc_balance(e.desk.id()).await?, 0);
+    let s = e.stats().await?;
+    assert_eq!(s.paid_treasury.usdc, U128(700_000));
+    assert_eq!(s.paid_agent.usdc, U128(300_000));
+    assert_eq!(s.owed, U128(0));
+    Ok(())
+}
+
+#[tokio::test]
+async fn split_ft_failure_keeps_owed() -> anyhow::Result<()> {
+    let e = setup().await?;
+    e.order_usdc(&e.alice, PRICE_USDC, &usdc_msg(V1))
+        .await?
+        .into_result()?;
+    // The token refuses the desk's transfers: it holds nothing.
+    e.patch_desk_usdc(0).await?;
+    let r = e.reading(0, V1, "hold", 8100, 1200).await?;
+    e.fulfil(&e.agent, 0, &r, tx(0)).await?.into_result()?;
+    assert_eq!(e.status(0).await?, OrderStatus::Signed);
+    assert_eq!(e.usdc_balance(e.treasury.id()).await?, 0);
+    assert_eq!(e.usdc_balance(e.agent.id()).await?, 0);
+    let s = e.stats().await?;
+    assert_eq!(s.owed, U128(PRICE_USDC));
+    assert_eq!(s.paid_treasury.usdc, U128(700_000));
+
+    // A claim that fails again stays owed.
+    e.call(&e.bob, "claim_owed", json!({ "account": e.treasury.id() }))
+        .await?
+        .into_result()?;
+    assert_eq!(e.stats().await?.owed, U128(PRICE_USDC));
+    assert_eq!(e.usdc_balance(e.treasury.id()).await?, 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn claim_owed_pays() -> anyhow::Result<()> {
+    let e = setup().await?;
+    e.order_usdc(&e.alice, PRICE_USDC, &usdc_msg(V1))
+        .await?
+        .into_result()?;
+    e.patch_desk_usdc(0).await?;
+    let r = e.reading(0, V1, "hold", 8100, 1200).await?;
+    e.fulfil(&e.agent, 0, &r, tx(0)).await?.into_result()?;
+    assert_eq!(e.stats().await?.owed, U128(PRICE_USDC));
+    e.patch_desk_usdc(PRICE_USDC).await?;
+
+    e.call(&e.bob, "claim_owed", json!({ "account": e.treasury.id() }))
+        .await?
+        .into_result()?;
+    assert_eq!(e.usdc_balance(e.treasury.id()).await?, 700_000);
+    assert_eq!(e.stats().await?.owed, U128(300_000));
+    e.call(&e.bob, "claim_owed", json!({ "account": e.agent.id() }))
+        .await?
+        .into_result()?;
+    assert_eq!(e.usdc_balance(e.agent.id()).await?, 300_000);
+    assert_eq!(e.stats().await?.owed, U128(0));
+    let err = failure_text(
+        e.call(&e.bob, "claim_owed", json!({ "account": e.agent.id() }))
+            .await?,
+    );
+    assert!(err.contains("nothing owed"), "{err}");
+    assert_eq!(e.usdc_balance(e.agent.id()).await?, 300_000);
+    Ok(())
+}
+
+#[tokio::test]
+async fn watch_and_x402_orders_no_split() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let treasury_before = e.near_balance(&e.treasury).await?;
+    let w: u64 = e
+        .call(
+            &e.agent,
+            "submit_watch_request",
+            json!({ "chain": "base", "vault": V1 }),
+        )
+        .await?
+        .into_result()?
+        .json()?;
+    let x: u64 = e
+        .call(
+            &e.agent,
+            "submit_x402_request",
+            json!({ "chain": "base", "vault": V2, "payment_ref": "pp-1", "amount": U128(PRICE_USDC) }),
+        )
+        .await?
+        .into_result()?
+        .json()?;
+    for (id, vault) in [(w, V1), (x, V2)] {
+        let r = e.reading(id, vault, "hold", 8100, 1200).await?;
+        e.fulfil(&e.agent, id, &r, tx(id)).await?.into_result()?;
+        assert_eq!(e.status(id).await?, OrderStatus::Signed);
+    }
+    let s = e.stats().await?;
+    assert_eq!(s.paid_treasury, Default::default());
+    assert_eq!(s.paid_agent, Default::default());
+    assert_eq!(s.watch_orders, 1);
+    assert_eq!(e.near_balance(&e.treasury).await?, treasury_before);
+    assert_eq!(e.usdc_balance(e.treasury.id()).await?, 0);
+    assert_eq!(e.usdc_balance(e.agent.id()).await?, 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn only_agent_can_fulfil_confirm_resign_report_record() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let r1 = e.reading(id, V1, "exit", 8100, 6400).await?;
+    for who in [&e.alice, &e.owner, &e.treasury] {
+        let err = failure_text(e.fulfil(who, id, &r1, tx(0)).await?);
+        assert!(err.contains("agent only"), "{err}");
+    }
+    e.fulfil(&e.agent, id, &r1, tx(0)).await?.into_result()?;
+    e.advance(30).await?;
+    let r2 = e.reading(id, V1, "hold", 6000, 2000).await?;
+    for who in [&e.alice, &e.owner, &e.treasury] {
+        let err = failure_text(e.confirm(who, id, &r2, tx(0)).await?);
+        assert!(err.contains("agent only"), "{err}");
+    }
+    e.confirm(&e.agent, id, &r2, tx(0)).await?.into_result()?;
+
+    for who in [&e.alice, &e.owner, &e.treasury] {
+        for (method, args) in [
+            ("resign", json!({ "order_id": id, "tx": tx(1) })),
+            (
+                "report_delivery",
+                json!({ "order_id": id, "tx_hash": TX_HASH }),
+            ),
+            ("record_gas", json!({ "order_id": id, "gas_wei": U128(1) })),
+        ] {
+            let err = failure_text(e.call(who, method, args).await?);
+            assert!(err.contains("agent only"), "{method}: {err}");
+        }
+    }
+    assert_eq!(e.signer_calls().await?, 1);
+    e.call(
+        &e.agent,
+        "record_gas",
+        json!({ "order_id": id, "gas_wei": U128(123_456) }),
+    )
+    .await?
+    .into_result()?;
+    e.call(
+        &e.agent,
+        "report_delivery",
+        json!({ "order_id": id, "tx_hash": TX_HASH }),
+    )
+    .await?
+    .into_result()?;
+    let s = e.stats().await?;
+    assert_eq!(s.gas_wei.base, U128(123_456));
+    assert_eq!(s.gas_wei.monad, U128(0));
+    Ok(())
+}
+
+#[tokio::test]
+async fn desk_pays_signer_deposit_from_balance() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let r = e.reading(id, V1, "hold", 8100, 1200).await?;
+    // `fulfil` takes no deposit: the agent's function-call key could not attach one.
+    let with_deposit = e
+        .agent
+        .call(e.desk.id(), "fulfil")
+        .args_json(r.args(id, tx(0)))
+        .deposit(NearToken::from_yoctonear(1))
+        .max_gas()
+        .transact()
+        .await?;
+    assert!(with_deposit.is_failure());
+
+    e.fulfil(&e.agent, id, &r, tx(0)).await?.into_result()?;
+    assert_eq!(e.status(id).await?, OrderStatus::Signed);
+    let deposits: U128 = e.signer.view("deposits").await?.json()?;
+    assert_eq!(deposits, U128(1));
+    assert_eq!(e.signer_calls().await?, 1);
     Ok(())
 }

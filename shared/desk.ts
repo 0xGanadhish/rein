@@ -18,6 +18,9 @@ export interface DeskOrder {
   status: DeskOrderStatus;
 }
 
+/** One value per chain, keyed by chain name. */
+export type DeskPerChain<T> = Record<DeskChain, T>;
+
 export interface DeskPolicy {
   spacing_s: number;
   per_vault_max: number;
@@ -39,6 +42,14 @@ export interface DeskPolicy {
   usdc_token: string | null;
   agent: string;
   treasury: string;
+  /** Rein oracle per chain, 0x hex; null refuses posts to that chain. */
+  oracle: DeskPerChain<string | null>;
+  /** Gas limit of a post. */
+  gas_limit: DeskPerChain<number>;
+  /** Highest max_fee_per_gas the desk signs, wei. */
+  max_fee_cap: DeskPerChain<string>;
+  /** Chain Signatures contract. */
+  signer: string;
 }
 
 export interface DeskStats {
@@ -52,6 +63,24 @@ export interface DeskStats {
   refunds: number;
   /** Unfinished paid orders. */
   open_paid: number;
+  /** Model tokens across accepted readings. */
+  inference_tokens_in: number;
+  inference_tokens_out: number;
+  /** EVM gas spent on posts, wei, as reported by the agent. */
+  gas_wei: DeskPerChain<string>;
+  /** Split credited when NEAR- and USDC-paid orders are signed. */
+  paid_treasury: DeskAmounts;
+  paid_agent: DeskAmounts;
+  /** USDC from failed split transfers, claimable with claim_owed. */
+  owed: string;
+  /** Watch orders opened. */
+  watch_orders: number;
+}
+
+/** yoctoNEAR and USDC base units. */
+export interface DeskAmounts {
+  near: string;
+  usdc: string;
 }
 
 /** `msg` for an `ft_transfer_call` of `price_usdc` to the desk. */
@@ -90,3 +119,33 @@ export type DeskCheckReading =
   | 'wrong vault'
   | 'stale doc'
   | 'bad answer';
+
+/** Nonce and fees the agent picks for a post; the desk caps max_fee_per_gas per chain. */
+export interface DeskTxParams {
+  nonce: number;
+  max_fee_per_gas: string;
+  max_priority_fee_per_gas: string;
+}
+
+/** `fulfil` and `confirm_exit` arguments. */
+export interface DeskReadingArgs extends DeskCheckReadingArgs {
+  tx: DeskTxParams;
+}
+
+/** `resign` arguments. */
+export interface DeskResignArgs {
+  order_id: number;
+  tx: DeskTxParams;
+}
+
+/** `report_delivery` arguments. `tx_hash` is the EVM transaction hash, 0x + 64 hex. */
+export interface DeskReportDeliveryArgs {
+  order_id: number;
+  tx_hash: string;
+}
+
+/** `record_gas` arguments. `gas_wei` is a decimal string. */
+export interface DeskRecordGasArgs {
+  order_id: number;
+  gas_wei: string;
+}

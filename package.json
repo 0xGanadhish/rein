@@ -5,6 +5,7 @@
   "license": "MIT",
   "packageManager": "pnpm@10.34.6",
   "devDependencies": {
+    "viem": "2.57.16",
     "vitest": "5.1.0"
   }
 }

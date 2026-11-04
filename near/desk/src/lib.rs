@@ -1,7 +1,9 @@
 //! Rein desk: paid orders to judge a yield vault, held in escrow until delivered or refunded.
 
+pub mod evm;
 pub mod orders;
 pub mod policy;
+pub mod signing;
 pub mod types;
 pub mod verify;
 pub mod views;
@@ -11,7 +13,7 @@ use near_sdk::store::{IterableMap, IterableSet, LookupMap};
 use near_sdk::{env, near, require, AccountId, PanicOnDefault};
 
 use policy::WatchDay;
-use types::{parse_vault, Chain, Order, Policy, VaultKey};
+use types::{parse_vault, Chain, Order, PerChain, Policy, VaultKey};
 use verify::Prompt;
 
 /// Running totals behind the `stats` view.
@@ -23,6 +25,15 @@ pub struct Totals {
     pub sales_x402_usdc: u128,
     pub refunds: u64,
     pub open_paid: u32,
+    pub tokens_in: u64,
+    pub tokens_out: u64,
+    pub gas_wei: PerChain<u128>,
+    pub treasury_near: u128,
+    pub treasury_usdc: u128,
+    pub agent_near: u128,
+    pub agent_usdc: u128,
+    pub owed: u128,
+    pub watch_orders: u64,
 }
 
 #[near(contract_state)]
@@ -45,13 +56,19 @@ pub struct Desk {
     prompt: Prompt,
     /// Model signing addresses the owner accepts.
     signers: Vec<[u8; 20]>,
+    /// EVM address Chain Signatures derives for the desk's attester path.
+    derived_address: [u8; 20],
+    /// USDC from the split whose transfer failed, per account.
+    owed: LookupMap<AccountId, u128>,
 }
 
 #[near]
 impl Desk {
     #[init]
-    pub fn new(owner: AccountId, policy: Policy) -> Self {
+    pub fn new(owner: AccountId, policy: Policy, derived_address: String) -> Self {
         validate(&policy);
+        let derived_address =
+            parse_vault(&derived_address).unwrap_or_else(|_| env::panic_str("bad derived_address"));
         Self {
             owner,
             policy,
@@ -65,6 +82,8 @@ impl Desk {
             totals: Totals::default(),
             prompt: Prompt::default(),
             signers: Vec::new(),
+            derived_address,
+            owed: LookupMap::new(b"w"),
         }
     }
 
@@ -139,6 +158,12 @@ fn validate(p: &Policy) {
         p.exit_confirm_min_s <= p.exit_confirm_max_s,
         "exit_confirm_min_s above exit_confirm_max_s"
     );
+    for o in [&p.oracle.monad_testnet, &p.oracle.monad, &p.oracle.base]
+        .into_iter()
+        .flatten()
+    {
+        require!(parse_vault(o).is_ok(), "bad oracle");
+    }
 }
 
 pub(crate) fn now_s() -> u32 {
