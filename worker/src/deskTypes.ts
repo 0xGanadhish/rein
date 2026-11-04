@@ -1,7 +1,10 @@
 /** Worker-side desk types that shared/desk.ts doesn't have. */
-import type { DeskChain, DeskOrder as SharedDeskOrder, DeskPolicy } from '../../shared/desk';
+import type { DeskChain, DeskOrder as SharedDeskOrder, DeskPolicy, DeskStats } from '../../shared/desk';
+import type { NearNetwork } from './env';
 
 export const CHAIN_IDS: Record<DeskChain, number> = { 'monad-testnet': 10143, monad: 143, base: 8453 };
+/** The EVM chains a desk on each NEAR network posts to. */
+export const NETWORK_CHAINS: Record<NearNetwork, DeskChain[]> = { testnet: ['monad-testnet'], mainnet: ['monad', 'base'] };
 
 export interface DeskOrder extends SharedDeskOrder {
   /**
@@ -29,6 +32,11 @@ export interface DeskClient {
   list_orders(from: number, limit: number): Promise<DeskOrder[]>;
   get_order(id: number): Promise<DeskOrder | null>;
   policy(): Promise<DeskPolicy>;
+  /** Vaults on the menu for `chain`, 0x-lowercase. */
+  menu(chain: DeskChain): Promise<string[]>;
+  stats(): Promise<DeskStats>;
+  /** Opens a watch order and returns its id; throws when the desk refuses it. */
+  submit_watch_request(chain: DeskChain, vault: string): Promise<number>;
   prompt(): Promise<DeskPrompt>;
   signers(): Promise<string[]>;
   get_signed_tx(order_id: number): Promise<string | null>;

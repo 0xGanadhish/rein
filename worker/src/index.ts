@@ -1,10 +1,16 @@
-import { viemChain } from './broadcast';
+import { createPublicClient, http, keccak256, toBytes, type Address } from 'viem';
 import type { DeskChain } from '../../shared/desk';
+import { handle } from './api';
+import { CHAINS, viemChain } from './broadcast';
 import type { DeskClient, DeskOrder } from './deskTypes';
 import { rpcFor, type Env, type NearNetwork } from './env';
+import { gradeDue, realGradeDeps, type GradeDeps } from './grade';
+import { checkHealth, type HealthDeps } from './health';
 import { judge } from './judge';
 import { withLock } from './lock';
+import { mirror, realMirrorDeps, type MirrorDeps } from './mirror';
 import { processOrder, type ChainClient, type OrderDeps, type OrderOutcome } from './order';
+import { realWatchDeps, watchOnce, type WatchDeps } from './watch';
 
 const OPEN_LIMIT = 20;
 const SCAN_LIMIT = 100;
@@ -41,19 +47,21 @@ async function ordersToWork(db: D1Database, desk: DeskClient, network: NearNetwo
   return [...byId.values()].sort((a, b) => a.id - b.id);
 }
 
-async function realDeps(env: Env): Promise<OrderDeps> {
-  // Loaded on first use: @near-js pulls in CommonJS crypto that the Vitest workerd runner can't load.
-  const { nearDesk } = await import('./near');
+function realDeps(env: Env, desk: DeskClient): OrderDeps {
   const chains = new Map<DeskChain, ChainClient>();
   return {
-    desk: nearDesk(env),
+    desk,
     read: async () => { throw new Error('vault reader not wired'); },
     flows: async () => { throw new Error('flow reader not wired'); },
     judge: async (doc, prompt, opts) => {
       const j = await judge(doc, prompt, { ...opts, apiKey: env.NEAR_AI_API_KEY });
       const orderId = Number(/\|order=(\d+)\|/.exec(doc)?.[1] ?? -1);
-      await env.DB.prepare('INSERT INTO judge_calls (order_id, at, signing_address, cost_usd_micros) VALUES (?, ?, ?, ?)')
-        .bind(orderId, Math.floor(Date.now() / 1000), j.signingAddress, j.costUsdMicros).run();
+      await env.DB.batch([
+        env.DB.prepare('INSERT INTO judge_calls (order_id, at, signing_address, cost_usd_micros) VALUES (?, ?, ?, ?)')
+          .bind(orderId, Math.floor(Date.now() / 1000), j.signingAddress, j.costUsdMicros),
+        // The oracle post commits to keccak256(doc); this leads the mirrored post back to its order and doc.
+        env.DB.prepare('INSERT OR IGNORE INTO docs (hash, order_id, doc) VALUES (?, ?, ?)').bind(keccak256(toBytes(doc)), orderId, doc),
+      ]);
       return j;
     },
     chain: (c) => {
@@ -67,8 +75,7 @@ async function realDeps(env: Env): Promise<OrderDeps> {
 }
 
 /** One pass over the desk: every order it can advance, one runner per chain. */
-export async function tick(env: Env, network: NearNetwork, given?: OrderDeps): Promise<Record<string, OrderOutcome | 'busy' | 'error'>> {
-  const deps = given ?? await realDeps(env);
+export async function tick(env: Env, network: NearNetwork, deps: OrderDeps): Promise<Record<string, OrderOutcome | 'busy' | 'error'>> {
   const orders = await ordersToWork(env.DB, deps.desk, network);
   const byChain = new Map<DeskChain, DeskOrder[]>();
   for (const o of orders) byChain.set(o.chain, [...(byChain.get(o.chain) ?? []), o]);
@@ -90,16 +97,67 @@ export async function tick(env: Env, network: NearNetwork, given?: OrderDeps): P
   return result;
 }
 
+export interface CronDeps {
+  order: OrderDeps;
+  mirror: MirrorDeps;
+  grade: GradeDeps;
+  watch: WatchDeps;
+}
+
+async function realCronDeps(env: Env): Promise<CronDeps> {
+  // Loaded on first use: @near-js pulls in CommonJS crypto that the Vitest workerd runner can't load.
+  const { nearDesk } = await import('./near');
+  const desk = nearDesk(env);
+  return { order: realDeps(env, desk), mirror: realMirrorDeps(env, desk), grade: realGradeDeps(env), watch: realWatchDeps(env, desk) };
+}
+
+async function realHealthDeps(env: Env): Promise<HealthDeps> {
+  const { agentStatus, nearDesk } = await import('./near');
+  return {
+    derivedAddress: () => nearDesk(env).derived_address(),
+    gasBalance: (chain, address) => createPublicClient({ chain: CHAINS[chain], transport: http(rpcFor(env, chain)) }).getBalance({ address: address as Address }),
+    agent: () => agentStatus(env),
+    allowanceGranted: env.AGENT_KEY_ALLOWANCE ? BigInt(env.AGENT_KEY_ALLOWANCE) : null,
+  };
+}
+
+const step = async <T>(name: string, fn: () => Promise<T>): Promise<T | 'error'> => {
+  try {
+    return await fn();
+  } catch (e) {
+    console.error(`${name}: ${e instanceof Error ? e.stack ?? e.message : String(e)}`);
+    return 'error';
+  }
+};
+
+/**
+ * Everything one cron minute does: advance orders, mirror orders and posts, grade what is due, then the watch feed.
+ * Each step works from stored state, so running it twice at once or back to back does nothing twice.
+ */
+export async function runAll(env: Env, network: NearNetwork, now: number, deps: CronDeps) {
+  const orders = await step('orders', () => tick(env, network, deps.order));
+  const mirrored = await step('mirror', () => mirror(env, network, deps.mirror, now));
+  const graded = await step('grade', async () => {
+    const run = await withLock(env.DB, `grade:${network}`, LOCK_TTL_S, () => gradeDue(env, network, now, deps.grade));
+    return run.ran ? run.value : 'busy';
+  });
+  const watched = await step('watch', async () => {
+    const run = await withLock(env.DB, `watch:${network}`, LOCK_TTL_S, () => watchOnce(env, network, now, deps.watch));
+    return run.ran ? run.value : 'busy';
+  });
+  return { orders, mirror: mirrored, grade: graded, watch: watched };
+}
+
+const nowS = () => Math.floor(Date.now() / 1000);
+
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
-    if (url.pathname === '/v1/kick') {
-      if (request.method !== 'POST') return new Response('method not allowed', { status: 405, headers: { Allow: 'POST' } });
-      return Response.json({ orders: await tick(env, env.NEAR_NETWORK) });
-    }
-    return new Response('not found', { status: 404 });
+    return handle(request, env, {
+      kick: async () => runAll(env, env.NEAR_NETWORK, nowS(), await realCronDeps(env)),
+      health: async () => checkHealth(env.NEAR_NETWORK, await realHealthDeps(env)),
+    });
   },
   async scheduled(_controller, env, ctx) {
-    ctx.waitUntil(tick(env, env.NEAR_NETWORK));
+    ctx.waitUntil(realCronDeps(env).then((deps) => runAll(env, env.NEAR_NETWORK, nowS(), deps)));
   },
 } satisfies ExportedHandler<Env>;

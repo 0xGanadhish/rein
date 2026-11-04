@@ -1,4 +1,4 @@
-/** Ledger scoring (spec §7), shared by the backend's /v1/ledger/score and the app's Scoreboard. */
+/** Ledger scoring, shared by the Worker's /v1/ledger and the web app. */
 
 export type ScoreVerdict = 'HOLD' | 'EXIT' | 'MOVE';
 export type ConfidenceBand = '<80' | '80-89' | '90-94' | '95-100';
@@ -44,4 +44,33 @@ export function scoreLedger(rows: ScoreRow[]): LedgerScore {
     return { band, n: inBand.length, hitRate: inBand.length === 0 ? null : inBand.filter(isHit).length / inBand.length };
   });
   return { n, brier, early: n < EARLY_BELOW, bands };
+}
+
+/** A post repeating the previous post on its vault, within this many seconds, is the same call. */
+export const REPEAT_WINDOW_S = 3600;
+
+export interface CallRow {
+  /** Posts on different chains are different vaults even at the same address. */
+  chain?: string;
+  vault: string;
+  verdict: ScoreVerdict;
+  postedAt: number;
+}
+
+/**
+ * Count-once: the posts that are new calls, in input order. A post is a repeat when the previous post on the same
+ * vault has the same verdict and came less than REPEAT_WINDOW_S before it, so a burst of identical verdicts is
+ * scored once however long it runs.
+ */
+export function newCalls<T extends CallRow>(rows: T[]): T[] {
+  const key = (r: CallRow) => `${r.chain ?? ''}:${r.vault.toLowerCase()}`;
+  const byTime = rows.map((r, i) => ({ r, i })).sort((a, b) => a.r.postedAt - b.r.postedAt || a.i - b.i);
+  const last = new Map<string, CallRow>();
+  const keep = new Set<number>();
+  for (const { r, i } of byTime) {
+    const prev = last.get(key(r));
+    if (!prev || prev.verdict !== r.verdict || r.postedAt - prev.postedAt >= REPEAT_WINDOW_S) keep.add(i);
+    last.set(key(r), r);
+  }
+  return rows.filter((_, i) => keep.has(i));
 }
