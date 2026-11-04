@@ -13,6 +13,8 @@ export interface ApiDeps {
 
 const VERDICTS: ScoreVerdict[] = ['HOLD', 'EXIT', 'MOVE'];
 const LEDGER_POSTS = 200;
+const ORDERS_PAGE = 20;
+const ORDERS_MAX = 50;
 
 interface PostRow {
   chain: string;
@@ -103,14 +105,25 @@ export async function handle(request: Request, env: Env, deps: ApiDeps): Promise
     if (!Object.hasOwn(NETWORK_CHAINS, network)) return json({ error: 'network must be testnet or mainnet' }, 400);
     return json(await ledger(env, network));
   }
+  if (path === '/v1/orders') {
+    const payer = url.searchParams.get('payer');
+    if (!payer) return json({ error: 'payer required' }, 400);
+    const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || ORDERS_PAGE, 1), ORDERS_MAX);
+    const { results } = await env.DB.prepare('SELECT * FROM orders WHERE payer = ? ORDER BY id DESC LIMIT ?').bind(payer, limit).all();
+    return json({ orders: results });
+  }
   const order = /^\/v1\/orders\/(\d+)$/.exec(path);
   if (order) {
     const id = Number(order[1]);
     const row = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
     if (!row) return json({ error: 'not found' }, 404);
-    const { results: posts } = await env.DB.prepare(`SELECT chain, id, verdict, confidence_bps, risk_bps, state_hash, posted_at, input_check,
-        sampled, resolved, adverse, reasons FROM posts WHERE order_id = ? ORDER BY chain, id`).bind(id).all<{ verdict: number }>();
-    return json({ ...row, posts: posts.map((p) => ({ ...p, verdict: VERDICTS[p.verdict] ?? p.verdict })) });
+    const [{ results: posts }, { results: judge_calls }] = await Promise.all([
+      env.DB.prepare(`SELECT p.chain, p.id, p.verdict, p.confidence_bps, p.risk_bps, p.state_hash, p.posted_at, p.input_check,
+          p.sampled, p.resolved, p.adverse, p.reasons, d.doc FROM posts p LEFT JOIN docs d ON d.hash = p.state_hash
+          WHERE p.order_id = ? ORDER BY p.chain, p.id`).bind(id).all<{ verdict: number }>(),
+      env.DB.prepare('SELECT at, signing_address FROM judge_calls WHERE order_id = ? ORDER BY at').bind(id).all(),
+    ]);
+    return json({ ...row, posts: posts.map((p) => ({ ...p, verdict: VERDICTS[p.verdict] ?? p.verdict })), judge_calls });
   }
   if (path === '/v1/quote/status') return quoteStatus(url, await deps.payments());
   if (path === '/v1/stats') return json(await business(env));
