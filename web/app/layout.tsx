@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { Funnel_Display, Funnel_Sans, Martian_Mono } from 'next/font/google';
+import { NearWalletProvider } from '@/components/near/NearWallet';
+import { publicConfig } from '@/lib/config';
 import './globals.css';
 
 const display = Funnel_Display({ subsets: ['latin'], variable: '--font-display', display: 'swap' });
@@ -12,9 +14,12 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const { network, desk } = publicConfig();
   return (
     <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
-      <body>{children}</body>
+      <body>
+        <NearWalletProvider network={network} desk={desk}>{children}</NearWalletProvider>
+      </body>
     </html>
   );
 }

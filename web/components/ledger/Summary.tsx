@@ -67,9 +67,10 @@ export function Kpis({ ledger }: { ledger: Ledger }) {
   );
 }
 
-export function Calibration({ score }: { score: LedgerScore }) {
+/** `tone="night"` draws it for the dark Ledger band on the landing page. */
+export function Calibration({ score, tone }: { score: LedgerScore; tone?: 'night' }) {
   return (
-    <figure className={styles.panel}>
+    <figure className={styles.panel} data-tone={tone}>
       <figcaption className={styles.panelHead}>
         <span className={styles.panelTitle}>Calibration</span>
         <span className="label">Hit rate by stated confidence</span>

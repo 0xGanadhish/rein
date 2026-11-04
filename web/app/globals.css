@@ -10,8 +10,17 @@
   /* EXIT. As text on bone use --signal-ink, which passes 4.5:1. */
   --signal: #ff5420;
   --signal-ink: #b23608;
-  /* MOVE. */
+  /* MOVE. On night grounds use --cobalt-light. */
   --cobalt: #3047f5;
+  --cobalt-light: #93a0ff;
+  /* Night pages: the receipt, Guardian, the Ledger band on the landing page. */
+  --night: #0c0d0b;
+  --night-2: #121310;
+  --night-3: #10110e;
+  --night-line: #2a2b26;
+  --night-ink: #ecebe5;
+  --night-soft: #c9c8c1;
+  --night-mute: #9a9b93;
   --display: var(--font-display), 'Helvetica Neue', Arial, sans-serif;
   --sans: var(--font-sans), 'Helvetica Neue', Arial, sans-serif;
   --mono: var(--font-mono), ui-monospace, Menlo, monospace;

@@ -19,6 +19,18 @@ export function units(raw: string, decimals: number, shown = 2): string {
   return `${whole.toLocaleString('en-US')}${shown > 0 ? `.${frac}` : ''}`;
 }
 
+/** A base-unit amount without trailing zeros: "5", "2.5". */
+export function amount(raw: string, decimals: number): string {
+  return units(raw, decimals, decimals).replace(/\.?0+$/, '');
+}
+
+/** "30 minutes", "1 hour", "45 seconds". */
+export function duration(s: number): string {
+  if (s % 3600 === 0) return s === 3600 ? '1 hour' : `${s / 3600} hours`;
+  if (s % 60 === 0) return s === 60 ? '1 minute' : `${s / 60} minutes`;
+  return `${s} seconds`;
+}
+
 /** The oracle's reason bits for an adverse resolution (TareRiskOracle REASON_*). */
 export function reasonLabels(reasons: number | null): string[] {
   if (!reasons) return [];

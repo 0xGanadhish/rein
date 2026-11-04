@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { publicConfig } from '@/lib/config';
+import { Account } from './near/Account';
 import styles from './Header.module.css';
 
 /** Two rings joined by a taut line: the reins. */
@@ -12,20 +14,33 @@ export function Mark() {
   );
 }
 
-export function Header({ children }: { children?: React.ReactNode }) {
+export type Tab = 'ledger' | 'judge' | 'guardian' | 'orders';
+const TABS: { id: Tab; href: string; label: string }[] = [
+  { id: 'ledger', href: '/ledger', label: 'Ledger' },
+  { id: 'judge', href: '/judge', label: 'Judge' },
+  { id: 'guardian', href: '/guardian', label: 'Guardian' },
+  { id: 'orders', href: '/orders', label: 'My orders' },
+];
+
+/** The app bar. `dark` matches the night pages (receipt, Guardian). */
+export function Header({ active, dark = false }: { active: Tab; dark?: boolean }) {
+  const { network } = publicConfig();
   return (
-    <header className={styles.bar}>
+    <header className={styles.bar} data-dark={dark || undefined}>
       <div className={`container ${styles.inner}`}>
-        <div className={styles.left}>
-          <Link href="/" className={styles.brand} aria-label="Rein home">
-            <Mark />
-            <span className={styles.word}>rein</span>
-          </Link>
-          <nav aria-label="App" className={styles.nav}>
-            <Link href="/ledger" className={styles.tab} aria-current="page">Ledger</Link>
-          </nav>
+        <Link href="/" className={styles.brand} aria-label="Rein home">
+          <Mark />
+          <span className={styles.word}>rein</span>
+        </Link>
+        <nav aria-label="App" className={styles.nav}>
+          {TABS.map((t) => (
+            <Link key={t.id} href={t.href} className={styles.tab} aria-current={t.id === active ? 'page' : undefined}>{t.label}</Link>
+          ))}
+        </nav>
+        <div className={styles.right}>
+          <span className={styles.network}><span className={styles.netDot} aria-hidden="true" />NEAR {network}</span>
+          <Account />
         </div>
-        {children}
       </div>
     </header>
   );

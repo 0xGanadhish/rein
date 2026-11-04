@@ -1,0 +1,34 @@
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 24px 48px; animation: rise 0.6s var(--ease) both; }
+.eyebrow { display: flex; gap: 12px; flex-wrap: wrap; }
+.sample { color: var(--signal-ink); }
+.title { margin: 10px 0 0; font-family: var(--display); font-weight: 550; font-size: clamp(44px, 6vw, 88px); line-height: 0.92; letter-spacing: -0.05em; }
+.lookup { display: flex; gap: 6px; padding: 4px; background: var(--paper); border: 1px solid var(--line); border-radius: 999px; }
+.lookup input { width: 120px; height: 40px; border: 0; background: transparent; padding: 0 14px; font: inherit; font-family: var(--mono); font-size: 13px; outline: none; color: var(--ink); }
+.lookup button { height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--ink); color: var(--bone); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+
+.list { list-style: none; margin: 40px 0 0; padding: 0; border-top: 1px solid var(--ink); }
+.list li { border-bottom: 1px solid var(--line); animation: rise 0.5s var(--ease) both; }
+.row { display: grid; grid-template-columns: 72px minmax(0, 1fr) 140px 120px 130px 24px; gap: 16px; align-items: center; min-height: 72px; padding: 12px 0; text-decoration: none; color: var(--ink); transition: background 0.2s, padding 0.3s var(--ease); }
+.row:hover { background: var(--paper); padding-inline: 12px; }
+.id { font-family: var(--mono); font-size: 13px; }
+.vault { min-width: 0; }
+.vault b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vault small { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--mute); }
+.mono { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.status { justify-self: start; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--cobalt); color: var(--cobalt); }
+.status[data-status='delivered'] { background: var(--ink); border-color: var(--ink); color: var(--bone); }
+.status[data-status='exit_pending'] { background: var(--signal); border-color: var(--signal); color: var(--ink); }
+.status[data-status='rejected'], .status[data-status='refunded'] { border-color: var(--signal-ink); color: var(--signal-ink); }
+.go { font-family: var(--mono); color: var(--mute); }
+
+.empty { margin-top: 40px; padding: 48px 32px; border: 1px dashed var(--line); border-radius: 18px; background: var(--paper); display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+.empty p { margin: 0; font-size: 17px; color: var(--ink-2); }
+.cta { height: 48px; padding: 0 22px; display: inline-flex; align-items: center; border: 0; border-radius: 999px; background: var(--ink); color: var(--bone); font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
+.loading { margin-top: 40px; display: flex; flex-direction: column; gap: 8px; }
+.loading span { height: 64px; border-radius: 12px; background: linear-gradient(90deg, var(--paper), var(--line-soft), var(--paper)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (max-width: 760px) {
+  .row { grid-template-columns: 56px minmax(0, 1fr) auto; }
+  .row > .mono, .go { display: none; }
+}

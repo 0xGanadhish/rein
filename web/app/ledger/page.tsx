@@ -17,7 +17,7 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <Header />
+      <Header active="ledger" />
       <main className="container" style={{ paddingTop: 'clamp(32px, 4vw, 56px)', paddingBottom: 80 }}>
         <div className={styles.head}>
           <div>

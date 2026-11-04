@@ -104,3 +104,14 @@
 .error { margin-top: 40px; padding: 32px; border: 1px dashed var(--line); border-radius: 16px; background: var(--paper); }
 .error h2 { margin: 0; font-family: var(--display); font-weight: 550; font-size: 28px; letter-spacing: -0.03em; }
 .error p { margin: 8px 0 0; color: var(--ink-2); }
+
+/* Calibration on the landing page's night band */
+.panel[data-tone='night'] { background: var(--night-3); border-color: var(--night-line); color: var(--night-ink); }
+.panel[data-tone='night'] :global(.label), .panel[data-tone='night'] .axis small, .panel[data-tone='night'] .legend { color: var(--night-mute); }
+.panel[data-tone='night'] .plot { border-bottom-color: var(--night-ink); background-image: linear-gradient(#22231f 1px, transparent 1px); }
+.panel[data-tone='night'] .bar, .panel[data-tone='night'] .swatch { background: var(--night-ink); }
+.panel[data-tone='night'] .bar[data-thin] { background: #5b5c56; }
+.panel[data-tone='night'] .barValue { color: var(--night); }
+.panel[data-tone='night'] .bar[data-thin] .barValue, .panel[data-tone='night'] .bar[data-empty] .barValue { color: var(--night-ink); }
+.panel[data-tone='night'] .zone, .panel[data-tone='night'] .swatchZone { background: rgba(147, 160, 255, 0.22); border-color: var(--cobalt-light); }
+.panel[data-tone='night'] .ceiling { border-color: var(--cobalt-light); }

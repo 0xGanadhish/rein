@@ -1,0 +1,59 @@
+{
+  "policy": {
+    "spacing_s": 600,
+    "per_vault_max": 6,
+    "global_max": 120,
+    "watch_daily_max": 48,
+    "deadline_s": 1800,
+    "doc_max_age_s": 120,
+    "exit_confirm_min_s": 30,
+    "exit_confirm_max_s": 600,
+    "max_open_paid": 20,
+    "price_usdc": "5000000",
+    "price_near": "2000000000000000000000000",
+    "split_treasury_bps": 7000,
+    "split_agent_bps": 3000,
+    "kill": false,
+    "usdc_token": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+    "agent": "agent.rein.near",
+    "treasury": "treasury.rein.near",
+    "oracle": {
+      "monad-testnet": null,
+      "monad": "0x7e3b5d1f9a2c4e6b8d0f1a3c5e7b9d2f4a6c8e10",
+      "base": "0x4d2f6b8a1c3e5d7f9b0a2c4e6d8f1b3a5c7e9d02"
+    },
+    "gas_limit": {
+      "monad-testnet": 200000,
+      "monad": 200000,
+      "base": 200000
+    },
+    "max_fee_cap": {
+      "monad-testnet": "200000000000",
+      "monad": "200000000000",
+      "base": "5000000000"
+    },
+    "signer": "v1.signer"
+  },
+  "menu": {
+    "monad": [
+      "0x3f8a91c27d0e4b6a95c1f2e8d7a6b5c4e3f20b1e",
+      "0x71c0d4e9b8a7f6e5d4c3b2a1908f7e6d5c4ba2f3"
+    ],
+    "base": [
+      "0xbeef0786756810478b88982de00f3cd7fdb8e7c7",
+      "0xbeeff2490feffa212fac2f6553682c219e6a8845",
+      "0xbeef0e0834849acc03f0089f01f4f1eeb06873c9",
+      "0x050ce30b927da55177a4914ec73480238bad56f0",
+      "0xbeeff0be997cca5b1c13a7433c2004637975739e",
+      "0x91c056b6d4311a743614fbc03ac32d4e6a2d3a3c",
+      "0xbeeff7ae5e00aae3db302e4b0d8c883810a58100",
+      "0x1deefabee758aabdc29a542b24ca3b75afd56765",
+      "0x392b3ccf36c8adb8094f45573346b457414cd752",
+      "0x0548a36028ffdc7d5aaa7a182f0d1fe0264f5a5c",
+      "0x8b12106a70fe2f8bb255f691f1cf9a9ccfb278af",
+      "0x39e18c066187c83e860801befe45ae8ecd021575",
+      "0x1e9e47583f15d45a10df48c0b1846e0492c795d7",
+      "0x618495ccc4e751178c4914b1e939c0fe0fb07b9b"
+    ]
+  }
+}
