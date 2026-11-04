@@ -32,6 +32,7 @@ export function nearDesk(env: Env): DeskClient {
     menu: (chain) => view<string[]>('menu', { chain }),
     stats: () => view<DeskStats>('stats'),
     submit_watch_request: (chain, vault) => call<number>('submit_watch_request', { chain, vault }),
+    submit_x402_request: (chain, vault, payment_ref, amount) => call<number>('submit_x402_request', { chain, vault, payment_ref, amount }),
     prompt: () => view<DeskPrompt>('prompt'),
     signers: () => view<string[]>('signers'),
     get_signed_tx: async (order_id) => (await view<string | null>('get_signed_tx', { order_id })) ?? null,

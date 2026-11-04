@@ -2,11 +2,13 @@ import { newCalls, scoreLedger, type ScoreVerdict } from '../../shared/score';
 import { NETWORK_CHAINS } from './deskTypes';
 import type { Env, NearNetwork } from './env';
 import type { Health } from './health';
+import { quote, quoteStatus, x402Judge, type PaymentDeps } from './payments';
 
 export interface ApiDeps {
   /** One pass of everything the cron does. */
   kick(): Promise<unknown>;
   health(): Promise<Health>;
+  payments(): Promise<PaymentDeps>;
 }
 
 const VERDICTS: ScoreVerdict[] = ['HOLD', 'EXIT', 'MOVE'];
@@ -90,6 +92,10 @@ export async function handle(request: Request, env: Env, deps: ApiDeps): Promise
     if (request.method !== 'POST') return new Response('method not allowed', { status: 405, headers: { Allow: 'POST' } });
     return json(await deps.kick());
   }
+  const post = (handler: () => Promise<Response>) =>
+    request.method === 'POST' ? handler() : new Response('method not allowed', { status: 405, headers: { Allow: 'POST' } });
+  if (path === '/v1/quote') return post(async () => quote(request, await deps.payments()));
+  if (path === '/v1/x402/judge') return post(async () => x402Judge(request, env, await deps.payments()));
   if (request.method !== 'GET') return new Response('method not allowed', { status: 405, headers: { Allow: 'GET' } });
 
   if (path === '/v1/ledger') {
@@ -106,6 +112,7 @@ export async function handle(request: Request, env: Env, deps: ApiDeps): Promise
         sampled, resolved, adverse, reasons FROM posts WHERE order_id = ? ORDER BY chain, id`).bind(id).all<{ verdict: number }>();
     return json({ ...row, posts: posts.map((p) => ({ ...p, verdict: VERDICTS[p.verdict] ?? p.verdict })) });
   }
+  if (path === '/v1/quote/status') return quoteStatus(url, await deps.payments());
   if (path === '/v1/stats') return json(await business(env));
   if (path === '/v1/health') {
     const h = await deps.health();

@@ -15,6 +15,8 @@ export interface Env {
   RPC_BASE: string;
   /** Sends `sample` and `resolve` to the oracles. Posts are signed by the desk through Chain Signatures. */
   EXECUTOR_KEY: string;
+  /** Verifies and settles x402 payments. */
+  PINGPAY_API_KEY: string;
   /** yoctoNEAR the agent's function-call key was granted; health flags it once under 20% is left. */
   AGENT_KEY_ALLOWANCE?: string;
 }

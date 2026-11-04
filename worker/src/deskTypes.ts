@@ -37,6 +37,8 @@ export interface DeskClient {
   stats(): Promise<DeskStats>;
   /** Opens a watch order and returns its id; throws when the desk refuses it. */
   submit_watch_request(chain: DeskChain, vault: string): Promise<number>;
+  /** Records an order paid offchain over x402 and returns its id; `amount` is USDC base units. Throws when refused. */
+  submit_x402_request(chain: DeskChain, vault: string, payment_ref: string, amount: string): Promise<number>;
   prompt(): Promise<DeskPrompt>;
   signers(): Promise<string[]>;
   get_signed_tx(order_id: number): Promise<string | null>;

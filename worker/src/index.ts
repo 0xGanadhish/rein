@@ -11,6 +11,7 @@ import { judge } from './judge';
 import { withLock } from './lock';
 import { mirror, realMirrorDeps, type MirrorDeps } from './mirror';
 import { processOrder, type ChainClient, type OrderDeps, type OrderOutcome } from './order';
+import { rememberSignedTx } from './payments';
 import { readVault } from './vendor/vaultReader';
 import { netOutPct1h, realWatchDeps, watchOnce, type WatchDeps } from './watch';
 
@@ -121,7 +122,8 @@ export interface CronDeps {
 async function realCronDeps(env: Env): Promise<CronDeps> {
   // Loaded on first use: @near-js pulls in CommonJS crypto that the Vitest workerd runner can't load.
   const { nearDesk } = await import('./near');
-  const desk = nearDesk(env);
+  // One desk per request, shared by the order loop and the x402 route, so a signed tx read by one is seen by both.
+  const desk = rememberSignedTx(nearDesk(env));
   return { order: realDeps(env, desk), mirror: realMirrorDeps(env, desk), grade: realGradeDeps(env), watch: realWatchDeps(env, desk) };
 }
 
@@ -169,6 +171,16 @@ export default {
     return handle(request, env, {
       kick: async () => runAll(env, env.NEAR_NETWORK, nowS(), await realCronDeps(env)),
       health: async () => checkHealth(env.NEAR_NETWORK, await realHealthDeps(env)),
+      payments: async () => {
+        const deps = await realCronDeps(env);
+        return {
+          fetch: (input, init) => fetch(input, init),
+          desk: deps.order.desk,
+          tick: () => tick(env, env.NEAR_NETWORK, deps.order),
+          sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+          now: () => Date.now(),
+        };
+      },
     });
   },
   async scheduled(_controller, env, ctx) {
