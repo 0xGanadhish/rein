@@ -1,0 +1,22 @@
+name = "rein-worker"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+NEAR_NETWORK = "testnet"
+DESK_ACCOUNT = "desk.rein.testnet"
+AGENT_ACCOUNT = "agent.rein.testnet"
+
+# Placeholder ID. Create the database and paste its ID here before deploying.
+[[d1_databases]]
+binding = "DB"
+database_name = "rein"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+# Secrets, set with `wrangler secret put`: AGENT_KEY, NEAR_AI_API_KEY, EXECUTOR_KEY,
+# RPC_MONAD, RPC_MONAD_TESTNET, RPC_BASE.
