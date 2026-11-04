@@ -1,0 +1,7 @@
+{
+  "name": "rein",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "pnpm@10.34.6"
+}

@@ -1,0 +1,12 @@
+# Private, never committed
+/.internal/
+/.omp/
+/spike/
+.env*
+
+# Dependencies and build output
+node_modules/
+evm/out/
+evm/cache/
+
+.DS_Store
