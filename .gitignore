@@ -8,5 +8,6 @@
 node_modules/
 evm/out/
 evm/cache/
+near/target/
 
 .DS_Store
