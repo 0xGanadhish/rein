@@ -59,3 +59,34 @@ export interface DeskFtMsg {
   chain: DeskChain;
   vault: string;
 }
+
+/** `prompt` view and `set_prompt` arguments. The model request body is `prefix + doc + suffix`. */
+export interface DeskPrompt {
+  model: string;
+  prefix: string;
+  suffix: string;
+}
+
+/** `signers` view: accepted model signing addresses, 0x-prefixed lowercase hex. */
+export type DeskSigners = string[];
+
+/** `check_reading` arguments. `signature` is 65 bytes `r || s || v` in hex, 0x optional. */
+export interface DeskCheckReadingArgs {
+  order_id: number;
+  doc: string;
+  response: string;
+  signature: string;
+}
+
+/** `check_reading` result: `ok`, or why delivery would refuse the reading now. */
+export type DeskCheckReading =
+  | 'ok'
+  | 'no such order'
+  | 'bad doc'
+  | 'bad signature'
+  | 'unknown signer'
+  | 'wrong order'
+  | 'wrong chain'
+  | 'wrong vault'
+  | 'stale doc'
+  | 'bad answer';
