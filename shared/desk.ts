@@ -2,7 +2,7 @@
 
 export type DeskChain = 'monad-testnet' | 'monad' | 'base';
 export type DeskSource = 'near' | 'usdc' | 'x402' | 'watch';
-export type DeskOrderStatus = 'open' | 'exit-pending' | 'signing' | 'signed' | 'delivered' | 'rejected' | 'refunded';
+export type DeskOrderStatus = 'open' | 'exit_pending' | 'signing' | 'signed' | 'delivered' | 'rejected' | 'refunded';
 
 export interface DeskOrder {
   id: number;

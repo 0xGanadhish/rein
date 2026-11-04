@@ -39,7 +39,7 @@ impl Source {
 }
 
 #[near(serializers = [borsh, json])]
-#[serde(rename_all = "kebab-case")]
+#[serde(rename_all = "snake_case")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OrderStatus {
     Open,
