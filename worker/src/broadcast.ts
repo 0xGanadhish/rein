@@ -2,10 +2,11 @@ import {
   BaseError, ContractFunctionRevertedError, createPublicClient, http, keccak256, parseAbi, toBytes, type Address, type Hex,
 } from 'viem';
 import { base, monad, monadTestnet } from 'viem/chains';
-import type { DeskChain, DeskOrder } from './deskTypes';
+import type { DeskChain } from '../../shared/desk';
+import type { DeskOrder } from './deskTypes';
 import type { ChainClient, Receipt } from './order';
 
-const CHAINS = { 'monad-testnet': monadTestnet, monad, base } as const;
+export const CHAINS = { 'monad-testnet': monadTestnet, monad, base } as const;
 
 /** Oracle each chain posts verdicts to. Null until it is deployed there; simulation then refuses every post. */
 export const ORACLES: Record<DeskChain, Address | null> = { 'monad-testnet': null, monad: null, base: null };
@@ -29,7 +30,7 @@ export function postArgs(order: DeskOrder, doc: string, response: string): reado
   if (verdict === undefined || !Number.isInteger(a.confidence_bps) || !Number.isInteger(a.withdrawal_risk_bps)) {
     throw new Error('answer has no verdict');
   }
-  return [order.vault, verdict, a.confidence_bps!, a.withdrawal_risk_bps!, keccak256(toBytes(doc))];
+  return [order.vault as Address, verdict, a.confidence_bps!, a.withdrawal_risk_bps!, keccak256(toBytes(doc))];
 }
 
 function revertReason(e: unknown): string {

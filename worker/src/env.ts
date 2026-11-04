@@ -1,4 +1,4 @@
-import type { DeskChain } from './deskTypes';
+import type { DeskChain } from '../../shared/desk';
 
 export type NearNetwork = 'testnet' | 'mainnet';
 
@@ -13,8 +13,10 @@ export interface Env {
   RPC_MONAD: string;
   RPC_MONAD_TESTNET: string;
   RPC_BASE: string;
-  /** Not used by the order loop: the desk signs posts through Chain Signatures. */
+  /** Sends `sample` and `resolve` to the oracles. Posts are signed by the desk through Chain Signatures. */
   EXECUTOR_KEY: string;
+  /** yoctoNEAR the agent's function-call key was granted; health flags it once under 20% is left. */
+  AGENT_KEY_ALLOWANCE?: string;
 }
 
 export const NEAR_RPC: Record<NearNetwork, string> = {

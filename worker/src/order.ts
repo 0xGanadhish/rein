@@ -1,6 +1,7 @@
 import { keccak256, type Hex } from 'viem';
 import { buildDoc, type VaultReading } from './doc';
-import type { DeskChain, DeskClient, DeskOrder, DeskTx } from './deskTypes';
+import type { DeskChain } from '../../shared/desk';
+import type { DeskClient, DeskOrder, DeskTx } from './deskTypes';
 import { JudgeError, type judge as judgeFn, type Judgement } from './judge';
 
 export interface Receipt {

@@ -1,22 +1,12 @@
-/** JSON shapes of the desk contract on NEAR. Kept here until the shared desk types land; swap the import then. */
+/** Worker-side desk types that shared/desk.ts doesn't have. */
+import type { DeskChain, DeskOrder as SharedDeskOrder, DeskPolicy, DeskStats } from '../../shared/desk';
+import type { NearNetwork } from './env';
 
-export type DeskChain = 'monad-testnet' | 'monad' | 'base';
 export const CHAIN_IDS: Record<DeskChain, number> = { 'monad-testnet': 10143, monad: 143, base: 8453 };
+/** The EVM chains a desk on each NEAR network posts to. */
+export const NETWORK_CHAINS: Record<NearNetwork, DeskChain[]> = { testnet: ['monad-testnet'], mainnet: ['monad', 'base'] };
 
-export type OrderSource = 'near' | 'usdc' | 'x402' | 'watch';
-export type OrderStatus = 'open' | 'exit_pending' | 'signing' | 'signed' | 'delivered' | 'rejected' | 'refunded';
-
-export interface DeskOrder {
-  id: number;
-  source: OrderSource;
-  payer: string;
-  chain: DeskChain;
-  /** 0x-prefixed, lowercase. */
-  vault: `0x${string}`;
-  /** U128 as a decimal string. */
-  amount: string;
-  created_s: number;
-  status: OrderStatus;
+export interface DeskOrder extends SharedDeskOrder {
   /**
    * When the order entered `exit_pending`, if the contract exposes it. Without it the Worker tries `confirm_exit`
    * on every tick and leaves the 30 s to 5 min window to the contract.
@@ -37,14 +27,16 @@ export interface DeskTx {
   max_priority_fee_per_gas: string;
 }
 
-export type RefusalReason =
-  | 'bad doc' | 'bad signature' | 'unknown signer' | 'wrong order' | 'wrong chain' | 'wrong vault' | 'stale doc' | 'bad answer';
-
 export interface DeskClient {
   open_orders(limit: number): Promise<DeskOrder[]>;
   list_orders(from: number, limit: number): Promise<DeskOrder[]>;
   get_order(id: number): Promise<DeskOrder | null>;
-  policy(): Promise<Record<string, unknown>>;
+  policy(): Promise<DeskPolicy>;
+  /** Vaults on the menu for `chain`, 0x-lowercase. */
+  menu(chain: DeskChain): Promise<string[]>;
+  stats(): Promise<DeskStats>;
+  /** Opens a watch order and returns its id; throws when the desk refuses it. */
+  submit_watch_request(chain: DeskChain, vault: string): Promise<number>;
   prompt(): Promise<DeskPrompt>;
   signers(): Promise<string[]>;
   get_signed_tx(order_id: number): Promise<string | null>;
