@@ -14,18 +14,22 @@ const oracleAbi = parseAbi([
   'function post(address vault, uint8 verdict, uint16 confidenceBps, uint16 riskBps, bytes32 stateHash) returns (uint256)',
   'error NotAttester()', 'error VaultNotRegistered()', 'error BpsOutOfRange()', 'error InsufficientGas()',
 ]);
-const VERDICTS = { HOLD: 0, EXIT: 1, MOVE: 2 } as const;
+/** Answer actions in verdict order: HOLD 0, EXIT 1, MOVE 2. */
+const VERDICTS = { hold: 0, exit: 1, rotate: 2 } as const;
 
 /**
- * The oracle `post` arguments a judged answer turns into. Assumes the model's message content is JSON with `verdict`,
- * `confidence_bps` and `risk_bps`, and that the post commits to the doc by its keccak256.
+ * The oracle `post` arguments a judged answer turns into. The model's message content is
+ * `{"action":"hold|exit|rotate","confidence_bps":N,"withdrawal_risk_bps":N}`, and the post commits to the doc by its
+ * keccak256.
  */
 export function postArgs(order: DeskOrder, doc: string, response: string): readonly [Address, number, number, number, Hex] {
   const content = (JSON.parse(response) as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content;
-  const a = JSON.parse(content ?? '') as { verdict?: string; confidence_bps?: number; risk_bps?: number };
-  const verdict = VERDICTS[a.verdict as keyof typeof VERDICTS];
-  if (verdict === undefined || !Number.isInteger(a.confidence_bps) || !Number.isInteger(a.risk_bps)) throw new Error('answer has no verdict');
-  return [order.vault, verdict, a.confidence_bps!, a.risk_bps!, keccak256(toBytes(doc))];
+  const a = JSON.parse(content ?? '') as { action?: string; confidence_bps?: number; withdrawal_risk_bps?: number };
+  const verdict = Object.hasOwn(VERDICTS, a.action ?? '') ? VERDICTS[a.action as keyof typeof VERDICTS] : undefined;
+  if (verdict === undefined || !Number.isInteger(a.confidence_bps) || !Number.isInteger(a.withdrawal_risk_bps)) {
+    throw new Error('answer has no verdict');
+  }
+  return [order.vault, verdict, a.confidence_bps!, a.withdrawal_risk_bps!, keccak256(toBytes(doc))];
 }
 
 function revertReason(e: unknown): string {

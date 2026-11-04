@@ -4,6 +4,7 @@ import { keccak256 } from 'viem';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { DeskClient, DeskOrder, DeskPrompt, DeskTx } from '../src/deskTypes';
 import type { VaultReading } from '../src/doc';
+import { postArgs } from '../src/broadcast';
 import { JudgeError, type judge as realJudge } from '../src/judge';
 import { withLock } from '../src/lock';
 import { processOrder, type ChainClient, type OrderDeps, type Receipt } from '../src/order';
@@ -281,5 +282,22 @@ describe('withLock', () => {
     release();
     expect(await first).toEqual({ ran: true, value: 'first' });
     expect(await withLock(env.DB, 'chain:base', 60, async () => 'again')).toEqual({ ran: true, value: 'again' });
+  });
+});
+
+describe('postArgs', () => {
+  const order: DeskOrder = {
+    id: 7, source: 'near', payer: 'alice.testnet', chain: 'base',
+    vault: '0x00000000000000000000000000000000000000aa', amount: '1000000', created_s: T0, status: 'open',
+  };
+  const answer = (content: string) => JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content } }] });
+
+  it('post_args_map_action_and_withdrawal_risk', () => {
+    const doc = 'rein-v1|order=7';
+    for (const [action, verdict] of [['hold', 0], ['exit', 1], ['rotate', 2]] as const) {
+      const content = `{"action":"${action}","confidence_bps":8100,"withdrawal_risk_bps":2500}`;
+      expect(postArgs(order, doc, answer(content))).toEqual([order.vault, verdict, 8100, 2500, keccak256(new TextEncoder().encode(doc))]);
+    }
+    expect(() => postArgs(order, doc, answer('{"verdict":"HOLD","confidence_bps":1,"risk_bps":1}'))).toThrow();
   });
 });
