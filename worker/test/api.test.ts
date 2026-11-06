@@ -14,8 +14,8 @@ const T = 1_793_774_400;
 const VAULT = '0x00000000000000000000000000000000000000aa';
 const STATS: DeskStats = {
   sales_near: '3000000000000000000000000', sales_usdc: '2000000', sales_x402_usdc: '1000000', refunds: 1, open_paid: 0,
-  inference_tokens_in: 0, inference_tokens_out: 0, gas_wei: { 'monad-testnet': '0', monad: '0', base: '0' },
-  paid_treasury: { near: '0', usdc: '0' }, paid_agent: { near: '0', usdc: '0' }, owed: '0', watch_orders: 0,
+  inference_tokens_in: 0, inference_tokens_out: 0, gas_wei: { 'monad-testnet': '0', monad: '0', base: '0', 'base-sepolia': '0' },
+  paid_treasury: { near: '0', usdc: '0' }, paid_agent: { near: '0', usdc: '0' }, owed: '0', owed_near: '0', watch_orders: 0,
 };
 const TABLES = ['orders', 'docs', 'posts', 'watch_snapshots', 'watch_baselines', 'watch_requests', 'meta', 'cursors', 'judge_calls', 'locks'];
 
@@ -74,7 +74,7 @@ describe('api', () => {
     // Order 5 was judged on `doc`, delivered, and its post landed an hour ago, so it is due to resolve.
     const doc = `rein-v1|order=5|chain=monad-testnet|vault=${VAULT}|at=${T - 3601}|block=9|pps=1000000|assets=5000000|liquidity=na|apy_bps=500|apy_bps_prev=500|util_bps=5000|net_out_pct_1h=0.00|name=M`;
     await env.DB.prepare('INSERT INTO docs (hash, order_id, doc) VALUES (?, 5, ?)').bind(keccak256(toBytes(doc)), doc).run();
-    const order: DeskOrder = { id: 5, source: 'near', payer: 'alice.testnet', chain: 'monad-testnet', vault: VAULT, amount: '1', created_s: T - 3700, status: 'delivered' };
+    const order: DeskOrder = { id: 5, source: 'near', payer: 'alice.testnet', chain: 'monad-testnet', vault: VAULT, amount: '1', created_s: T - 3700, status: 'delivered', exit_pending_s: null, valid_until: T - 1900 };
     const onchainPost: OraclePost = {
       vault: VAULT, verdict: 0, confidenceBps: 9000, riskBps: 500, stateHash: keccak256(toBytes(doc)), postedAt: BigInt(T - 3600),
       ppsAtPost: 1_000_000n, assetsAtPost: 5_000_000n, liquidityAtPost: maxUint256,
@@ -85,7 +85,7 @@ describe('api', () => {
       open_orders: async () => [],
       list_orders: async (from: number) => (from <= 5 ? [order] : []),
       stats: async () => STATS,
-      menu: async () => [VAULT],
+      menu: async (chain: string) => chain === 'monad-testnet' ? [VAULT] : [],
       submit_watch_request: async () => { calls.push('submit_watch_request'); return 6; },
     };
     const deps: CronDeps = {

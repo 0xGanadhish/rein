@@ -10,10 +10,10 @@ import { ONECLICK, PINGPAY, SIGN_WAIT_MS, rememberSignedTx, type PaymentDeps } f
 const VAULT = '0x00000000000000000000000000000000000000aa';
 const USDC = 'usdc.fakes.testnet';
 const T0 = 1_793_774_400_000;
-const postAbi = parseAbi(['function post(address vault, uint8 verdict, uint16 confidenceBps, uint16 riskBps, bytes32 stateHash) returns (uint256 id)']);
+const postAbi = parseAbi(['function post(address vault, uint8 verdict, uint16 confidenceBps, uint16 riskBps, bytes32 stateHash, uint64 validUntil) returns (uint256 id)']);
 const SIGNED = serializeTransaction(
-  { chainId: 10143, nonce: 0, gas: 200_000n, maxFeePerGas: 1n, maxPriorityFeePerGas: 1n, to: '0x00000000000000000000000000000000000000cc',
-    data: encodeFunctionData({ abi: postAbi, functionName: 'post', args: [VAULT, 1, 9200, 7100, `0x${'11'.repeat(32)}`] }) },
+  { chainId: 10143, nonce: 0, gas: 400_000n, maxFeePerGas: 1n, maxPriorityFeePerGas: 1n, to: '0x00000000000000000000000000000000000000cc',
+    data: encodeFunctionData({ abi: postAbi, functionName: 'post', args: [VAULT, 1, 9200, 7100, `0x${'11'.repeat(32)}`, BigInt(T0 / 1000 + 1800)] }) },
   { r: `0x${'01'.repeat(32)}`, s: `0x${'02'.repeat(32)}`, yParity: 0 },
 );
 
@@ -26,7 +26,7 @@ class Fakes {
   orders = new Map<number, DeskOrder>();
   nextId = 40;
   /** `delivered` runs the whole order loop in one tick: it reads the signed tx, broadcasts, and delivery clears it. */
-  outcome: 'signed' | 'delivered' | 'rejected' | 'stuck' = 'signed';
+  outcome: 'signed' | 'delivered' | 'rejected' | 'post_failed' | 'stuck' = 'signed';
   refusal: string | null = null;
   valid = true;
 
@@ -39,7 +39,7 @@ class Fakes {
         this.calls.push(['submit_x402_request', chain, vault, payment_ref, amount]);
         if (this.refusal) throw new Error(`Smart contract panicked: ${this.refusal}`);
         const id = this.nextId++;
-        this.orders.set(id, { id, source: 'x402', payer: null, chain, vault, amount, created_s: this.clock / 1000, status: 'open' });
+        this.orders.set(id, { id, source: 'x402', payer: null, chain, vault, amount, created_s: this.clock / 1000, status: 'open', exit_pending_s: null, valid_until: null });
         return id;
       },
       get_order: async (id: number) => (this.orders.has(id) ? { ...this.orders.get(id)! } : null),
@@ -123,6 +123,7 @@ describe('payments', () => {
       resource: 'https://rein.test/v1/x402/judge',
     })]);
     expect(fakes.named('submit_x402_request')).toEqual([]);
+    expect((await judge(new Fakes(), undefined, 'base-sepolia')).status).toBe(402);
 
     // A payment PingPay won't verify gets the same answer and opens nothing.
     fakes.valid = false;
@@ -157,6 +158,13 @@ describe('payments', () => {
     expect(res.status).toBe(502);
     expect(await res.json()).toEqual({ orderId: 40, reason: 'rejected' });
     expect(rejected.named('fetch').map((c) => c[1])).toEqual([PINGPAY.base + PINGPAY.verifyPath]);
+
+    const failed = new Fakes();
+    failed.outcome = 'post_failed';
+    const failedPost = await judge(failed, payment('failed-post'));
+    expect(failedPost.status).toBe(502);
+    expect(await failedPost.json()).toEqual({ orderId: 40, reason: 'post_failed' });
+    expect(failed.named('fetch').map((c) => c[1])).toEqual([PINGPAY.base + PINGPAY.verifyPath]);
 
     // An order still unsigned after the wait isn't settled either.
     const stuck = new Fakes();

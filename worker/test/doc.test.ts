@@ -4,7 +4,7 @@ import type { DeskOrder } from '../src/deskTypes';
 
 const order: DeskOrder = {
   id: 12, source: 'near', payer: 'alice.testnet', chain: 'base',
-  vault: '0x00000000000000000000000000000000000000aa', amount: '1000000', created_s: 1793774000, status: 'open',
+  vault: '0x00000000000000000000000000000000000000aa', amount: '1000000', created_s: 1793774000, status: 'open', exit_pending_s: null, valid_until: null,
 };
 const reading: VaultReading = {
   block: 41_234_567n, name: 'Steakhouse USDC', pps: 1_043_211n, totalAssets: 98_765_432_100n,
