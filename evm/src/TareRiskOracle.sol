@@ -73,6 +73,8 @@ contract TareRiskOracle {
     mapping(uint256 id => Post) internal _posts;
     mapping(uint256 id => Resolution) internal _resolutions;
     mapping(uint256 id => Sample) internal _samples;
+    /// A signed post lands once: a re-signed copy of the same reading can't be recorded again.
+    mapping(bytes32 stateHash => bool) public statePosted;
 
     error NotOwner();
     error NotAttester();
@@ -86,6 +88,8 @@ contract TareRiskOracle {
     error AlreadyResolved();
     error SamplingOpen();
     error SamplingClosed();
+    error StateAlreadyPosted();
+    error PostExpired();
 
     event VerdictPosted(
         uint256 indexed id,
@@ -129,13 +133,23 @@ contract TareRiskOracle {
         emit AttesterChanged(attester_);
     }
 
-    function post(address vault, Verdict verdict, uint16 confidenceBps, uint16 riskBps, bytes32 stateHash)
+    function post(
+        address vault,
+        Verdict verdict,
+        uint16 confidenceBps,
+        uint16 riskBps,
+        bytes32 stateHash,
+        uint64 validUntil
+    )
         external
         returns (uint256 id)
     {
         if (msg.sender != attester) revert NotAttester();
         if (!registered[vault]) revert VaultNotRegistered();
         if (confidenceBps > MAX_BPS || riskBps > MAX_BPS) revert BpsOutOfRange();
+        if (block.timestamp > validUntil) revert PostExpired();
+        if (statePosted[stateHash]) revert StateAlreadyPosted();
+        statePosted[stateHash] = true;
         // A vault whose views revert still gets its verdict on record (snapshot zeros); grading marks it broken.
         (uint256 pps, uint256 assets, uint256 liquidity) = (0, 0, 0);
         try this.metricsOf(vault) returns (uint256 pps_, uint256 assets_, uint256 liquidity_) {

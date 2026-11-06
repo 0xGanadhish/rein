@@ -47,7 +47,7 @@ interface SettleResponse { success: boolean; errorReason?: string; transaction?:
 export const SIGN_WAIT_MS = 150_000;
 const POLL_MS = 5_000;
 const VERDICTS = ['HOLD', 'EXIT', 'MOVE'] as const;
-const postAbi = parseAbi(['function post(address vault, uint8 verdict, uint16 confidenceBps, uint16 riskBps, bytes32 stateHash) returns (uint256 id)']);
+const postAbi = parseAbi(['function post(address vault, uint8 verdict, uint16 confidenceBps, uint16 riskBps, bytes32 stateHash, uint64 validUntil) returns (uint256 id)']);
 
 export interface PaymentDeps {
   /** Reaches 1Click and PingPay. */
@@ -176,7 +176,7 @@ export async function x402Judge(request: Request, env: Env, deps: PaymentDeps): 
   const b = await body(request);
   const chain = b?.chain;
   const vault = typeof b?.vault === 'string' ? b.vault.toLowerCase() : null;
-  if (!isChain(chain)) return json({ error: 'chain must be monad-testnet, monad or base' }, 400);
+  if (!isChain(chain)) return json({ error: 'chain must be monad-testnet, monad, base or base-sepolia' }, 400);
   if (!vault || !/^0x[0-9a-f]{40}$/.test(vault)) return json({ error: 'vault must be a 0x address' }, 400);
 
   const policy = await deps.desk.policy();
@@ -229,7 +229,7 @@ export async function x402Judge(request: Request, env: Env, deps: PaymentDeps): 
       signedTx = await deps.desk.get_signed_tx(orderId);
       if (signedTx) break;
     }
-    if (order && (order.status === 'rejected' || order.status === 'refunded')) return json({ orderId, reason: order.status }, 502);
+    if (order && (order.status === 'rejected' || order.status === 'refunded' || order.status === 'post_failed')) return json({ orderId, reason: order.status }, 502);
     if (deps.now() >= deadline) return json({ orderId, reason: 'not signed in time' }, 502);
     await deps.sleep(POLL_MS);
   }

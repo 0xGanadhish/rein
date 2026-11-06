@@ -35,7 +35,7 @@ contract GuardianV2Test is Test {
         guardian.enable(address(vault), 9000, 600);
         vm.stopPrank();
         vm.prank(attester);
-        oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 9500, 8000, keccak256("state"));
+        oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 9500, 8000, keccak256("state"), type(uint64).max);
     }
 
     /// @dev Lowest gas `exit` can be called with and still reach the redeem, i.e. arrive there with exactly

@@ -19,7 +19,7 @@ export interface ChainClient {
   nonce(address: string): Promise<number>;
   fees(): Promise<{ maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }>;
   /** Dry-runs the oracle post the answer leads to, from the desk's derived address. */
-  simulate(call: { from: string; order: DeskOrder; doc: string; response: string }): Promise<{ ok: true } | { ok: false; reason: string }>;
+  simulate(call: { from: string; order: DeskOrder; doc: string; response: string; validUntil: number }): Promise<{ ok: true } | { ok: false; reason: string }>;
   sendRaw(raw: Hex): Promise<Hex>;
   /** The receipt, or null if not mined. With `wait`, waits a short while for it first. */
   receipt(hash: Hex, opts?: { wait?: boolean }): Promise<Receipt | null>;
@@ -38,7 +38,7 @@ export interface OrderDeps {
 export type OrderOutcome = 'delivered' | 'rejected' | 'pending';
 
 /** Gas the derived address must hold before the desk signs a post for it (1 MON, 0.0001 ETH). */
-export const MIN_GAS_WEI: Record<DeskChain, bigint> = { 'monad-testnet': 10n ** 18n, monad: 10n ** 18n, base: 10n ** 14n };
+export const MIN_GAS_WEI: Record<DeskChain, bigint> = { 'monad-testnet': 10n ** 18n, monad: 10n ** 18n, base: 10n ** 14n, 'base-sepolia': 10n ** 14n };
 /** The second EXIT reading must come this long after the first, and no later than EXIT_MAX_S. */
 export const EXIT_MIN_S = 30;
 export const EXIT_MAX_S = 300;
@@ -56,6 +56,7 @@ export async function processOrder(order: DeskOrder, deps: OrderDeps): Promise<O
       return 'delivered';
     case 'rejected':
     case 'refunded':
+    case 'post_failed':
       return 'rejected';
     case 'signing':
       // Chain Signatures is working. If it fails the desk puts the order back and a later tick retries.
@@ -64,7 +65,7 @@ export async function processOrder(order: DeskOrder, deps: OrderDeps): Promise<O
       return deliver(order, deps, false);
     case 'exit_pending': {
       const since = order.exit_pending_s;
-      if (since !== undefined) {
+      if (since !== null) {
         const age = deps.now() - since;
         // Past EXIT_MAX_S the desk returns the order to open; until then there is nothing to do.
         if (age < EXIT_MIN_S || age > EXIT_MAX_S) return 'pending';
@@ -121,7 +122,9 @@ async function answer(order: DeskOrder, deps: OrderDeps, call: 'fulfil' | 'confi
   }
   if (!j) return reject(order, deps, 'bad answer');
 
-  const sim = await chain.simulate({ from, order, doc, response: j.response });
+  const { deadline_s } = await desk.policy();
+  const validUntil = deps.now() + deadline_s;
+  const sim = await chain.simulate({ from, order, doc, response: j.response, validUntil });
   if (!sim.ok) return reject(order, deps, `oracle revert: ${short(sim.reason)}`);
 
   try {
@@ -137,7 +140,7 @@ async function answer(order: DeskOrder, deps: OrderDeps, call: 'fulfil' | 'confi
 
 function settled(order: DeskOrder): OrderOutcome {
   if (order.status === 'delivered') return 'delivered';
-  if (order.status === 'rejected' || order.status === 'refunded') return 'rejected';
+  if (order.status === 'rejected' || order.status === 'refunded' || order.status === 'post_failed') return 'rejected';
   return 'pending';
 }
 
@@ -149,7 +152,7 @@ function errorText(e: unknown): string {
 const isNonceTooLow = (e: unknown) => /nonce too low|nonce has already been used|NonceTooLow/i.test(errorText(e));
 const isAlreadyKnown = (e: unknown) => /already known|already imported|known transaction/i.test(errorText(e));
 
-/** Broadcasts the desk's signed post, then records its gas and reports delivery. */
+/** Broadcasts the desk's signed post, then atomically records its receipt fee and delivery. */
 async function deliver(order: DeskOrder, deps: OrderDeps, resigned: boolean): Promise<OrderOutcome> {
   const { desk } = deps;
   const chain = deps.chain(order.chain);
@@ -179,11 +182,10 @@ async function deliver(order: DeskOrder, deps: OrderDeps, resigned: boolean): Pr
     if (!receipt) return 'pending';
   }
 
-  await desk.record_gas(order.id, String(receipt.gasUsed * receipt.effectiveGasPrice + (receipt.l1Fee ?? 0n)));
   if (receipt.status !== 'success') {
     await deps.alert(`order ${order.id}: post ${hash} reverted on ${order.chain}`);
     return reject(order, deps, 'oracle revert');
   }
-  await desk.report_delivery(order.id, hash);
+  await desk.report_delivery(order.id, hash, String(receipt.gasUsed * receipt.effectiveGasPrice + (receipt.l1Fee ?? 0n)));
   return 'delivered';
 }

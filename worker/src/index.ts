@@ -22,7 +22,7 @@ const PER_CHAIN = 10;
 /** A cron invocation can run 15 minutes, so a lock this old has no live holder. */
 const LOCK_TTL_S = 900;
 
-const FINAL = new Set(['delivered', 'rejected', 'refunded']);
+const FINAL: Record<string, true> = { delivered: true, rejected: true, refunded: true, post_failed: true };
 const IN_FLIGHT = new Set(['exit_pending', 'signing', 'signed']);
 
 /**
@@ -37,7 +37,7 @@ async function ordersToWork(db: D1Database, desk: DeskClient, network: NearNetwo
   let advancing = true;
   const byId = new Map(open.map((o) => [o.id, o]));
   for (const o of page) {
-    if (FINAL.has(o.status)) {
+    if (FINAL[o.status]) {
       if (advancing) low = o.id + 1;
       continue;
     }
@@ -59,7 +59,7 @@ function realDeps(env: Env, desk: DeskClient): OrderDeps {
       const [block, name, stats, prev] = await Promise.all([
         client.getBlockNumber(),
         client.readContract({ address: vault as Address, abi: erc4626Abi, functionName: 'name' }),
-        readVault(env, c, { address: vault, mirror: c === 'monad-testnet' }, { client }),
+        readVault(env, c, { address: vault, mirror: c === 'monad-testnet' || c === 'base-sepolia' }, { client }),
         env.DB.prepare('SELECT apy_bps FROM watch_snapshots WHERE chain = ? AND vault = ? ORDER BY at DESC LIMIT 1')
           .bind(c, vault.toLowerCase()).first<number | null>('apy_bps'),
       ]);

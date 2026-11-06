@@ -9,6 +9,8 @@ import { NEAR_RPC, type Env } from './env';
 /** Calls that ask Chain Signatures for a signature need the most gas a transaction can carry. */
 const SIGN_GAS = 300_000_000_000_000n;
 const CALL_GAS = 30_000_000_000_000n;
+/** Escrow splits and refunds need gas for transfers and callbacks; a USDC split reserves 30 Tgas alone. */
+const SETTLEMENT_GAS = 100_000_000_000_000n;
 
 /** The desk contract, viewed through NEAR RPC and called as the agent account. */
 export function nearDesk(env: Env): DeskClient {
@@ -41,9 +43,9 @@ export function nearDesk(env: Env): DeskClient {
     fulfil: (order_id, doc, response, signature, tx: DeskTx) => call('fulfil', { ...reading(order_id, doc, response, signature), tx }, SIGN_GAS),
     confirm_exit: (order_id, doc, response, signature, tx: DeskTx) => call('confirm_exit', { ...reading(order_id, doc, response, signature), tx }, SIGN_GAS),
     resign: (order_id, tx) => call('resign', { order_id, tx }, SIGN_GAS),
-    report_delivery: (order_id, tx_hash) => call('report_delivery', { order_id, tx_hash }),
-    record_gas: (order_id, gas_wei) => call('record_gas', { order_id, gas_wei }),
-    reject: (order_id, reason) => call('reject', { order_id, reason }),
+    report_delivery: (order_id, tx_hash, gas_wei) => call('report_delivery', { order_id, tx_hash, gas_wei }, SETTLEMENT_GAS),
+    fail_post: (order_id, tx_hash, gas_wei, reason) => call('fail_post', { order_id, tx_hash, gas_wei, reason }, SETTLEMENT_GAS),
+    reject: (order_id, reason) => call('reject', { order_id, reason }, SETTLEMENT_GAS),
   };
 }
 

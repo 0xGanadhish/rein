@@ -8,6 +8,7 @@ pub enum Chain {
     MonadTestnet,
     Monad,
     Base,
+    BaseSepolia,
 }
 
 #[near(serializers = [borsh, json])]
@@ -49,17 +50,21 @@ pub enum OrderStatus {
     Delivered,
     Rejected,
     Refunded,
+    PostFailed,
 }
 
 impl OrderStatus {
     pub fn is_finished(self) -> bool {
         matches!(
             self,
-            OrderStatus::Delivered | OrderStatus::Rejected | OrderStatus::Refunded
+            OrderStatus::Delivered
+                | OrderStatus::Rejected
+                | OrderStatus::Refunded
+                | OrderStatus::PostFailed
         )
     }
 
-    /// Statuses from which escrow can still go back to the payer.
+    /// Pre-sign statuses refundable without post-expiry checks.
     pub fn is_refundable(self) -> bool {
         matches!(self, OrderStatus::Open | OrderStatus::ExitPending)
     }
@@ -94,6 +99,11 @@ pub struct Reading {
     pub state_hash: [u8; 32],
     /// When `fulfil` accepted the first reading.
     pub first_at: u32,
+    /// Last second the oracle accepts this reading's post. Set once per reading; a re-sign keeps it.
+    pub valid_until: u32,
+    /// Target and gas fixed when the first signing attempt starts.
+    pub oracle: [u8; 20],
+    pub gas_limit: u64,
     /// Hash of the unsigned post last sent to the signer.
     pub payload_hash: [u8; 32],
     /// Signed type-2 transaction, until delivery.
@@ -119,6 +129,8 @@ pub struct PerChain<T> {
     pub monad_testnet: T,
     pub monad: T,
     pub base: T,
+    #[serde(rename = "base-sepolia")]
+    pub base_sepolia: T,
 }
 
 impl<T> PerChain<T> {
@@ -127,6 +139,7 @@ impl<T> PerChain<T> {
             Chain::MonadTestnet => &self.monad_testnet,
             Chain::Monad => &self.monad,
             Chain::Base => &self.base,
+            Chain::BaseSepolia => &self.base_sepolia,
         }
     }
 
@@ -135,6 +148,7 @@ impl<T> PerChain<T> {
             Chain::MonadTestnet => &mut self.monad_testnet,
             Chain::Monad => &mut self.monad,
             Chain::Base => &mut self.base,
+            Chain::BaseSepolia => &mut self.base_sepolia,
         }
     }
 }
@@ -152,6 +166,10 @@ pub struct OrderView {
     pub amount: U128,
     pub created_s: u32,
     pub status: OrderStatus,
+    /// Last second the oracle accepts the reading's post. `None` before a reading.
+    pub valid_until: Option<u32>,
+    /// First reading time only while `exit_pending`; `None` in every other state.
+    pub exit_pending_s: Option<u32>,
 }
 
 impl From<&Order> for OrderView {
@@ -165,6 +183,12 @@ impl From<&Order> for OrderView {
             amount: U128(o.amount),
             created_s: o.created_s,
             status: o.status,
+            valid_until: o.reading.as_deref().map(|r| r.valid_until),
+            exit_pending_s: o
+                .reading
+                .as_deref()
+                .filter(|_| o.status == OrderStatus::ExitPending)
+                .map(|r| r.first_at),
         }
     }
 }
@@ -240,14 +264,18 @@ impl Policy {
             treasury,
             oracle: PerChain::default(),
             gas_limit: PerChain {
-                monad_testnet: 200_000,
-                monad: 200_000,
-                base: 200_000,
+                // Monad charges the whole limit, so its testnet stays near the mirror vaults' 254,331.
+                // Real vaults use up to 850,163 on Base; re-measure Monad's before going live there.
+                monad_testnet: 400_000,
+                monad: 1_000_000,
+                base: 1_000_000,
+                base_sepolia: 400_000,
             },
             max_fee_cap: PerChain {
                 monad_testnet: U128(500 * GWEI),
                 monad: U128(500 * GWEI),
                 base: U128(5 * GWEI),
+                base_sepolia: U128(5 * GWEI),
             },
             signer: "v1.signer".parse().unwrap(),
         }
@@ -285,11 +313,13 @@ pub struct Stats {
     pub inference_tokens_out: u64,
     /// EVM gas spent on posts, wei, as reported by the agent.
     pub gas_wei: PerChain<U128>,
-    /// Split credited to the treasury and the agent when orders are signed.
+    /// Split credited to the treasury and the agent when orders are delivered.
     pub paid_treasury: Amounts,
     pub paid_agent: Amounts,
-    /// USDC from the split whose transfer failed, claimable with `claim_owed`.
+    /// USDC awaiting transfer success; failed transfers are claimable with `claim_owed`.
     pub owed: U128,
+    /// yoctoNEAR awaiting transfer success; failed transfers are claimable with `claim_owed`.
+    pub owed_near: U128,
     /// Watch orders opened.
     pub watch_orders: u64,
 }

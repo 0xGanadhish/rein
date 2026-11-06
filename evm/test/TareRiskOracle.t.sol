@@ -44,8 +44,9 @@ contract TareRiskOracleTest is Test {
     }
 
     function _post() internal returns (uint256) {
+        bytes32 stateHash = oracle.postCount() == 0 ? HASH : keccak256(abi.encode(HASH, oracle.postCount()));
         vm.prank(attester);
-        return oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 9200, 8000, HASH);
+        return oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 9200, 8000, stateHash, type(uint64).max);
     }
 
     function test_constructor_setsRoles() public view {
@@ -58,21 +59,21 @@ contract TareRiskOracleTest is Test {
     function test_post_onlyAttester() public {
         vm.prank(other);
         vm.expectRevert(TareRiskOracle.NotAttester.selector);
-        oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 9200, 8000, HASH);
+        oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 9200, 8000, HASH, type(uint64).max);
     }
 
     function test_post_requiresRegisteredVault() public {
         vm.prank(attester);
         vm.expectRevert(TareRiskOracle.VaultNotRegistered.selector);
-        oracle.post(other, TareRiskOracle.Verdict.EXIT, 9200, 8000, HASH);
+        oracle.post(other, TareRiskOracle.Verdict.EXIT, 9200, 8000, HASH, type(uint64).max);
     }
 
     function test_post_rejectsBpsOver10000() public {
         vm.startPrank(attester);
         vm.expectRevert(TareRiskOracle.BpsOutOfRange.selector);
-        oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 10_001, 8000, HASH);
+        oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 10_001, 8000, HASH, type(uint64).max);
         vm.expectRevert(TareRiskOracle.BpsOutOfRange.selector);
-        oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 9200, 10_001, HASH);
+        oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 9200, 10_001, HASH, type(uint64).max);
         vm.stopPrank();
     }
 
@@ -105,12 +106,29 @@ contract TareRiskOracleTest is Test {
         assertEq(oracle.latest(other), 0);
     }
 
+    function test_post_revertsOnRepeatedStateHash() public {
+        _post();
+        vm.prank(attester);
+        vm.expectRevert(TareRiskOracle.StateAlreadyPosted.selector);
+        oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 9200, 8000, HASH, type(uint64).max);
+        assertEq(oracle.postCount(), 1);
+    }
+
+    function test_post_revertsAfterValidUntil() public {
+        vm.warp(1_000_000);
+        vm.startPrank(attester);
+        vm.expectRevert(TareRiskOracle.PostExpired.selector);
+        oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 9200, 8000, HASH, 999_999);
+        assertEq(oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 9200, 8000, HASH, 1_000_000), 1);
+        vm.stopPrank();
+    }
+
     function test_post_noAdapter_liquidityMax() public {
         MirrorVault bare = new MirrorVault(usdc, "Bare", "bUSDC", "Bare", 0, 0, admin);
         vm.prank(owner);
         oracle.registerVault(address(bare), address(0));
         vm.prank(attester);
-        uint256 id = oracle.post(address(bare), TareRiskOracle.Verdict.HOLD, 9000, 100, HASH);
+        uint256 id = oracle.post(address(bare), TareRiskOracle.Verdict.HOLD, 9000, 100, HASH, type(uint64).max);
         assertEq(oracle.getPost(id).liquidityAtPost, type(uint256).max);
         assertTrue(oracle.registered(address(bare)));
         assertEq(oracle.adapterOf(address(bare)), address(0));
@@ -143,8 +161,8 @@ contract TareRiskOracleTest is Test {
         assertEq(oracle.attester(), other);
         vm.prank(attester);
         vm.expectRevert(TareRiskOracle.NotAttester.selector);
-        oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 9200, 8000, HASH);
+        oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 9200, 8000, HASH, type(uint64).max);
         vm.prank(other);
-        assertEq(oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 9200, 8000, HASH), 1);
+        assertEq(oracle.post(address(vault), TareRiskOracle.Verdict.EXIT, 9200, 8000, HASH, type(uint64).max), 1);
     }
 }

@@ -881,7 +881,7 @@ const MOCK_SIGNER_KEY: [u8; 32] = [0x42; 32];
 /// The test model's key, approved with `set_signer`.
 const MODEL_KEY: [u8; 32] = [0x07; 32];
 const GWEI: u128 = 1_000_000_000;
-const BASE_GAS_LIMIT: u64 = 200_000;
+const BASE_GAS_LIMIT: u64 = 1_000_000;
 const TX_HASH: &str = "0xabababababababababababababababababababababababababababababababab";
 
 fn secret(k: &[u8; 32]) -> secp256k1::SecretKey {
@@ -977,11 +977,19 @@ fn expected_post(
     risk_bps: u16,
     doc: &str,
     nonce: u64,
+    valid_until: u32,
 ) -> String {
     let vault = desk::types::parse_vault(vault).unwrap();
     let oracle = desk::types::parse_vault(ORACLE).unwrap();
     let state_hash = near_sdk::env::keccak256_array(doc.as_bytes());
-    let data = evm::post_calldata(&vault, verdict, confidence_bps, risk_bps, &state_hash);
+    let data = evm::post_calldata(
+        &vault,
+        verdict,
+        confidence_bps,
+        risk_bps,
+        &state_hash,
+        valid_until as u64,
+    );
     let (fee, prio) = (2 * GWEI, GWEI);
     let unsigned = evm::unsigned_1559(8453, nonce, prio, fee, BASE_GAS_LIMIT, &oracle, &data);
     let sig = sign_hash(&MOCK_SIGNER_KEY, &evm::payload_hash(&unsigned), 0);
@@ -1042,6 +1050,15 @@ impl Env {
         Ok(self.order(id).await?.expect("order exists").status)
     }
 
+    async fn valid_until(&self, id: u64) -> anyhow::Result<u32> {
+        Ok(self
+            .order(id)
+            .await?
+            .expect("order exists")
+            .valid_until
+            .expect("order has a reading"))
+    }
+
     async fn signed_tx(&self, id: u64) -> anyhow::Result<Option<String>> {
         Ok(self
             .desk
@@ -1087,12 +1104,56 @@ impl Env {
 }
 
 #[tokio::test]
+async fn fulfil_after_deadline_refused() -> anyhow::Result<()> {
+    let e = setup_with(|p| p.deadline_s = 60).await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    e.advance(60).await?;
+    let r = e.reading(id, V1, "hold", 8100, 1200).await?;
+    let err = failure_text(e.fulfil(&e.agent, id, &r, tx(0)).await?);
+    assert!(err.contains("order deadline passed"), "{err}");
+    assert_eq!(e.status(id).await?, OrderStatus::Open);
+    assert_eq!(e.signer_calls().await?, 0);
+    e.call(&e.bob, "refund", json!({ "order_id": id }))
+        .await?
+        .into_result()?;
+    assert_eq!(e.status(id).await?, OrderStatus::Refunded);
+    Ok(())
+}
+
+#[tokio::test]
+async fn confirm_exit_after_deadline_refused() -> anyhow::Result<()> {
+    let e = setup_with(|p| p.deadline_s = 60).await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let first = e.reading(id, V1, "exit", 8100, 6400).await?;
+    e.fulfil(&e.agent, id, &first, tx(0)).await?.into_result()?;
+    e.advance(60).await?;
+    let second = e.reading(id, V1, "exit", 9000, 7000).await?;
+    let err = failure_text(e.confirm(&e.agent, id, &second, tx(0)).await?);
+    assert!(err.contains("order deadline passed"), "{err}");
+    assert_eq!(e.status(id).await?, OrderStatus::ExitPending);
+    assert_eq!(e.signer_calls().await?, 0);
+    e.call(&e.bob, "refund", json!({ "order_id": id }))
+        .await?
+        .into_result()?;
+    assert_eq!(e.status(id).await?, OrderStatus::Refunded);
+    Ok(())
+}
+
+#[tokio::test]
 async fn hold_fulfil_signs_once() -> anyhow::Result<()> {
     let e = setup().await?;
     let (id, r) = e.signed_hold(V1, 0).await?;
     assert_eq!(
         e.signed_tx(id).await?,
-        Some(expected_post(V1, 0, 8100, 1200, &r.doc, 0))
+        Some(expected_post(
+            V1,
+            0,
+            8100,
+            1200,
+            &r.doc,
+            0,
+            e.valid_until(id).await?
+        ))
     );
     assert_eq!(e.signer_calls().await?, 1);
     let s = e.stats().await?;
@@ -1147,6 +1208,62 @@ async fn fee_above_cap_refused() -> anyhow::Result<()> {
         .await?
         .into_result()?;
     assert_eq!(e.status(id).await?, OrderStatus::Signed);
+    Ok(())
+}
+
+#[tokio::test]
+async fn exit_pending_view_has_first_at() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let raw: Value = e
+        .desk
+        .view("get_order")
+        .args_json(json!({ "order_id": id }))
+        .await?
+        .json()?;
+    assert_eq!(raw.get("exit_pending_s"), Some(&Value::Null));
+    let before = e.now_s().await?;
+    let r = e.reading(id, V1, "exit", 8100, 6400).await?;
+    e.fulfil(&e.agent, id, &r, tx(0)).await?.into_result()?;
+    let raw: Value = e
+        .desk
+        .view("get_order")
+        .args_json(json!({ "order_id": id }))
+        .await?
+        .json()?;
+    let first_at = raw["exit_pending_s"].as_u64().expect("first reading time");
+    assert!(first_at >= before && first_at <= e.now_s().await?);
+    e.advance(30).await?;
+    for (method, args) in [
+        ("get_order", json!({ "order_id": id })),
+        ("open_orders", json!({ "limit": 10 })),
+        ("list_orders", json!({ "from": id, "limit": 1 })),
+    ] {
+        let raw: Value = e.desk.view(method).args_json(args).await?.json()?;
+        let view = if raw.is_array() { &raw[0] } else { &raw };
+        assert_eq!(view["exit_pending_s"], json!(first_at));
+    }
+    let r2 = e.reading(id, V1, "hold", 6000, 2000).await?;
+    e.confirm(&e.agent, id, &r2, tx(0)).await?.into_result()?;
+    let raw: Value = e
+        .desk
+        .view("get_order")
+        .args_json(json!({ "order_id": id }))
+        .await?
+        .json()?;
+    assert_eq!(raw.get("exit_pending_s"), Some(&Value::Null));
+    let other = id_of(e.order_near(&e.alice, V2, price_near()).await?)?;
+    let r = e.reading(other, V2, "exit", 8100, 6400).await?;
+    e.fulfil(&e.agent, other, &r, tx(1)).await?.into_result()?;
+    e.advance(301).await?;
+    let raw: Value = e
+        .desk
+        .view("get_order")
+        .args_json(json!({ "order_id": other }))
+        .await?
+        .json()?;
+    assert_eq!(raw["status"], json!("open"));
+    assert_eq!(raw.get("exit_pending_s"), Some(&Value::Null));
     Ok(())
 }
 
@@ -1230,7 +1347,15 @@ async fn confirm_exit_signs_exit() -> anyhow::Result<()> {
     assert_eq!(e.status(id).await?, OrderStatus::Signed);
     assert_eq!(
         e.signed_tx(id).await?,
-        Some(expected_post(V1, 1, 9000, 7000, &r2.doc, 0))
+        Some(expected_post(
+            V1,
+            1,
+            9000,
+            7000,
+            &r2.doc,
+            0,
+            e.valid_until(id).await?
+        ))
     );
     assert_eq!(e.signer_calls().await?, 1);
     Ok(())
@@ -1248,7 +1373,15 @@ async fn confirm_hold_signs_hold() -> anyhow::Result<()> {
     assert_eq!(e.status(id).await?, OrderStatus::Signed);
     assert_eq!(
         e.signed_tx(id).await?,
-        Some(expected_post(V1, 0, 6000, 2000, &r2.doc, 0))
+        Some(expected_post(
+            V1,
+            0,
+            6000,
+            2000,
+            &r2.doc,
+            0,
+            e.valid_until(id).await?
+        ))
     );
     Ok(())
 }
@@ -1284,7 +1417,7 @@ async fn signed_counts_against_spacing() -> anyhow::Result<()> {
     e.call(
         &e.agent,
         "report_delivery",
-        json!({ "order_id": id, "tx_hash": TX_HASH }),
+        json!({ "order_id": id, "tx_hash": TX_HASH, "gas_wei": U128(0) }),
     )
     .await?
     .into_result()?;
@@ -1308,14 +1441,26 @@ async fn resign_keeps_verdict_counts_once() -> anyhow::Result<()> {
     assert_eq!(e.status(id).await?, OrderStatus::Signed);
     let second = e.signed_tx(id).await?.unwrap();
     assert_ne!(first, second);
-    assert_eq!(second, expected_post(V1, 0, 8100, 1200, &r.doc, 1));
+    assert_eq!(
+        second,
+        expected_post(V1, 0, 8100, 1200, &r.doc, 1, e.valid_until(id).await?)
+    );
     assert_eq!(e.signer_calls().await?, 2);
 
     // Two posts fit the cap of 2 only if the re-sign was not counted.
-    e.signed_hold(V2, 0).await?;
+    let (other_id, _) = e.signed_hold(V2, 0).await?;
     assert!(e.order_near(&e.bob, V3, price_near()).await?.is_failure());
 
-    // And the split was paid once per order.
+    // Delivery, not signing or re-signing, pays the split once per order.
+    for order_id in [id, other_id] {
+        e.call(
+            &e.agent,
+            "report_delivery",
+            json!({ "order_id": order_id, "tx_hash": TX_HASH, "gas_wei": U128(1) }),
+        )
+        .await?
+        .into_result()?;
+    }
     let to_treasury = price_near().as_yoctonear() * 7 / 10;
     assert_eq!(e.stats().await?.paid_treasury.near, U128(2 * to_treasury));
     assert_eq!(
@@ -1323,6 +1468,111 @@ async fn resign_keeps_verdict_counts_once() -> anyhow::Result<()> {
         treasury_before.saturating_add(NearToken::from_yoctonear(2 * to_treasury))
     );
     Ok(())
+}
+
+#[tokio::test]
+async fn resign_keeps_valid_until() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let (id, r) = e.signed_hold(V1, 0).await?;
+    let valid_until = e.valid_until(id).await?;
+    e.advance(5).await?;
+    e.call(&e.agent, "resign", json!({ "order_id": id, "tx": tx(1) }))
+        .await?
+        .into_result()?;
+    assert_eq!(e.valid_until(id).await?, valid_until);
+    assert_eq!(
+        e.signed_tx(id).await?,
+        Some(expected_post(V1, 0, 8100, 1200, &r.doc, 1, valid_until))
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn resign_refused_under_kill() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let (id, _) = e.signed_hold(V1, 0).await?;
+    e.call(&e.owner, "kill_switch", json!({ "on": true }))
+        .await?
+        .into_result()?;
+    let err = failure_text(
+        e.call(&e.agent, "resign", json!({ "order_id": id, "tx": tx(1) }))
+            .await?,
+    );
+    assert!(err.contains("kill switch on"), "{err}");
+    assert_eq!(e.signer_calls().await?, 1);
+    Ok(())
+}
+
+#[tokio::test]
+async fn resign_refused_after_valid_until() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let (id, _) = e.signed_hold(V1, 0).await?;
+    let valid_until = e.valid_until(id).await?;
+    let wait = valid_until as u64 + 1 - e.now_s().await?;
+    e.advance(wait).await?;
+    let err = failure_text(
+        e.call(&e.agent, "resign", json!({ "order_id": id, "tx": tx(1) }))
+            .await?,
+    );
+    assert!(err.contains("post expired"), "{err}");
+    assert_eq!(e.signer_calls().await?, 1);
+    Ok(())
+}
+
+async fn signing_with_policy_change(oracle: Option<&str>) -> anyhow::Result<()> {
+    let e = setup().await?;
+    e.signer_mode("hold").await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let r = e.reading(id, V1, "hold", 8100, 1200).await?;
+    let pending = e
+        .agent
+        .call(e.desk.id(), "fulfil")
+        .args_json(r.args(id, tx(0)))
+        .max_gas()
+        .transact_async()
+        .await?;
+    for _ in 0..100 {
+        if e.status(id).await? == OrderStatus::Signing {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert_eq!(e.status(id).await?, OrderStatus::Signing);
+    let valid_until = e.valid_until(id).await?;
+    let mut policy: Policy = e.desk.view("policy").await?.json()?;
+    policy.oracle.base = oracle.map(String::from);
+    policy.gas_limit.base = 2 * BASE_GAS_LIMIT;
+    e.call(&e.owner, "set_policy", json!({ "policy": policy }))
+        .await?
+        .into_result()?;
+    e.signer.call("release").transact().await?.into_result()?;
+    let outcome = pending.await?;
+    assert_eq!(e.status(id).await?, OrderStatus::Signed, "{outcome:?}");
+    outcome.into_result()?;
+    assert_eq!(
+        e.signed_tx(id).await?,
+        Some(expected_post(V1, 0, 8100, 1200, &r.doc, 0, valid_until))
+    );
+    e.signer_mode("ok").await?;
+    e.call(&e.agent, "resign", json!({ "order_id": id, "tx": tx(1) }))
+        .await?
+        .into_result()?;
+    assert_eq!(
+        e.signed_tx(id).await?,
+        Some(expected_post(V1, 0, 8100, 1200, &r.doc, 1, valid_until))
+    );
+    assert_eq!(e.stats().await?.open_paid, 1);
+    Ok(())
+}
+
+#[tokio::test]
+async fn oracle_changed_during_signing_completes() -> anyhow::Result<()> {
+    signing_with_policy_change(Some("0x00000000000000000000000000000000000000a2")).await
+}
+
+#[tokio::test]
+async fn oracle_cleared_during_signing_not_stuck() -> anyhow::Result<()> {
+    signing_with_policy_change(None).await
 }
 
 #[tokio::test]
@@ -1356,6 +1606,15 @@ async fn refund_refused_while_signing() -> anyhow::Result<()> {
             .await?,
     );
     assert!(err.contains("order is not refundable"), "{err}");
+    let err = failure_text(
+        e.call(
+            &e.agent,
+            "fail_post",
+            json!({ "order_id": id, "tx_hash": null, "gas_wei": U128(1), "reason": "no" }),
+        )
+        .await?,
+    );
+    assert!(err.contains("order is not signed"), "{err}");
     e.call(&e.owner, "kill_switch", json!({ "on": false }))
         .await?
         .into_result()?;
@@ -1412,8 +1671,275 @@ async fn sign_failure_restores_state() -> anyhow::Result<()> {
     assert_eq!(e.status(b).await?, OrderStatus::Signed);
     assert_eq!(
         e.signed_tx(b).await?,
-        Some(expected_post(V2, 1, 9000, 7000, &r2.doc, 1))
+        Some(expected_post(
+            V2,
+            1,
+            9000,
+            7000,
+            &r2.doc,
+            1,
+            e.valid_until(b).await?
+        ))
     );
+    Ok(())
+}
+
+#[tokio::test]
+async fn delivery_retry_counts_gas_once() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let (id, _) = e.signed_hold(V1, 0).await?;
+    let args = json!({ "order_id": id, "tx_hash": TX_HASH, "gas_wei": U128(123_456) });
+    e.call(&e.agent, "report_delivery", args.clone())
+        .await?
+        .into_result()?;
+    assert_eq!(e.stats().await?.gas_wei.base, U128(123_456));
+    let err = failure_text(e.call(&e.agent, "report_delivery", args).await?);
+    assert!(err.contains("order is not signed"), "{err}");
+    let s = e.stats().await?;
+    assert_eq!(s.gas_wei.base, U128(123_456));
+    assert_eq!(
+        s.paid_treasury.near,
+        U128(price_near().as_yoctonear() * 7 / 10)
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn fail_post_refunds_in_full() -> anyhow::Result<()> {
+    let e = setup_with(|p| p.spacing_s = 0).await?;
+    let (near_id, _) = e.signed_hold(V1, 0).await?;
+    e.order_usdc(&e.alice, PRICE_USDC, &usdc_msg(V2))
+        .await?
+        .into_result()?;
+    let usdc_id = near_id + 1;
+    let r = e.reading(usdc_id, V2, "hold", 8100, 1200).await?;
+    e.fulfil(&e.agent, usdc_id, &r, tx(1))
+        .await?
+        .into_result()?;
+    let before = e.near_balance(&e.alice).await?;
+    for (id, hash) in [(near_id, Some(TX_HASH)), (usdc_id, None)] {
+        let args = json!({ "order_id": id, "tx_hash": hash, "gas_wei": U128(100), "reason": "post reverted" });
+        e.call(&e.agent, "fail_post", args.clone())
+            .await?
+            .into_result()?;
+        let view = e.order(id).await?.unwrap();
+        assert_eq!(
+            near_sdk::serde_json::to_value(view.status)?,
+            json!("post_failed")
+        );
+        assert!(view.status.is_finished());
+        assert_eq!(e.signed_tx(id).await?, None);
+        let err = failure_text(e.call(&e.agent, "fail_post", args).await?);
+        assert!(err.contains("order is not signed"), "{err}");
+        let err = failure_text(
+            e.call(
+                &e.agent,
+                "report_delivery",
+                json!({ "order_id": id, "tx_hash": TX_HASH, "gas_wei": U128(100) }),
+            )
+            .await?,
+        );
+        assert!(err.contains("order is not signed"), "{err}");
+    }
+    assert_eq!(
+        e.near_balance(&e.alice).await?,
+        before.saturating_add(price_near())
+    );
+    assert_eq!(e.usdc_balance(e.alice.id()).await?, 10 * PRICE_USDC);
+    let s = e.stats().await?;
+    assert_eq!((s.open_paid, s.refunds), (0, 2));
+    assert_eq!(s.gas_wei.base, U128(200));
+    assert_eq!(s.paid_treasury, Default::default());
+    assert_eq!(s.paid_agent, Default::default());
+    id_of(e.order_near(&e.bob, V1, price_near()).await?)?;
+    id_of(e.order_near(&e.bob, V2, price_near()).await?)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn fail_post_only_agent() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let (id, _) = e.signed_hold(V1, 0).await?;
+    for who in [&e.alice, &e.owner, &e.treasury] {
+        let err = failure_text(
+            e.call(
+                who,
+                "fail_post",
+                json!({ "order_id": id, "tx_hash": null, "gas_wei": U128(1), "reason": "expired" }),
+            )
+            .await?,
+        );
+        assert!(err.contains("agent only"), "{err}");
+    }
+    assert_eq!(e.status(id).await?, OrderStatus::Signed);
+    assert_eq!(e.stats().await?.gas_wei.base, U128(0));
+    Ok(())
+}
+
+#[tokio::test]
+async fn fail_post_only_from_signed() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let open = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let pending = id_of(e.order_near(&e.alice, V2, price_near()).await?)?;
+    let r = e.reading(pending, V2, "exit", 8100, 6400).await?;
+    e.fulfil(&e.agent, pending, &r, tx(0))
+        .await?
+        .into_result()?;
+    let rejected = id_of(e.order_near(&e.alice, V3, price_near()).await?)?;
+    e.call(
+        &e.agent,
+        "reject",
+        json!({ "order_id": rejected, "reason": "no" }),
+    )
+    .await?
+    .into_result()?;
+    let refunded = id_of(e.order_near(&e.alice, V4, price_near()).await?)?;
+    let (delivered, _) = e.signed_hold(V5, 0).await?;
+    e.call(
+        &e.agent,
+        "report_delivery",
+        json!({ "order_id": delivered, "tx_hash": TX_HASH, "gas_wei": U128(10) }),
+    )
+    .await?
+    .into_result()?;
+    e.call(&e.owner, "kill_switch", json!({ "on": true }))
+        .await?
+        .into_result()?;
+    e.call(&e.bob, "refund", json!({ "order_id": refunded }))
+        .await?
+        .into_result()?;
+    for id in [open, pending, rejected, refunded, delivered] {
+        let status = e.status(id).await?;
+        let err = failure_text(
+            e.call(
+                &e.agent,
+                "fail_post",
+                json!({ "order_id": id, "tx_hash": null, "gas_wei": U128(1), "reason": "no" }),
+            )
+            .await?,
+        );
+        assert!(err.contains("order is not signed"), "{status:?}: {err}");
+        assert_eq!(e.status(id).await?, status);
+    }
+    assert_eq!(e.stats().await?.gas_wei.base, U128(10));
+    Ok(())
+}
+
+#[tokio::test]
+async fn no_split_until_delivered() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let treasury = e.near_balance(&e.treasury).await?;
+    let (id, _) = e.signed_hold(V1, 0).await?;
+    assert_eq!(e.near_balance(&e.treasury).await?, treasury);
+    assert_eq!(e.stats().await?.paid_treasury, Default::default());
+    e.call(&e.agent, "resign", json!({ "order_id": id, "tx": tx(1) }))
+        .await?
+        .into_result()?;
+    assert_eq!(e.stats().await?.paid_agent, Default::default());
+    e.call(
+        &e.agent,
+        "report_delivery",
+        json!({ "order_id": id, "tx_hash": TX_HASH, "gas_wei": U128(1) }),
+    )
+    .await?
+    .into_result()?;
+    assert_eq!(
+        e.stats().await?.paid_treasury.near,
+        U128(price_near().as_yoctonear() * 7 / 10)
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn refund_of_signed_refused_before_expiry() -> anyhow::Result<()> {
+    let e = setup_with(|p| p.deadline_s = 120).await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    e.advance(60).await?;
+    let r = e.reading(id, V1, "hold", 8100, 1200).await?;
+    e.fulfil(&e.agent, id, &r, tx(0)).await?.into_result()?;
+    e.advance(60).await?;
+    assert!(e.now_s().await? < e.valid_until(id).await? as u64);
+    let err = failure_text(e.call(&e.bob, "refund", json!({ "order_id": id })).await?);
+    assert!(err.contains("refund before post expiry and grace"), "{err}");
+    assert_eq!(e.status(id).await?, OrderStatus::Signed);
+    Ok(())
+}
+
+#[tokio::test]
+async fn refund_of_signed_after_expiry_and_grace() -> anyhow::Result<()> {
+    let e = setup_with(|p| {
+        p.deadline_s = 120;
+        p.spacing_s = 0;
+    })
+    .await?;
+    let (id, _) = e.signed_hold(V1, 0).await?;
+    e.advance(121).await?;
+    let err = failure_text(e.call(&e.bob, "refund", json!({ "order_id": id })).await?);
+    assert!(err.contains("refund before post expiry and grace"), "{err}");
+    e.advance(120).await?;
+    let before = e.near_balance(&e.alice).await?;
+    e.call(&e.bob, "refund", json!({ "order_id": id }))
+        .await?
+        .into_result()?;
+    assert_eq!(e.status(id).await?, OrderStatus::Refunded);
+    assert_eq!(e.signed_tx(id).await?, None);
+    assert_eq!(
+        e.near_balance(&e.alice).await?,
+        before.saturating_add(price_near())
+    );
+    assert_eq!(
+        (e.stats().await?.open_paid, e.stats().await?.refunds),
+        (0, 1)
+    );
+    assert_eq!(e.stats().await?.paid_treasury, Default::default());
+    id_of(e.order_near(&e.bob, V1, price_near()).await?)?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn kill_switch_does_not_shorten_signed_refund() -> anyhow::Result<()> {
+    let e = setup_with(|p| p.deadline_s = 120).await?;
+    let (id, _) = e.signed_hold(V1, 0).await?;
+    e.call(&e.owner, "kill_switch", json!({ "on": true }))
+        .await?
+        .into_result()?;
+    for wait in [0, 121] {
+        if wait != 0 {
+            e.advance(wait).await?;
+        }
+        let err = failure_text(e.call(&e.bob, "refund", json!({ "order_id": id })).await?);
+        assert!(err.contains("refund before post expiry and grace"), "{err}");
+        assert_eq!(e.status(id).await?, OrderStatus::Signed);
+    }
+    e.advance(120).await?;
+    e.call(&e.bob, "refund", json!({ "order_id": id }))
+        .await?
+        .into_result()?;
+    assert_eq!(e.status(id).await?, OrderStatus::Refunded);
+    Ok(())
+}
+
+#[tokio::test]
+async fn refund_after_delivery_refused() -> anyhow::Result<()> {
+    let e = setup_with(|p| p.deadline_s = 60).await?;
+    let (id, _) = e.signed_hold(V1, 0).await?;
+    e.call(
+        &e.agent,
+        "report_delivery",
+        json!({ "order_id": id, "tx_hash": TX_HASH, "gas_wei": U128(10) }),
+    )
+    .await?
+    .into_result()?;
+    e.advance(121).await?;
+    e.call(&e.owner, "kill_switch", json!({ "on": true }))
+        .await?
+        .into_result()?;
+    let before = e.near_balance(&e.alice).await?;
+    let err = failure_text(e.call(&e.bob, "refund", json!({ "order_id": id })).await?);
+    assert!(err.contains("order is not refundable"), "{err}");
+    assert_eq!(e.near_balance(&e.alice).await?, before);
+    assert_eq!(e.status(id).await?, OrderStatus::Delivered);
+    assert_eq!(e.stats().await?.refunds, 0);
     Ok(())
 }
 
@@ -1426,7 +1952,7 @@ async fn report_delivery_marks_delivered_and_frees_tx() -> anyhow::Result<()> {
         e.call(
             &e.agent,
             "report_delivery",
-            json!({ "order_id": id, "tx_hash": "0x12" }),
+            json!({ "order_id": id, "tx_hash": "0x12", "gas_wei": U128(0) }),
         )
         .await?,
     );
@@ -1435,7 +1961,7 @@ async fn report_delivery_marks_delivered_and_frees_tx() -> anyhow::Result<()> {
     e.call(
         &e.agent,
         "report_delivery",
-        json!({ "order_id": id, "tx_hash": TX_HASH }),
+        json!({ "order_id": id, "tx_hash": TX_HASH, "gas_wei": U128(0) }),
     )
     .await?
     .into_result()?;
@@ -1453,7 +1979,7 @@ async fn report_delivery_marks_delivered_and_frees_tx() -> anyhow::Result<()> {
         .call(
             &e.agent,
             "report_delivery",
-            json!({ "order_id": id, "tx_hash": TX_HASH })
+            json!({ "order_id": id, "tx_hash": TX_HASH, "gas_wei": U128(0) })
         )
         .await?
         .is_failure());
@@ -1465,11 +1991,27 @@ async fn report_delivery_marks_delivered_and_frees_tx() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn split_70_30_on_signed_near() -> anyhow::Result<()> {
+async fn split_70_30_on_delivered_near() -> anyhow::Result<()> {
     let e = setup().await?;
     let treasury_before = e.near_balance(&e.treasury).await?;
     let agent_before = e.near_balance(&e.agent).await?;
-    e.signed_hold(V1, 0).await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    let reading = e.reading(id, V1, "hold", 8100, 1200).await?;
+    let fulfilled = e
+        .fulfil(&e.agent, id, &reading, tx(0))
+        .await?
+        .into_result()?;
+    assert_eq!(e.near_balance(&e.treasury).await?, treasury_before);
+    let delivered = e
+        .call(
+            &e.agent,
+            "report_delivery",
+            json!({ "order_id": id, "tx_hash": TX_HASH, "gas_wei": U128(1) }),
+        )
+        .await?
+        .into_result()?;
+    // Detached transfers and prepaid-gas refunds can finish after the call's return.
+    e.worker.fast_forward(5).await?;
 
     let price = price_near().as_yoctonear();
     let (to_treasury, to_agent) = (price * 7 / 10, price * 3 / 10);
@@ -1477,14 +2019,16 @@ async fn split_70_30_on_signed_near() -> anyhow::Result<()> {
         e.near_balance(&e.treasury).await?,
         treasury_before.saturating_add(NearToken::from_yoctonear(to_treasury))
     );
-    // The agent also paid gas for its calls.
-    let agent_after = e.near_balance(&e.agent).await?;
-    assert!(
-        agent_after.saturating_add(gas_only())
-            > agent_before.saturating_add(NearToken::from_yoctonear(to_agent)),
-        "agent {agent_before} -> {agent_after}"
+    let gas_spent: u128 = fulfilled
+        .outcomes()
+        .into_iter()
+        .chain(delivered.outcomes())
+        .map(|outcome| outcome.tokens_burnt.as_yoctonear())
+        .sum();
+    assert_eq!(
+        e.near_balance(&e.agent).await?.as_yoctonear(),
+        agent_before.as_yoctonear() + to_agent - gas_spent
     );
-    assert!(agent_after > agent_before);
     let s = e.stats().await?;
     assert_eq!(s.paid_treasury.near, U128(to_treasury));
     assert_eq!(s.paid_agent.near, U128(to_agent));
@@ -1493,7 +2037,7 @@ async fn split_70_30_on_signed_near() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn split_70_30_on_signed_usdc() -> anyhow::Result<()> {
+async fn split_70_30_on_delivered_usdc() -> anyhow::Result<()> {
     let e = setup().await?;
     e.order_usdc(&e.alice, PRICE_USDC, &usdc_msg(V1))
         .await?
@@ -1503,8 +2047,25 @@ async fn split_70_30_on_signed_usdc() -> anyhow::Result<()> {
     assert_eq!(e.status(0).await?, OrderStatus::Signed);
     assert_eq!(
         e.signed_tx(0).await?,
-        Some(expected_post(V1, 2, 7000, 3000, &r.doc, 0))
+        Some(expected_post(
+            V1,
+            2,
+            7000,
+            3000,
+            &r.doc,
+            0,
+            e.valid_until(0).await?
+        ))
     );
+    assert_eq!(e.usdc_balance(e.desk.id()).await?, PRICE_USDC);
+    assert_eq!(e.usdc_balance(e.treasury.id()).await?, 0);
+    e.call(
+        &e.agent,
+        "report_delivery",
+        json!({ "order_id": 0, "tx_hash": TX_HASH, "gas_wei": U128(1) }),
+    )
+    .await?
+    .into_result()?;
     assert_eq!(e.usdc_balance(e.treasury.id()).await?, 700_000);
     assert_eq!(e.usdc_balance(e.agent.id()).await?, 300_000);
     assert_eq!(e.usdc_balance(e.desk.id()).await?, 0);
@@ -1512,6 +2073,223 @@ async fn split_70_30_on_signed_usdc() -> anyhow::Result<()> {
     assert_eq!(s.paid_treasury.usdc, U128(700_000));
     assert_eq!(s.paid_agent.usdc, U128(300_000));
     assert_eq!(s.owed, U128(0));
+    Ok(())
+}
+
+#[tokio::test]
+async fn report_delivery_usdc_fits_worker_gas() -> anyhow::Result<()> {
+    let e = setup().await?;
+    e.order_usdc(&e.alice, PRICE_USDC, &usdc_msg(V1))
+        .await?
+        .into_result()?;
+    let id = 0;
+    let reading = e.reading(id, V1, "hold", 8100, 1200).await?;
+    e.fulfil(&e.agent, id, &reading, tx(0))
+        .await?
+        .into_result()?;
+    assert_eq!(e.status(id).await?, OrderStatus::Signed);
+
+    // Match SETTLEMENT_GAS in worker/src/near.ts, rather than the helpers' max_gas().
+    let worker_gas = near_workspaces::types::Gas::from_tgas(100);
+    e.agent
+        .call(e.desk.id(), "report_delivery")
+        .args_json(json!({ "order_id": id, "tx_hash": TX_HASH, "gas_wei": U128(1) }))
+        .gas(worker_gas)
+        .transact()
+        .await?
+        .into_result()?;
+    e.worker.fast_forward(5).await?;
+
+    assert_eq!(e.status(id).await?, OrderStatus::Delivered);
+    assert_eq!(e.usdc_balance(e.treasury.id()).await?, PRICE_USDC * 7 / 10);
+    assert_eq!(e.usdc_balance(e.agent.id()).await?, PRICE_USDC * 3 / 10);
+    assert_eq!(e.usdc_balance(e.desk.id()).await?, 0);
+    assert_eq!(e.stats().await?.owed, U128(0));
+    Ok(())
+}
+
+#[tokio::test]
+async fn refund_ft_failure_keeps_owed() -> anyhow::Result<()> {
+    let e = setup().await?;
+    e.order_usdc(&e.alice, PRICE_USDC, &usdc_msg(V1))
+        .await?
+        .into_result()?;
+    e.patch_desk_usdc(0).await?;
+    e.call(&e.owner, "kill_switch", json!({ "on": true }))
+        .await?
+        .into_result()?;
+    e.call(&e.bob, "refund", json!({ "order_id": 0 }))
+        .await?
+        .into_result()?;
+    assert_eq!(e.status(0).await?, OrderStatus::Refunded);
+    assert_eq!(
+        (e.stats().await?.open_paid, e.stats().await?.refunds),
+        (0, 1)
+    );
+    assert_eq!(e.stats().await?.owed, U128(PRICE_USDC));
+    assert_eq!(e.usdc_balance(e.alice.id()).await?, 9 * PRICE_USDC);
+    e.call(&e.bob, "claim_owed", json!({ "account": e.alice.id() }))
+        .await?
+        .into_result()?;
+    assert_eq!(e.stats().await?.owed, U128(PRICE_USDC));
+    e.patch_desk_usdc(PRICE_USDC).await?;
+    e.call(&e.bob, "claim_owed", json!({ "account": e.alice.id() }))
+        .await?
+        .into_result()?;
+    assert_eq!(e.stats().await?.owed, U128(0));
+    assert_eq!(e.usdc_balance(e.alice.id()).await?, 10 * PRICE_USDC);
+    Ok(())
+}
+
+#[tokio::test]
+async fn refund_near_failure_keeps_owed() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
+    e.order_usdc(&e.alice, PRICE_USDC, &usdc_msg(V2))
+        .await?
+        .into_result()?;
+    e.patch_desk_usdc(0).await?;
+    e.alice
+        .clone()
+        .delete_account(e.bob.id())
+        .await?
+        .into_result()?;
+    e.call(
+        &e.agent,
+        "reject",
+        json!({ "order_id": id, "reason": "no" }),
+    )
+    .await?
+    .into_result()?;
+    let s: Value = e.desk.view("stats").await?.json()?;
+    assert_eq!(
+        s["owed_near"],
+        json!(price_near().as_yoctonear().to_string())
+    );
+    e.call(
+        &e.agent,
+        "reject",
+        json!({ "order_id": id + 1, "reason": "no" }),
+    )
+    .await?
+    .into_result()?;
+    assert_eq!(e.stats().await?.owed, U128(PRICE_USDC));
+    e.call(&e.bob, "claim_owed", json!({ "account": e.alice.id() }))
+        .await?
+        .into_result()?;
+    let s: Value = e.desk.view("stats").await?.json()?;
+    assert_eq!(
+        s["owed_near"],
+        json!(price_near().as_yoctonear().to_string())
+    );
+    assert_eq!(e.stats().await?.owed, U128(PRICE_USDC));
+    let alice = e
+        .worker
+        .root_account()?
+        .create_subaccount("alice")
+        .initial_balance(NearToken::from_near(1))
+        .transact()
+        .await?
+        .into_result()?;
+    e.patch_desk_usdc(PRICE_USDC).await?;
+    let before = e.near_balance(&alice).await?;
+    e.call(&e.bob, "claim_owed", json!({ "account": alice.id() }))
+        .await?
+        .into_result()?;
+    assert_eq!(
+        e.near_balance(&alice).await?,
+        before.saturating_add(price_near())
+    );
+    assert_eq!(e.usdc_balance(alice.id()).await?, 10 * PRICE_USDC);
+    let s: Value = e.desk.view("stats").await?.json()?;
+    assert_eq!(s["owed_near"], json!("0"));
+    assert_eq!(e.stats().await?.owed, U128(0));
+    let err = failure_text(
+        e.call(&e.bob, "claim_owed", json!({ "account": alice.id() }))
+            .await?,
+    );
+    assert!(err.contains("nothing owed"), "{err}");
+    Ok(())
+}
+
+#[tokio::test]
+async fn split_near_failure_keeps_owed() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let (id, _) = e.signed_hold(V1, 0).await?;
+    e.treasury
+        .clone()
+        .delete_account(e.bob.id())
+        .await?
+        .into_result()?;
+    e.call(
+        &e.agent,
+        "report_delivery",
+        json!({ "order_id": id, "tx_hash": TX_HASH, "gas_wei": U128(1) }),
+    )
+    .await?
+    .into_result()?;
+    let to_treasury = price_near().as_yoctonear() * 7 / 10;
+    let s: Value = e.desk.view("stats").await?.json()?;
+    assert_eq!(s["owed_near"], json!(to_treasury.to_string()));
+    assert_eq!(
+        e.stats().await?.paid_agent.near,
+        U128(price_near().as_yoctonear() * 3 / 10)
+    );
+    assert_eq!(e.stats().await?.owed, U128(0));
+    let treasury = e
+        .worker
+        .root_account()?
+        .create_subaccount("treasury")
+        .initial_balance(NearToken::from_near(1))
+        .transact()
+        .await?
+        .into_result()?;
+    let before = e.near_balance(&treasury).await?;
+    e.call(&e.bob, "claim_owed", json!({ "account": treasury.id() }))
+        .await?
+        .into_result()?;
+    assert_eq!(
+        e.near_balance(&treasury).await?,
+        before.saturating_add(NearToken::from_yoctonear(to_treasury))
+    );
+    let s: Value = e.desk.view("stats").await?.json()?;
+    assert_eq!(s["owed_near"], json!("0"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn usdc_token_locked_while_owed() -> anyhow::Result<()> {
+    let e = setup().await?;
+    e.order_usdc(&e.alice, PRICE_USDC, &usdc_msg(V1))
+        .await?
+        .into_result()?;
+    let mut policy: Policy = e.desk.view("policy").await?.json()?;
+    policy.usdc_token = None;
+    let err = failure_text(
+        e.call(&e.owner, "set_policy", json!({ "policy": policy }))
+            .await?,
+    );
+    assert!(err.contains("usdc_token is locked"), "{err}");
+    e.patch_desk_usdc(0).await?;
+    e.call(&e.agent, "reject", json!({ "order_id": 0, "reason": "no" }))
+        .await?
+        .into_result()?;
+    assert_eq!(e.stats().await?.open_paid, 0);
+    let err = failure_text(
+        e.call(&e.owner, "set_policy", json!({ "policy": policy }))
+            .await?,
+    );
+    assert!(err.contains("usdc_token is locked"), "{err}");
+    assert_eq!(e.stats().await?.owed, U128(PRICE_USDC));
+    e.patch_desk_usdc(PRICE_USDC).await?;
+    e.call(&e.bob, "claim_owed", json!({ "account": e.alice.id() }))
+        .await?
+        .into_result()?;
+    e.call(&e.owner, "set_policy", json!({ "policy": policy }))
+        .await?
+        .into_result()?;
+    let actual: Policy = e.desk.view("policy").await?.json()?;
+    assert_eq!(actual.usdc_token, None);
     Ok(())
 }
 
@@ -1526,6 +2304,13 @@ async fn split_ft_failure_keeps_owed() -> anyhow::Result<()> {
     let r = e.reading(0, V1, "hold", 8100, 1200).await?;
     e.fulfil(&e.agent, 0, &r, tx(0)).await?.into_result()?;
     assert_eq!(e.status(0).await?, OrderStatus::Signed);
+    e.call(
+        &e.agent,
+        "report_delivery",
+        json!({ "order_id": 0, "tx_hash": TX_HASH, "gas_wei": U128(1) }),
+    )
+    .await?
+    .into_result()?;
     assert_eq!(e.usdc_balance(e.treasury.id()).await?, 0);
     assert_eq!(e.usdc_balance(e.agent.id()).await?, 0);
     let s = e.stats().await?;
@@ -1550,6 +2335,13 @@ async fn claim_owed_pays() -> anyhow::Result<()> {
     e.patch_desk_usdc(0).await?;
     let r = e.reading(0, V1, "hold", 8100, 1200).await?;
     e.fulfil(&e.agent, 0, &r, tx(0)).await?.into_result()?;
+    e.call(
+        &e.agent,
+        "report_delivery",
+        json!({ "order_id": 0, "tx_hash": TX_HASH, "gas_wei": U128(1) }),
+    )
+    .await?
+    .into_result()?;
     assert_eq!(e.stats().await?.owed, U128(PRICE_USDC));
     e.patch_desk_usdc(PRICE_USDC).await?;
 
@@ -1598,6 +2390,13 @@ async fn watch_and_x402_orders_no_split() -> anyhow::Result<()> {
         let r = e.reading(id, vault, "hold", 8100, 1200).await?;
         e.fulfil(&e.agent, id, &r, tx(id)).await?.into_result()?;
         assert_eq!(e.status(id).await?, OrderStatus::Signed);
+        e.call(
+            &e.agent,
+            "report_delivery",
+            json!({ "order_id": id, "tx_hash": TX_HASH, "gas_wei": U128(1) }),
+        )
+        .await?
+        .into_result()?;
     }
     let s = e.stats().await?;
     assert_eq!(s.paid_treasury, Default::default());
@@ -1610,7 +2409,7 @@ async fn watch_and_x402_orders_no_split() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn only_agent_can_fulfil_confirm_resign_report_record() -> anyhow::Result<()> {
+async fn only_agent_can_fulfil_confirm_resign_report() -> anyhow::Result<()> {
     let e = setup().await?;
     let id = id_of(e.order_near(&e.alice, V1, price_near()).await?)?;
     let r1 = e.reading(id, V1, "exit", 8100, 6400).await?;
@@ -1632,9 +2431,8 @@ async fn only_agent_can_fulfil_confirm_resign_report_record() -> anyhow::Result<
             ("resign", json!({ "order_id": id, "tx": tx(1) })),
             (
                 "report_delivery",
-                json!({ "order_id": id, "tx_hash": TX_HASH }),
+                json!({ "order_id": id, "tx_hash": TX_HASH, "gas_wei": U128(1) }),
             ),
-            ("record_gas", json!({ "order_id": id, "gas_wei": U128(1) })),
         ] {
             let err = failure_text(e.call(who, method, args).await?);
             assert!(err.contains("agent only"), "{method}: {err}");
@@ -1643,15 +2441,8 @@ async fn only_agent_can_fulfil_confirm_resign_report_record() -> anyhow::Result<
     assert_eq!(e.signer_calls().await?, 1);
     e.call(
         &e.agent,
-        "record_gas",
-        json!({ "order_id": id, "gas_wei": U128(123_456) }),
-    )
-    .await?
-    .into_result()?;
-    e.call(
-        &e.agent,
         "report_delivery",
-        json!({ "order_id": id, "tx_hash": TX_HASH }),
+        json!({ "order_id": id, "tx_hash": TX_HASH, "gas_wei": U128(123_456) }),
     )
     .await?
     .into_result()?;
