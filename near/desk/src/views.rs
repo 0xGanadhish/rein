@@ -55,6 +55,7 @@ impl Desk {
                 monad_testnet: U128(t.gas_wei.monad_testnet),
                 monad: U128(t.gas_wei.monad),
                 base: U128(t.gas_wei.base),
+                base_sepolia: U128(t.gas_wei.base_sepolia),
             },
             paid_treasury: Amounts {
                 near: U128(t.treasury_near),
@@ -65,6 +66,7 @@ impl Desk {
                 usdc: U128(t.agent_usdc),
             },
             owed: U128(t.owed),
+            owed_near: U128(t.owed_near),
             watch_orders: t.watch_orders,
         }
     }

@@ -1,8 +1,8 @@
 /** JSON shapes of the NEAR desk contract's views and arguments. u128 amounts are decimal strings. */
 
-export type DeskChain = 'monad-testnet' | 'monad' | 'base';
+export type DeskChain = 'monad-testnet' | 'monad' | 'base' | 'base-sepolia';
 export type DeskSource = 'near' | 'usdc' | 'x402' | 'watch';
-export type DeskOrderStatus = 'open' | 'exit_pending' | 'signing' | 'signed' | 'delivered' | 'rejected' | 'refunded';
+export type DeskOrderStatus = 'open' | 'exit_pending' | 'signing' | 'signed' | 'delivered' | 'rejected' | 'refunded' | 'post_failed';
 
 export interface DeskOrder {
   id: number;
@@ -16,6 +16,10 @@ export interface DeskOrder {
   amount: string;
   created_s: number;
   status: DeskOrderStatus;
+  /** First EXIT reading time, or null outside exit_pending. */
+  exit_pending_s: number | null;
+  /** Reading's post expiry; null before a reading. Re-signing cannot extend it. */
+  valid_until: number | null;
 }
 
 /** One value per chain, keyed by chain name. */
@@ -59,7 +63,7 @@ export interface DeskStats {
   sales_usdc: string;
   /** USDC paid offchain over x402, as reported by the agent. */
   sales_x402_usdc: string;
-  /** Orders refunded or rejected. */
+  /** Orders refunded, rejected or closed as post_failed. */
   refunds: number;
   /** Unfinished paid orders. */
   open_paid: number;
@@ -68,11 +72,13 @@ export interface DeskStats {
   inference_tokens_out: number;
   /** EVM gas spent on posts, wei, as reported by the agent. */
   gas_wei: DeskPerChain<string>;
-  /** Split credited when NEAR- and USDC-paid orders are signed. */
+  /** Split credited when NEAR- and USDC-paid orders are delivered. */
   paid_treasury: DeskAmounts;
   paid_agent: DeskAmounts;
-  /** USDC from failed split transfers, claimable with claim_owed. */
+  /** USDC awaiting transfer success; failed transfers are claimable with claim_owed. */
   owed: string;
+  /** yoctoNEAR awaiting transfer success; failed transfers are claimable with claim_owed. */
+  owed_near: string;
   /** Watch orders opened. */
   watch_orders: number;
 }
@@ -118,6 +124,7 @@ export type DeskCheckReading =
   | 'wrong chain'
   | 'wrong vault'
   | 'stale doc'
+  | 'future doc'
   | 'bad answer';
 
 /** Nonce and fees the agent picks for a post; the desk caps max_fee_per_gas per chain. */
@@ -142,10 +149,14 @@ export interface DeskResignArgs {
 export interface DeskReportDeliveryArgs {
   order_id: number;
   tx_hash: string;
+  /** Actual receipt fee in wei, as a decimal string. */
+  gas_wei: string;
 }
 
-/** `record_gas` arguments. `gas_wei` is a decimal string. */
-export interface DeskRecordGasArgs {
+/** `fail_post` arguments, agent only. */
+export interface DeskFailPostArgs {
   order_id: number;
+  tx_hash: string | null;
   gas_wei: string;
+  reason: string;
 }

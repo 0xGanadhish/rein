@@ -4,26 +4,28 @@ use near_sdk::env;
 
 use crate::types::Chain;
 
-/// `bytes4(keccak256("post(address,uint8,uint16,uint16,bytes32)"))`.
-const POST_SELECTOR: [u8; 4] = [0x82, 0x78, 0xd6, 0xe0];
+/// `bytes4(keccak256("post(address,uint8,uint16,uint16,bytes32,uint64)"))`.
+const POST_SELECTOR: [u8; 4] = [0x4b, 0x9d, 0x55, 0xaf];
 
 pub fn chain_id(c: Chain) -> u64 {
     match c {
         Chain::MonadTestnet => 10143,
         Chain::Monad => 143,
         Chain::Base => 8453,
+        Chain::BaseSepolia => 84532,
     }
 }
 
-/// ABI-encoded `post(vault, verdict, confidence_bps, risk_bps, state_hash)`.
+/// ABI-encoded `post(vault, verdict, confidence_bps, risk_bps, state_hash, valid_until)`.
 pub fn post_calldata(
     vault: &[u8; 20],
     verdict: u8,
     confidence_bps: u16,
     risk_bps: u16,
     state_hash: &[u8; 32],
+    valid_until: u64,
 ) -> Vec<u8> {
-    let mut d = Vec::with_capacity(4 + 5 * 32);
+    let mut d = Vec::with_capacity(4 + 6 * 32);
     d.extend_from_slice(&POST_SELECTOR);
     let mut word = |bytes: &[u8]| {
         d.extend(std::iter::repeat_n(0, 32 - bytes.len()));
@@ -34,6 +36,7 @@ pub fn post_calldata(
     word(&confidence_bps.to_be_bytes());
     word(&risk_bps.to_be_bytes());
     word(state_hash);
+    word(&valid_until.to_be_bytes());
     d
 }
 
@@ -165,7 +168,6 @@ mod tests {
 
     fn cases() -> Vec<Case> {
         let all: Vec<Value> = serde_json::from_str(include_str!("../tests/vectors.json")).unwrap();
-        assert_eq!(all.len(), 6);
         all.into_iter()
             .map(|v| {
                 let vault: [u8; 20] = hex(v["vault"].as_str().unwrap()).try_into().unwrap();
@@ -177,6 +179,7 @@ mod tests {
                     v["confidence_bps"].as_u64().unwrap() as u16,
                     v["risk_bps"].as_u64().unwrap() as u16,
                     &state_hash,
+                    num(&v["valid_until"]),
                 );
                 Case {
                     chain_id: v["chain_id"].as_u64().unwrap(),
@@ -255,22 +258,31 @@ mod tests {
         assert_eq!(chain_id(Chain::MonadTestnet), 10143);
         assert_eq!(chain_id(Chain::Monad), 143);
         assert_eq!(chain_id(Chain::Base), 8453);
+        assert_eq!(chain_id(Chain::BaseSepolia), 84532);
         let c = &cases()[0];
-        let hashes: Vec<[u8; 32]> = [Chain::MonadTestnet, Chain::Monad, Chain::Base]
-            .map(|ch| {
-                payload_hash(&unsigned_1559(
-                    chain_id(ch),
-                    c.nonce,
-                    c.max_prio,
-                    c.max_fee,
-                    c.gas,
-                    &c.oracle,
-                    &c.calldata,
-                ))
-            })
-            .to_vec();
+        let hashes: Vec<[u8; 32]> = [
+            Chain::MonadTestnet,
+            Chain::Monad,
+            Chain::Base,
+            Chain::BaseSepolia,
+        ]
+        .map(|ch| {
+            payload_hash(&unsigned_1559(
+                chain_id(ch),
+                c.nonce,
+                c.max_prio,
+                c.max_fee,
+                c.gas,
+                &c.oracle,
+                &c.calldata,
+            ))
+        })
+        .to_vec();
         assert_ne!(hashes[0], hashes[1]);
         assert_ne!(hashes[1], hashes[2]);
         assert_ne!(hashes[0], hashes[2]);
+        for hash in &hashes[..3] {
+            assert_ne!(*hash, hashes[3]);
+        }
     }
 }

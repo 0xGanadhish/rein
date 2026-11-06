@@ -98,17 +98,50 @@ impl Desk {
         self.pay_back(&order);
     }
 
-    /// Anyone: refunds an unfinished order after `deadline_s`, or at once under the kill switch.
+    /// Anyone: refunds open orders after the deadline (or under kill), signed orders only past expiry and grace.
     pub fn refund(&mut self, order_id: u64) {
         let order = self
             .orders
             .get(&order_id)
             .unwrap_or_else(|| env::panic_str("no such order"));
-        require!(
-            self.policy.kill || now_s() >= order.created_s.saturating_add(self.policy.deadline_s),
-            "refund before deadline"
-        );
+        if order.status == OrderStatus::Signed {
+            let valid_until = order
+                .reading
+                .as_deref()
+                .expect("signed has a reading")
+                .valid_until;
+            require!(
+                now_s() > valid_until.saturating_add(self.policy.deadline_s),
+                "refund before post expiry and grace"
+            );
+        } else {
+            require!(order.status.is_refundable(), "order is not refundable");
+            require!(
+                self.policy.kill
+                    || now_s() >= order.created_s.saturating_add(self.policy.deadline_s),
+                "refund before deadline"
+            );
+        }
         let order = self.close(order_id, OrderStatus::Refunded);
+        self.pay_back(&order);
+    }
+
+    /// Agent only: a signed post reverted or expired. Counts its fee once and refunds all escrow.
+    pub fn fail_post(
+        &mut self,
+        order_id: u64,
+        tx_hash: Option<String>,
+        gas_wei: U128,
+        reason: String,
+    ) {
+        self.assert_agent();
+        let order = self.order(order_id);
+        require!(order.status == OrderStatus::Signed, "order is not signed");
+        *self.totals.gas_wei.get_mut(order.chain) += gas_wei.0;
+        let order = self.close(order_id, OrderStatus::PostFailed);
+        env::log_str(&format!(
+            "order {order_id} post failed: {tx_hash:?}: {reason}"
+        ));
         self.pay_back(&order);
     }
 
@@ -217,8 +250,16 @@ impl Desk {
             .orders
             .get_mut(&order_id)
             .unwrap_or_else(|| env::panic_str("no such order"));
-        require!(order.status.is_refundable(), "order is not refundable");
+        require!(
+            order.status.is_refundable()
+                || (order.status == OrderStatus::Signed
+                    && matches!(status, OrderStatus::Refunded | OrderStatus::PostFailed)),
+            "order is not refundable"
+        );
         order.status = status;
+        if let Some(reading) = order.reading.as_deref_mut() {
+            reading.signed_tx = None;
+        }
         let order = order.clone();
         self.active.remove(&VaultKey {
             chain: order.chain,
@@ -232,26 +273,13 @@ impl Desk {
     }
 
     /// Returns escrow to the payer. Watch and x402 orders hold none onchain.
-    fn pay_back(&self, order: &Order) {
+    fn pay_back(&mut self, order: &Order) {
         let Some(payer) = order.payer.clone() else {
             return;
         };
         match order.source {
-            Source::Near => Promise::new(payer)
-                .transfer(NearToken::from_yoctonear(order.amount))
-                .detach(),
-            Source::Usdc => {
-                let token = self
-                    .policy
-                    .usdc_token
-                    .clone()
-                    .unwrap_or_else(|| env::panic_str("usdc_token unset"));
-                ext_ft::ext(token)
-                    .with_attached_deposit(NearToken::from_yoctonear(1))
-                    .with_static_gas(GAS_FOR_FT_TRANSFER)
-                    .ft_transfer(payer, U128(order.amount), None)
-                    .detach();
-            }
+            Source::Near => self.pay_near(payer, order.amount).detach(),
+            Source::Usdc => self.pay_usdc(payer, order.amount).detach(),
             Source::X402 | Source::Watch => {}
         }
     }

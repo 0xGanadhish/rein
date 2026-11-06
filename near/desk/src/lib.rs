@@ -33,6 +33,7 @@ pub struct Totals {
     pub agent_near: u128,
     pub agent_usdc: u128,
     pub owed: u128,
+    pub owed_near: u128,
     pub watch_orders: u64,
 }
 
@@ -58,8 +59,10 @@ pub struct Desk {
     signers: Vec<[u8; 20]>,
     /// EVM address Chain Signatures derives for the desk's attester path.
     derived_address: [u8; 20],
-    /// USDC from the split whose transfer failed, per account.
+    /// Outstanding USDC from failed transfers, per account.
     owed: LookupMap<AccountId, u128>,
+    /// Outstanding yoctoNEAR from failed transfers, per account.
+    owed_near: LookupMap<AccountId, u128>,
 }
 
 #[near]
@@ -84,6 +87,7 @@ impl Desk {
             signers: Vec::new(),
             derived_address,
             owed: LookupMap::new(b"w"),
+            owed_near: LookupMap::new(b"n"),
         }
     }
 
@@ -94,6 +98,10 @@ impl Desk {
         require!(
             policy.usdc_token == self.policy.usdc_token || self.totals.open_paid == 0,
             "usdc_token is locked while paid orders are open"
+        );
+        require!(
+            policy.usdc_token == self.policy.usdc_token || self.totals.owed == 0,
+            "usdc_token is locked while USDC is owed"
         );
         self.policy = policy;
     }
@@ -158,9 +166,14 @@ fn validate(p: &Policy) {
         p.exit_confirm_min_s <= p.exit_confirm_max_s,
         "exit_confirm_min_s above exit_confirm_max_s"
     );
-    for o in [&p.oracle.monad_testnet, &p.oracle.monad, &p.oracle.base]
-        .into_iter()
-        .flatten()
+    for o in [
+        &p.oracle.monad_testnet,
+        &p.oracle.monad,
+        &p.oracle.base,
+        &p.oracle.base_sepolia,
+    ]
+    .into_iter()
+    .flatten()
     {
         require!(parse_vault(o).is_ok(), "bad oracle");
     }

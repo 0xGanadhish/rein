@@ -27,6 +27,7 @@ pub fn chain_name(c: Chain) -> &'static str {
         Chain::MonadTestnet => "monad-testnet",
         Chain::Monad => "monad",
         Chain::Base => "base",
+        Chain::BaseSepolia => "base-sepolia",
     }
 }
 
@@ -55,6 +56,9 @@ pub fn check_doc(
         .and_then(|r| r.split_once('|'))
         .ok_or("bad doc")?;
     let at = digits_u32(at.as_bytes()).ok_or("bad doc")?;
+    if at > now_s {
+        return Err("future doc");
+    }
     if at < order.created_s || now_s.saturating_sub(at) > max_age_s {
         return Err("stale doc");
     }
@@ -583,6 +587,17 @@ mod tests {
     }
 
     #[test]
+    fn doc_from_future_refused() {
+        let future = doc_for(7, "base", VAULT, NOW + 1);
+        assert_eq!(signed(&future, &response()), Err("future doc"));
+        let current = doc_for(7, "base", VAULT, NOW);
+        assert_eq!(
+            signed(&current, &response()).unwrap().verdict,
+            Verdict::Exit
+        );
+    }
+
+    #[test]
     fn one_char_changed_in_response_fails() {
         let s = sig(&prompt(), &doc(), &response());
         let tampered = response().replace("8100", "8101");
@@ -836,8 +851,17 @@ mod tests {
         assert_eq!((a.confidence_bps, a.risk_bps), (8200, 1200));
 
         let changed = s("response").replacen("8200", "8201", 1);
-        assert!(verify_reading(&p, &[signer], &o, &s("doc"), &changed, &signature, at + 60, 600)
-            .is_err());
+        assert!(verify_reading(
+            &p,
+            &[signer],
+            &o,
+            &s("doc"),
+            &changed,
+            &signature,
+            at + 60,
+            600
+        )
+        .is_err());
     }
 
     #[test]
