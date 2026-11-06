@@ -108,9 +108,13 @@ pub fn recover_signer(text: &str, signature: &[u8; 65]) -> Option<[u8; 20]> {
     addr[12..].try_into().ok()
 }
 
-/// Reads `{"action":"hold|exit|rotate","confidence_bps":N,"withdrawal_risk_bps":N}`, exactly.
+/// Reads `{"action":"hold|exit|rotate","confidence_bps":N,"withdrawal_risk_bps":N}`: these keys, in this
+/// order, and nothing else. JSON whitespace is allowed between tokens, because the model pretty-prints.
 fn parse_content(c: &str) -> Option<(Verdict, u16, u16)> {
-    let c = c.strip_prefix("{\"action\":\"")?;
+    let c = token(c, "{")?;
+    let c = token(c, "\"action\"")?;
+    let c = token(c, ":")?;
+    let c = token(c, "\"")?;
     let (action, c) = c.split_once('"')?;
     let verdict = match action {
         "hold" => Verdict::Hold,
@@ -118,12 +122,32 @@ fn parse_content(c: &str) -> Option<(Verdict, u16, u16)> {
         "rotate" => Verdict::Move,
         _ => return None,
     };
-    let c = c.strip_prefix(",\"confidence_bps\":")?;
-    let (conf, c) = c.split_once(',')?;
-    let risk = c
-        .strip_prefix("\"withdrawal_risk_bps\":")?
-        .strip_suffix('}')?;
-    Some((verdict, bps(conf)?, bps(risk)?))
+    let c = token(c, ",")?;
+    let c = token(c, "\"confidence_bps\"")?;
+    let c = token(c, ":")?;
+    let (conf, c) = number(c)?;
+    let c = token(c, ",")?;
+    let c = token(c, "\"withdrawal_risk_bps\"")?;
+    let c = token(c, ":")?;
+    let (risk, c) = number(c)?;
+    let c = token(c, "}")?;
+    skip_ws(c)
+        .is_empty()
+        .then_some((verdict, bps(conf)?, bps(risk)?))
+}
+
+fn skip_ws(c: &str) -> &str {
+    c.trim_start_matches(|x| matches!(x, ' ' | '\n' | '\r' | '\t'))
+}
+
+fn token<'a>(c: &'a str, t: &str) -> Option<&'a str> {
+    skip_ws(c).strip_prefix(t)
+}
+
+/// The run of digits at the start of `c`, after whitespace, and the rest. `bps` refuses an empty run.
+fn number(c: &str) -> Option<(&str, &str)> {
+    let c = skip_ws(c);
+    Some(c.split_at(c.find(|x: char| !x.is_ascii_digit())?))
 }
 
 fn bps(s: &str) -> Option<u16> {
@@ -764,9 +788,12 @@ mod tests {
     fn extra_text_refused() {
         for c in [
             r#"Answer: {"action":"exit","confidence_bps":8100,"withdrawal_risk_bps":6400}"#,
-            r#"{"action":"exit","confidence_bps":8100,"withdrawal_risk_bps":6400} "#,
-            r#"{"action":"exit", "confidence_bps":8100,"withdrawal_risk_bps":6400}"#,
+            r#"{"action":"exit","confidence_bps":8100,"withdrawal_risk_bps":6400} ok"#,
             r#"{"action":"exit","confidence_bps":8100,"withdrawal_risk_bps":6400,"note":"x"}"#,
+            r#"{"confidence_bps":8100,"action":"exit","withdrawal_risk_bps":6400}"#,
+            r#"{"action":"ex it","confidence_bps":8100,"withdrawal_risk_bps":6400}"#,
+            r#"{"action":"exit","confidence_bps":81 00,"withdrawal_risk_bps":6400}"#,
+            r#"{"action" "exit","confidence_bps":8100,"withdrawal_risk_bps":6400}"#,
         ] {
             assert_eq!(
                 signed(&doc(), &response_with(c, "stop")),
@@ -774,6 +801,52 @@ mod tests {
                 "{c}"
             );
         }
+    }
+
+    /// A real NEAR AI answer, checked offline: the desk rebuilds the exact request and recovers the model's key.
+    #[test]
+    fn real_fixture_verifies() {
+        let f: near_sdk::serde_json::Value =
+            near_sdk::serde_json::from_str(include_str!("../tests/fixtures/near-ai-1.json"))
+                .unwrap();
+        let s = |k: &str| f[k].as_str().unwrap().to_string();
+        let p = Prompt {
+            model: s("model"),
+            prefix: s("prefix"),
+            suffix: s("suffix"),
+        };
+        let mut o = order(1);
+        o.chain = Chain::MonadTestnet;
+        let at = 1_793_910_680;
+        o.created_s = at - 60;
+        let signer = crate::types::parse_vault(&s("signing_address")).unwrap();
+        let signature = parse_signature(&s("signature")).unwrap();
+        let (a, _) = verify_reading(
+            &p,
+            &[signer],
+            &o,
+            &s("doc"),
+            &s("response"),
+            &signature,
+            at + 60,
+            600,
+        )
+        .unwrap();
+        assert!(matches!(a.verdict, Verdict::Hold));
+        assert_eq!((a.confidence_bps, a.risk_bps), (8200, 1200));
+
+        let changed = s("response").replacen("8200", "8201", 1);
+        assert!(verify_reading(&p, &[signer], &o, &s("doc"), &changed, &signature, at + 60, 600)
+            .is_err());
+    }
+
+    #[test]
+    fn pretty_printed_answer_accepted() {
+        let c = "{\n  \"action\": \"exit\",\n  \"confidence_bps\": 8100,\n  \"withdrawal_risk_bps\": 6400\n}";
+        let a = parse_content(c).expect("the model's real format");
+        assert!(matches!(a.0, Verdict::Exit));
+        assert_eq!((a.1, a.2), (8100, 6400));
+        assert!(parse_content(&format!(" \t\r\n{c}\n")).is_some());
     }
 
     #[test]
