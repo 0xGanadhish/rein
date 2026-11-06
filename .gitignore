@@ -2,6 +2,11 @@
 /.internal/
 /.omp/
 /spike/
+/.claude/
+/graphify-out/
+/decisions.md
+/CLAUDE.md
+/AGENTS.md
 .env*
 
 # Dependencies and build output
