@@ -1,5 +1,5 @@
 import {
-  BaseError, ContractFunctionRevertedError, createPublicClient, http, keccak256, toBytes, type Address, type Hex,
+  BaseError, ContractFunctionRevertedError, createPublicClient, decodeFunctionData, http, keccak256, parseTransaction, toBytes, type Address, type Hex,
 } from 'viem';
 import { base, baseSepolia, monad, monadTestnet } from 'viem/chains';
 import type { DeskChain } from '../../shared/desk';
@@ -48,7 +48,7 @@ export function viemChain(chain: DeskChain, rpc: string): ChainClient {
     ({ status: r.status, gasUsed: r.gasUsed, effectiveGasPrice: r.effectiveGasPrice, l1Fee: r.l1Fee ?? null });
   return {
     balance: (address) => client.getBalance({ address: address as Address }),
-    nonce: (address) => client.getTransactionCount({ address: address as Address, blockTag: 'pending' }),
+    nonce: (address, blockTag = 'pending') => client.getTransactionCount({ address: address as Address, blockTag }),
     async fees() {
       const f = await client.estimateFeesPerGas();
       return { maxFeePerGas: f.maxFeePerGas, maxPriorityFeePerGas: f.maxPriorityFeePerGas };
@@ -66,6 +66,13 @@ export function viemChain(chain: DeskChain, rpc: string): ChainClient {
       }
     },
     sendRaw: (raw) => client.sendRawTransaction({ serializedTransaction: raw }),
+    async statePosted(raw) {
+      const tx = parseTransaction(raw);
+      if (!tx.to || !tx.data) throw new Error('signed post has no oracle calldata');
+      const call = decodeFunctionData({ abi: oracleAbi, data: tx.data });
+      if (call.functionName !== 'post') throw new Error('signed transaction is not a post');
+      return client.readContract({ address: tx.to, abi: oracleAbi, functionName: 'statePosted', args: [call.args[4]] });
+    },
     async receipt(hash, opts) {
       try {
         const r = opts?.wait

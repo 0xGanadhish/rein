@@ -9,7 +9,7 @@ import { inputCheck } from './inputCheck';
 const ORDER_PAGE = 100;
 const ORDER_PAGES = 10;
 const POST_BATCH = 50;
-const FINAL = new Set(['delivered', 'rejected', 'refunded']);
+const FINAL: Record<string, true> = { delivered: true, rejected: true, refunded: true, post_failed: true };
 
 export interface OraclePost {
   vault: Address;
@@ -29,7 +29,7 @@ export interface OracleReader {
 }
 
 export interface MirrorDeps {
-  desk: Pick<DeskClient, 'list_orders' | 'stats'>;
+  desk: Pick<DeskClient, 'list_orders' | 'next_order_id' | 'stats'>;
   /** Null while the chain has no oracle. */
   oracle(chain: DeskChain): OracleReader | null;
 }
@@ -61,24 +61,36 @@ export async function mirror(env: Env, network: NearNetwork, deps: MirrorDeps, n
   const db = env.DB;
   const tally = { orders: 0, posts: 0 };
 
-  // Orders: from the lowest id that wasn't final last time, a page at a time until a page comes back empty.
+  // Keep the oldest unfinished ID, but rotate a separate scan cursor beyond stuck prefixes.
+  // list_orders returns ID intervals, so an empty page below next_order_id is a pruned gap, not EOF.
   const orderKey = `mirror:orders:${network}`;
-  const start = await cursor(db, orderKey);
+  const scanKey = `mirror:scan:${network}`;
+  const [start, savedScan, bound] = await Promise.all([
+    cursor(db, orderKey), cursor(db, scanKey), deps.desk.next_order_id(),
+  ]);
   let low = start;
-  let advancing = true;
-  for (let page = 0, from = start; page < ORDER_PAGES; page++, from += ORDER_PAGE) {
-    const orders: DeskOrder[] = await deps.desk.list_orders(from, ORDER_PAGE);
-    if (orders.length === 0) break;
-    await db.batch(orders.map((o) => db.prepare(`INSERT INTO orders (id, source, payer, chain, vault, amount, created_s, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET status = excluded.status`)
-      .bind(o.id, o.source, o.payer, o.chain, o.vault.toLowerCase(), o.amount, o.created_s, o.status)));
-    tally.orders += orders.length;
-    for (const o of orders) {
-      if (advancing && FINAL.has(o.status)) low = o.id + 1;
-      else advancing = false;
+  let from = Math.max(low, savedScan);
+  if (from >= bound) from = low;
+  for (let page = 0; page < ORDER_PAGES && from < bound; page++) {
+    const end = Math.min(from + ORDER_PAGE, bound);
+    const orders: DeskOrder[] = await deps.desk.list_orders(from, end - from);
+    if (orders.length) {
+      await db.batch(orders.map((o) => db.prepare(`INSERT INTO orders (id, source, payer, chain, vault, amount, created_s, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET status = excluded.status`)
+        .bind(o.id, o.source, o.payer, o.chain, o.vault.toLowerCase(), o.amount, o.created_s, o.status)));
+      tally.orders += orders.length;
     }
+    if (from === low) {
+      // Separate RPC views can disagree about a recent ID. Only explicit contiguous finals advance the low mark.
+      for (const order of orders) {
+        if (order.id !== low || !FINAL[order.status]) break;
+        low = order.id + 1;
+      }
+    }
+    from = end;
   }
   if (low !== start) await setCursor(db, orderKey, low);
+  await setCursor(db, scanKey, from >= bound ? low : from);
 
   const stats = await deps.desk.stats();
   await db.prepare('INSERT INTO meta (key, json, at) VALUES (?1, ?2, ?3) ON CONFLICT (key) DO UPDATE SET json = ?2, at = ?3')
@@ -86,6 +98,20 @@ export async function mirror(env: Env, network: NearNetwork, deps: MirrorDeps, n
 
   // Posts: every id past the last one copied. Grading fields are filled in by gradeDue.
   for (const chain of NETWORK_CHAINS[network]) {
+    // A post can land before its judged doc is durable locally. Link it once the doc arrives;
+    // only linkage/check columns change, leaving independently collected grading intact.
+    const { results: unlinked } = await db.prepare(`SELECT p.id, p.pps_at_post, p.assets_at_post, p.liquidity_at_post, d.order_id, d.doc
+        FROM posts p JOIN docs d ON d.hash = p.state_hash
+        WHERE p.chain = ? AND p.order_id IS NULL ORDER BY p.id LIMIT ?`)
+      .bind(chain, POST_BATCH).all<{ id: number; pps_at_post: string; assets_at_post: string; liquidity_at_post: string; order_id: number; doc: string }>();
+    for (const p of unlinked) {
+      const check = inputCheck(p.doc, {
+        ppsAtPost: BigInt(p.pps_at_post), assetsAtPost: BigInt(p.assets_at_post), liquidityAtPost: BigInt(p.liquidity_at_post),
+      });
+      await db.prepare('UPDATE posts SET order_id = ?, input_check = ? WHERE chain = ? AND id = ? AND order_id IS NULL')
+        .bind(p.order_id, check, chain, p.id).run();
+      if (check === 'mismatch') console.error(JSON.stringify({ msg: 'post_input_mismatch', chain, verdictId: p.id, orderId: p.order_id }));
+    }
     const oracle = deps.oracle(chain);
     if (!oracle) continue;
     const key = `mirror:posts:${chain}`;

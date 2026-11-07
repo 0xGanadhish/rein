@@ -3,14 +3,15 @@ import type { DeskChain } from '../../shared/desk';
 import { erc4626Abi } from './abis';
 import { handle } from './api';
 import { CHAINS, viemChain } from './broadcast';
-import type { DeskClient, DeskOrder } from './deskTypes';
+import { NETWORK_CHAINS, type DeskClient, type DeskOrder } from './deskTypes';
 import { rpcFor, type Env, type NearNetwork } from './env';
 import { gradeDue, realGradeDeps, type GradeDeps } from './grade';
 import { checkHealth, type HealthDeps } from './health';
 import { judge } from './judge';
+import { BroadcastJournal } from './journal';
 import { withLock } from './lock';
 import { mirror, realMirrorDeps, type MirrorDeps } from './mirror';
-import { processOrder, type ChainClient, type OrderDeps, type OrderOutcome } from './order';
+import { orderReady, processOrder, type ChainClient, type OrderDeps, type OrderOutcome } from './order';
 import { rememberSignedTx } from './payments';
 import { readVault } from './vendor/vaultReader';
 import { netOutPct1h, realWatchDeps, watchOnce, type WatchDeps } from './watch';
@@ -22,38 +23,48 @@ const PER_CHAIN = 10;
 /** A cron invocation can run 15 minutes, so a lock this old has no live holder. */
 const LOCK_TTL_S = 900;
 
-const FINAL: Record<string, true> = { delivered: true, rejected: true, refunded: true, post_failed: true };
-const IN_FLIGHT = new Set(['exit_pending', 'signing', 'signed']);
-
 /**
- * Open orders, plus every order the desk has in flight. In-flight orders are found by scanning `list_orders` from
- * the lowest id that wasn't final last time; the scan moves that mark up past finished orders.
+ * Merge active orders with a rotating ID window. Reserve one slot for the active-order fast path;
+ * use the rest for scan progress, sharing spare capacity without skipping deferred work.
  */
-async function ordersToWork(db: D1Database, desk: DeskClient, network: NearNetwork): Promise<DeskOrder[]> {
-  const key = `low:${network}`;
-  const from = (await db.prepare('SELECT value FROM cursors WHERE key = ?').bind(key).first<number>('value')) ?? 0;
-  const [open, page] = await Promise.all([desk.open_orders(OPEN_LIMIT), desk.list_orders(from, SCAN_LIMIT)]);
-  let low = from;
-  let advancing = true;
-  const byId = new Map(open.map((o) => [o.id, o]));
-  for (const o of page) {
-    if (FINAL[o.status]) {
-      if (advancing) low = o.id + 1;
-      continue;
+async function ordersToWork(db: D1Database, desk: DeskClient, network: NearNetwork, chain: DeskChain, now: number) {
+  const key = `work:${network}:${chain}`;
+  const [saved, bound, policy, open] = await Promise.all([
+    db.prepare('SELECT value FROM cursors WHERE key = ?').bind(key).first<number>('value'),
+    desk.next_order_id(),
+    desk.policy(),
+    desk.open_orders(OPEN_LIMIT),
+  ]);
+  const from = (saved ?? 0) < bound ? saved ?? 0 : 0;
+  const page = from < bound ? await desk.list_orders(from, Math.min(SCAN_LIMIT, bound - from)) : [];
+  const scanned = page.filter((o) => o.chain === chain && orderReady(o, now, policy)).sort((a, b) => a.id - b.id);
+  const active = open.filter((o) => o.chain === chain && orderReady(o, now, policy));
+  const selected = new Map<number, DeskOrder>();
+  for (const order of scanned.slice(0, PER_CHAIN - 1)) selected.set(order.id, order);
+  for (const candidates of [active, scanned]) {
+    for (const order of candidates) {
+      if (selected.size === PER_CHAIN) break;
+      if (!selected.has(order.id)) selected.set(order.id, order);
     }
-    advancing = false;
-    if (IN_FLIGHT.has(o.status)) byId.set(o.id, o);
   }
-  if (low !== from) {
-    await db.prepare('INSERT INTO cursors (key, value) VALUES (?1, ?2) ON CONFLICT (key) DO UPDATE SET value = ?2').bind(key, low).run();
+  // Fast-path IDs may be far ahead of the window; they must not move its cursor past deferred orders.
+  const deferred = scanned.find((o) => !selected.has(o.id));
+  const end = deferred?.id ?? Math.min(from + SCAN_LIMIT, bound);
+  const next = end < bound ? end : 0;
+  const orders: DeskOrder[] = [];
+  // Start active work before waiting for receipts from the historical scan.
+  for (const order of active) {
+    if (selected.delete(order.id)) orders.push(order);
   }
-  return [...byId.values()].sort((a, b) => a.id - b.id);
+  orders.push(...selected.values());
+  return { key, orders, next };
 }
 
 function realDeps(env: Env, desk: DeskClient): OrderDeps {
   const chains = new Map<DeskChain, ChainClient>();
   return {
     desk,
+    journal: new BroadcastJournal(env.DB, env.NEAR_NETWORK),
     async read(c, vault) {
       const client = createPublicClient({ chain: CHAINS[c], transport: http(rpcFor(env, c), { retryCount: 2 }) });
       const [block, name, stats, prev] = await Promise.all([
@@ -91,14 +102,11 @@ function realDeps(env: Env, desk: DeskClient): OrderDeps {
 
 /** One pass over the desk: every order it can advance, one runner per chain. */
 export async function tick(env: Env, network: NearNetwork, deps: OrderDeps): Promise<Record<string, OrderOutcome | 'busy' | 'error'>> {
-  const orders = await ordersToWork(env.DB, deps.desk, network);
-  const byChain = new Map<DeskChain, DeskOrder[]>();
-  for (const o of orders) byChain.set(o.chain, [...(byChain.get(o.chain) ?? []), o]);
-
   const result: Record<string, OrderOutcome | 'busy' | 'error'> = {};
-  await Promise.all([...byChain].map(async ([chain, list]) => {
+  await Promise.all(NETWORK_CHAINS[network].map(async (chain) => {
     const run = await withLock(env.DB, `chain:${network}:${chain}`, LOCK_TTL_S, async () => {
-      for (const order of list.slice(0, PER_CHAIN)) {
+      const { key, orders, next } = await ordersToWork(env.DB, deps.desk, network, chain, deps.now());
+      for (const order of orders) {
         try {
           result[order.id] = await processOrder(order, deps);
         } catch (e) {
@@ -106,8 +114,12 @@ export async function tick(env: Env, network: NearNetwork, deps: OrderDeps): Pro
           result[order.id] = 'error';
         }
       }
+      await env.DB.prepare('INSERT INTO cursors (key, value) VALUES (?1, ?2) ON CONFLICT (key) DO UPDATE SET value = ?2').bind(key, next).run();
     });
-    if (!run.ran) for (const o of list) result[o.id] = 'busy';
+    if (!run.ran) {
+      const { orders } = await ordersToWork(env.DB, deps.desk, network, chain, deps.now());
+      for (const o of orders) result[o.id] = 'busy';
+    }
   }));
   return result;
 }

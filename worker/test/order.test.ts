@@ -1,17 +1,30 @@
 import { applyD1Migrations } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
-import { keccak256 } from 'viem';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { keccak256, serializeTransaction, type Hex } from 'viem';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DeskPolicy, DeskStats } from '../../shared/desk';
 import type { DeskClient, DeskOrder, DeskPrompt, DeskTx } from '../src/deskTypes';
 import type { VaultReading } from '../src/doc';
 import { postArgs } from '../src/broadcast';
 import { JudgeError, type judge as realJudge } from '../src/judge';
 import { withLock } from '../src/lock';
+import { BroadcastJournal } from '../src/journal';
 import { processOrder, type ChainClient, type OrderDeps, type Receipt } from '../src/order';
 
 const DERIVED = '0x000000000000000000000000000000000000dead';
 const T0 = 1_793_774_225;
+
+function raw(nonce: number): Hex {
+  return serializeTransaction({ type: 'eip1559', chainId: 8453, nonce, gas: 1_000_000n, maxFeePerGas: 2n,
+    maxPriorityFeePerGas: 1n, to: DERIVED, data: '0x' },
+  { r: `0x${'01'.repeat(32)}`, s: `0x${'02'.repeat(32)}`, yParity: 0 });
+}
+
+beforeAll(async () => { await applyD1Migrations(env.DB, env.TEST_MIGRATIONS); });
+beforeEach(async () => {
+  await env.DB.prepare('DELETE FROM broadcast_attempts').run();
+  await env.DB.prepare('DELETE FROM pending_nonces').run();
+});
 
 type Call = [string, ...unknown[]];
 
@@ -22,6 +35,11 @@ class FakeDesk implements DeskClient {
   checks: string[] = [];
   fulfilError: Error | null = null;
   signedCount = 0;
+  gas = 0n;
+  reportLost = false;
+  failureLost = false;
+  exitMin = 45;
+  exitMax = 240;
   constructor(public clock: { now: number }) {}
 
   add(o: Partial<DeskOrder> = {}): DeskOrder {
@@ -33,13 +51,20 @@ class FakeDesk implements DeskClient {
     return { ...order };
   }
   private set(id: number, patch: Partial<DeskOrder>) { this.orders.set(id, { ...this.orders.get(id)!, ...patch }); }
-  private sign(id: number) { this.signedTx.set(id, `0x0${++this.signedCount}`); this.set(id, { status: 'signed' }); }
+  private sign(id: number) { this.signedTx.set(id, raw(++this.signedCount)); this.set(id, { status: 'signed' }); }
   named(name: string) { return this.calls.filter((c) => c[0] === name); }
 
   async open_orders() { return [...this.orders.values()].filter((o) => o.status === 'open'); }
   async list_orders() { return [...this.orders.values()]; }
-  async get_order(id: number) { const o = this.orders.get(id); return o ? { ...o } : null; }
-  async policy() { return { deadline_s: 1800 } as DeskPolicy; }
+  async next_order_id() { return Math.max(0, ...this.orders.keys()) + 1; }
+  async get_order(id: number) {
+    const o = this.orders.get(id);
+    if (!o) return null;
+    return o.status === 'exit_pending' && o.exit_pending_s !== null && this.clock.now > o.exit_pending_s + this.exitMax
+      ? { ...o, status: 'open' as const, exit_pending_s: null }
+      : { ...o };
+  }
+  async policy() { return { deadline_s: 1800, exit_confirm_min_s: this.exitMin, exit_confirm_max_s: this.exitMax } as DeskPolicy; }
   async menu() { return []; }
   async stats() { return {} as DeskStats; }
   async submit_watch_request(): Promise<number> { throw new Error('not used'); }
@@ -60,8 +85,20 @@ class FakeDesk implements DeskClient {
     this.sign(id);
   }
   async resign(id: number, tx: DeskTx) { this.calls.push(['resign', id, tx]); this.sign(id); }
-  async report_delivery(id: number, hash: string, gas: string) { this.calls.push(['report_delivery', id, hash, gas]); this.set(id, { status: 'delivered' }); }
-  async fail_post(id: number, hash: string | null, gas: string, reason: string) { this.calls.push(['fail_post', id, hash, gas, reason]); this.set(id, { status: 'post_failed' }); }
+  async report_delivery(id: number, hash: string, gas: string) {
+    if (this.orders.get(id)?.status !== 'signed') throw new Error('order is not signed');
+    this.calls.push(['report_delivery', id, hash, gas]);
+    this.gas += BigInt(gas);
+    this.set(id, { status: 'delivered' });
+    if (this.reportLost) throw new Error('response lost');
+  }
+  async fail_post(id: number, hash: string | null, gas: string, reason: string) {
+    if (this.orders.get(id)?.status !== 'signed') throw new Error('order is not signed');
+    this.calls.push(['fail_post', id, hash, gas, reason]);
+    this.gas += BigInt(gas);
+    this.set(id, { status: 'post_failed' });
+    if (this.failureLost) throw new Error('response lost');
+  }
   async reject(id: number, reason: string) { this.calls.push(['reject', id, reason]); this.set(id, { status: 'rejected' }); }
 }
 
@@ -71,6 +108,8 @@ class FakeChain implements ChainClient {
   simulation: { ok: true } | { ok: false; reason: string } = { ok: true };
   sendErrors: Error[] = [];
   receipts = new Map<string, Receipt>();
+  posted = false;
+  async statePosted() { return this.posted; }
   async balance(a: string) { this.calls.push(['balance', a]); return this.balanceWei; }
   async nonce() { return 5; }
   async fees() { return { maxFeePerGas: 2_000_000_000n, maxPriorityFeePerGas: 1_000_000n }; }
@@ -104,6 +143,7 @@ function setup(opts: { verdict?: string; readings?: VaultReading[] } = {}) {
   };
   const deps: OrderDeps = {
     desk,
+    journal: new BroadcastJournal(env.DB, 'mainnet'),
     read: async (c, v) => { reads.push(`${c}:${v}`); return readImpl(); },
     flows: async () => ({ netOutPct1h: 0.5 }),
     judge: (async (doc: string) => { judgeCalls.push(doc); return judgeImpl(doc); }) as typeof realJudge,
@@ -128,8 +168,8 @@ describe('processOrder', () => {
     expect(fulfil[2]).toMatch(/^rein-v1\|order=7\|chain=base\|/);
     expect(fulfil[3]).toBe(answer('HOLD'));
     expect(fulfil[5]).toEqual({ nonce: 5, max_fee_per_gas: '2000000000', max_priority_fee_per_gas: '1000000' });
-    expect(s.chain.calls.filter((c) => c[0] === 'sendRaw')).toEqual([['sendRaw', '0x01']]);
-    expect(s.desk.named('report_delivery')).toEqual([['report_delivery', 7, keccak256('0x01'), '75000000000000']]);
+    expect(s.chain.calls.filter((c) => c[0] === 'sendRaw')).toEqual([['sendRaw', raw(1)]]);
+    expect(s.desk.named('report_delivery')).toEqual([['report_delivery', 7, keccak256(raw(1)), '75000000000000']]);
     expect(s.chain.calls.find((c) => c[0] === 'simulate')?.[1]).toMatchObject({ validUntil: T0 + 1800 });
     expect(s.desk.orders.get(7)!.status).toBe('delivered');
   });
@@ -144,13 +184,13 @@ describe('processOrder', () => {
     expect(await processOrder(await s.desk.get_order(7) as DeskOrder, s.deps)).toBe('pending');
     expect(s.desk.named('confirm_exit')).toHaveLength(0);
 
-    s.clock.now = T0 + 31;
+    s.clock.now = T0 + 46;
     expect(await processOrder(await s.desk.get_order(7) as DeskOrder, s.deps)).toBe('delivered');
     expect(s.reads).toHaveLength(2);
     const [confirm] = s.desk.named('confirm_exit');
     const firstDoc = s.desk.named('fulfil')[0][2] as string;
     expect(confirm[2]).not.toBe(firstDoc);
-    expect(confirm[2]).toMatch(/\|at=1793774256\|block=102\|/);
+    expect(confirm[2]).toMatch(/\|at=1793774271\|block=102\|/);
     expect(s.desk.named('fulfil')).toHaveLength(1);
     expect(s.desk.named('report_delivery')).toHaveLength(1);
   });
@@ -237,22 +277,22 @@ describe('processOrder', () => {
     t.chain.sendErrors = [new Error('nonce too low')];
     expect(await processOrder(t.desk.add(), t.deps)).toBe('delivered');
     expect(t.desk.named('resign')).toEqual([['resign', 7, { nonce: 5, max_fee_per_gas: '2000000000', max_priority_fee_per_gas: '1000000' }]]);
-    expect(t.desk.named('report_delivery')).toEqual([['report_delivery', 7, keccak256('0x02'), '75000000000000']]);
+    expect(t.desk.named('report_delivery')).toEqual([['report_delivery', 7, keccak256(raw(2)), '75000000000000']]);
   });
 
   it('resumes_signed_without_new_fulfil', async () => {
     const s = setup();
     const order = s.desk.add({ status: 'signed' });
-    s.desk.signedTx.set(7, '0x09');
+    s.desk.signedTx.set(7, raw(9));
     expect(await processOrder(order, s.deps)).toBe('delivered');
     expect(s.desk.named('fulfil')).toHaveLength(0);
     expect(s.judgeCalls).toHaveLength(0);
-    expect(s.desk.named('report_delivery')).toEqual([['report_delivery', 7, keccak256('0x09'), '75000000000000']]);
+    expect(s.desk.named('report_delivery')).toEqual([['report_delivery', 7, keccak256(raw(9)), '75000000000000']]);
   });
 
   it('resumes_exit_pending_confirms', async () => {
     const s = setup();
-    const order = s.desk.add({ status: 'exit_pending', exit_pending_s: T0 - 40 });
+    const order = s.desk.add({ status: 'exit_pending', exit_pending_s: T0 - 50 });
     expect(await processOrder(order, s.deps)).toBe('delivered');
     expect(s.desk.named('fulfil')).toHaveLength(0);
     expect(s.desk.named('confirm_exit')).toHaveLength(1);
@@ -269,15 +309,93 @@ describe('processOrder', () => {
   it('gas_recorded_from_receipt', async () => {
     const s = setup();
     const order = s.desk.add({ status: 'signed' });
-    s.desk.signedTx.set(7, '0x09');
-    s.chain.receipts.set(keccak256('0x09'), { status: 'success', gasUsed: 50_000n, effectiveGasPrice: 1_500_000_000n, l1Fee: 123n });
+    s.desk.signedTx.set(7, raw(9));
+    s.chain.receipts.set(keccak256(raw(9)), { status: 'success', gasUsed: 50_000n, effectiveGasPrice: 1_500_000_000n, l1Fee: 123n });
     expect(await processOrder(order, s.deps)).toBe('delivered');
-    expect(s.desk.named('report_delivery')).toEqual([['report_delivery', 7, keccak256('0x09'), String(50_000n * 1_500_000_000n + 123n)]]);
+    expect(s.desk.named('report_delivery')).toEqual([['report_delivery', 7, keccak256(raw(9)), String(50_000n * 1_500_000_000n + 123n)]]);
+  });
+
+  it('reverted_post_fails_once_and_counts_gas_once', async () => {
+    const s = setup();
+    const order = s.desk.add({ status: 'signed', valid_until: T0 + 100 });
+    s.desk.signedTx.set(7, raw(9));
+    s.chain.receipts.set(keccak256(raw(9)), { status: 'reverted', gasUsed: 50n, effectiveGasPrice: 3n, l1Fee: 7n });
+    s.desk.failureLost = true;
+    expect(await processOrder(order, s.deps)).toBe('rejected');
+    expect(await processOrder((await s.desk.get_order(7))!, s.deps)).toBe('rejected');
+    expect(s.desk.named('fail_post')).toEqual([['fail_post', 7, keccak256(raw(9)), '157', 'oracle revert']]);
+    expect(s.desk.gas).toBe(157n);
+    expect(s.desk.named('reject')).toEqual([]);
+  });
+
+  it('expired_post_fails_without_resign', async () => {
+    const s = setup();
+    const order = s.desk.add({ status: 'signed', valid_until: T0 - 60 });
+    s.desk.signedTx.set(7, raw(9));
+    s.chain.sendErrors = [new Error('nonce too low')];
+    expect(await processOrder(order, s.deps)).toBe('rejected');
+    expect(s.desk.named('fail_post')).toEqual([['fail_post', 7, null, '0', 'post expired']]);
+    expect(s.desk.named('resign')).toEqual([]);
+    expect(s.chain.calls.filter((c) => c[0] === 'sendRaw')).toEqual([]);
+  });
+
+  it('delivery_report_retry_is_idempotent', async () => {
+    const s = setup();
+    const order = s.desk.add({ status: 'signed' });
+    s.desk.signedTx.set(7, raw(9));
+    s.desk.reportLost = true;
+    expect(await processOrder(order, s.deps)).toBe('delivered');
+    expect(await processOrder((await s.desk.get_order(7))!, s.deps)).toBe('delivered');
+    expect(s.desk.named('report_delivery')).toEqual([['report_delivery', 7, keccak256(raw(9)), '75000000000000']]);
+    expect(s.desk.gas).toBe(75000000000000n);
+  });
+
+  it('exit_guard_waits_for_first_at', async () => {
+    for (const first of [null, T0, T0 - 44]) {
+      const s = setup();
+      expect(await processOrder(s.desk.add({ status: 'exit_pending', exit_pending_s: first }), s.deps)).toBe('pending');
+      expect(s.judgeCalls).toEqual([]);
+      expect(s.desk.named('confirm_exit')).toEqual([]);
+    }
+    const s = setup();
+    expect(await processOrder(s.desk.add({ status: 'exit_pending', exit_pending_s: T0 - 45 }), s.deps)).toBe('delivered');
+    expect(s.desk.named('confirm_exit')).toHaveLength(1);
+    const lapsed = setup();
+    const stale = lapsed.desk.add({ status: 'exit_pending', exit_pending_s: T0 - 241 });
+    expect(await processOrder(stale, lapsed.deps)).toBe('delivered');
+    expect(lapsed.desk.named('confirm_exit')).toEqual([]);
+    expect(lapsed.desk.named('fulfil')).toHaveLength(1);
+  });
+
+  it('already_posted_state_never_refunds_a_reverted_replacement', async () => {
+    const s = setup();
+    const order = s.desk.add({ status: 'signed' });
+    s.desk.signedTx.set(7, raw(9));
+    s.chain.posted = true;
+    s.chain.receipts.set(keccak256(raw(9)), { status: 'reverted', gasUsed: 50n, effectiveGasPrice: 3n });
+    expect(await processOrder(order, s.deps)).toBe('pending');
+    expect(s.desk.named('fail_post')).toEqual([]);
+    expect(s.desk.named('reject')).toEqual([]);
+    expect(s.alerts.some((a) => a.includes('already posted'))).toBe(true);
+  });
+
+  it('expiry_margin_and_last_receipt_check_prevent_false_refund', async () => {
+    const s = setup();
+    const order = s.desk.add({ status: 'signed', valid_until: T0 - 1 });
+    s.desk.signedTx.set(7, raw(9));
+    expect(await processOrder(order, s.deps)).toBe('pending');
+    expect(s.chain.calls.filter((c) => c[0] === 'sendRaw')).toEqual([]);
+    expect(s.desk.named('fail_post')).toEqual([]);
+    s.clock.now += 60;
+    let checks = 0;
+    s.chain.receipt = async () => ++checks === 1 ? null : { status: 'success', gasUsed: 2n, effectiveGasPrice: 3n };
+    expect(await processOrder(order, s.deps)).toBe('delivered');
+    expect(s.desk.named('fail_post')).toEqual([]);
+    expect(s.desk.gas).toBe(6n);
   });
 });
 
 describe('withLock', () => {
-  beforeAll(async () => { await applyD1Migrations(env.DB, env.TEST_MIGRATIONS); });
 
   it('lock_prevents_second_runner', async () => {
     let release!: () => void;
@@ -291,6 +409,23 @@ describe('withLock', () => {
     release();
     expect(await first).toEqual({ ran: true, value: 'first' });
     expect(await withLock(env.DB, 'chain:base', 60, async () => 'again')).toEqual({ ran: true, value: 'again' });
+  });
+
+  it('long_running_holder_renews_its_lease', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+    const started = Promise.withResolvers<void>();
+    const held = Promise.withResolvers<void>();
+    const first = withLock(env.DB, 'renewal:base', 2, async () => { started.resolve(); await held.promise; return 'first'; });
+    await started.promise;
+    try {
+      await vi.advanceTimersByTimeAsync(2_200);
+      expect(await withLock(env.DB, 'renewal:base', 2, async () => 'second')).toEqual({ ran: false });
+    } finally {
+      held.resolve();
+      expect(await first).toEqual({ ran: true, value: 'first' });
+      vi.useRealTimers();
+    }
+    expect(await withLock(env.DB, 'renewal:base', 2, async () => 'next')).toEqual({ ran: true, value: 'next' });
   });
 });
 
@@ -309,4 +444,19 @@ describe('postArgs', () => {
     }
     expect(() => postArgs(order, doc, answer('{"verdict":"HOLD","confidence_bps":1,"risk_bps":1}'), T0 + 1800)).toThrow();
   });
+});
+
+it('positive_posted_evidence_survives_a_stale_negative_view', async () => {
+  const s = setup();
+  const order = s.desk.add({ status: 'signed', valid_until: T0 + 100 });
+  s.desk.signedTx.set(7, raw(9));
+  s.chain.sendErrors = [new Error('nonce too low')];
+  let reads = 0;
+  s.chain.statePosted = async () => ++reads === 1;
+  expect(await processOrder(order, s.deps)).toBe('pending');
+  expect(s.desk.orders.get(7)?.status).toBe('signed');
+  expect(s.desk.named('fail_post')).toEqual([]);
+  s.clock.now = T0 + 200;
+  expect(await processOrder(order, { ...s.deps, journal: new BroadcastJournal(env.DB, 'mainnet') })).toBe('pending');
+  expect(s.desk.named('fail_post')).toEqual([]);
 });

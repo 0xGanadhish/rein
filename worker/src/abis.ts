@@ -8,6 +8,7 @@ export const oracleAbi = parseAbi([
   'function sample(uint256 id)',
   'function resolve(uint256 id) returns (bool adverse)',
   'function postCount() view returns (uint256)',
+  'function statePosted(bytes32 stateHash) view returns (bool)',
   'function getPost(uint256 id) view returns ((address vault, uint8 verdict, uint16 confidenceBps, uint16 riskBps, bytes32 stateHash, uint64 postedAt, uint256 ppsAtPost, uint256 assetsAtPost, uint256 liquidityAtPost))',
   'function getResolution(uint256 id) view returns ((bool resolved, bool adverse, uint8 reasons, uint64 resolvedAt))',
   'function metricsOf(address vault) view returns (uint256 pps, uint256 assets, uint256 liquidity)',
