@@ -48,8 +48,30 @@ the signed reading, not chosen by the agent.
 
 **Trust and recovery limits:** the desk trusts the agent's delivery/failure reports and fee amounts; it does not
 verify EVM receipt proofs. If a post lands but delivery is not reported before expiry plus grace, the customer
-could receive both the post and a refund. The Worker has the `fail_post` client method, but automatic reverted/
-expired-post recovery is not yet implemented.
+could receive both the post and a refund through the desk's public refund path. Worker recovery cannot prevent
+that during an extended outage, and relies on RPC receipt/state visibility rather than receipt proofs.
+
+### Worker recovery
+
+- Deploy a desk exposing `next_order_id()` and apply `worker/migrations/0003_journal.sql` before running this
+  Worker version. The migration adds broadcast intent and pending-nonce ownership; it is not applied by startup.
+- Every signed attempt is journaled before broadcast. Recovery checks earlier attempts' receipts before
+  replacing a nonce or failing a post, and includes L1 fees in the reported receipt cost.
+- A reverted post fails through `fail_post`. An expired post with no receipt waits **30 seconds** past
+  `valid_until`, then rechecks its receipt and the signed transaction's oracle `statePosted` mapping before failure.
+  No new broadcast or re-sign is attempted after the Worker's clock crosses expiry.
+- A positively observed posted state is retained durably. If the successful receipt is not yet available,
+  the Worker alerts and leaves the order pending rather than refunding a customer who received the post.
+  Lost settlement responses are resolved by reading the desk's final status; gas and split settlement occur once.
+- EXIT confirmation uses the desk policy's minimum/maximum window. Missing or too-early first readings do not
+  trigger a paid model call; lapsed readings resume through the desk's open-order view.
+- Per-network/chain cursors rotate bounded scans independently of waiting orders. Pruned gaps are crossed using
+  `next_order_id`; unverified gaps remain revisitable. Chain leases renew every third of their TTL during work.
+  Each runner merges chain-filtered `open_orders(20)` with its scan, deduplicating orders and prioritizing selected
+  active work. A full runner reserves nine slots for scan progress and one for the fast path; spare capacity is shared.
+- Mirroring repairs at most 50 late-document post links per chain per pass, preserving existing grading.
+- NEAR mutations rebuild only after an explicit `InvalidNonce` rejection, at most five attempts. Mutation
+  transport retries are disabled, so an ambiguous lost response is not silently replayed as a new transaction.
 
 ### Chains
 
