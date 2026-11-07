@@ -24,6 +24,8 @@ export interface DeskTx {
 export interface DeskClient {
   open_orders(limit: number): Promise<DeskOrder[]>;
   list_orders(from: number, limit: number): Promise<DeskOrder[]>;
+  /** Exclusive ID bound; unlike list_orders, unaffected by pruned orders. */
+  next_order_id(): Promise<number>;
   get_order(id: number): Promise<DeskOrder | null>;
   policy(): Promise<DeskPolicy>;
   /** Vaults on the menu for `chain`, 0x-lowercase. */

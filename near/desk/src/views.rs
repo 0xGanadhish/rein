@@ -11,6 +11,11 @@ impl Desk {
         self.orders.get(&order_id).map(|o| self.view(o))
     }
 
+    /// Exclusive order ID bound, including IDs whose orders have been pruned.
+    pub fn next_order_id(&self) -> u64 {
+        self.next_id
+    }
+
     /// Orders with ids in `[from, from + limit)`; pruned ids are skipped.
     pub fn list_orders(&self, from: u64, limit: u32) -> Vec<OrderView> {
         let end = from.saturating_add(limit as u64).min(self.next_id);
