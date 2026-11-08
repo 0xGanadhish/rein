@@ -8,7 +8,9 @@
  *
  *   DESK_OWNER=<account> pnpm deploy:desk [testnet|mainnet] [--yes]
  *   Optional: DESK_TREASURY (testnet defaults to DESK_OWNER), DESK_USDC_TOKEN (mainnet), NEAR_CLI (default `near`).
- *   Build first: cargo near build non-reproducible-wasm --manifest-path near/desk/Cargo.toml
+ *   Build first: cargo near build non-reproducible-wasm --manifest-path near/desk/Cargo.toml, then from near/:
+ *     wasm-opt -Oz --enable-bulk-memory --enable-sign-ext --enable-mutable-globals \
+ *       target/near/desk/desk.wasm -o target/near/desk/desk.opt.wasm
  */
 import { spawnSync } from 'node:child_process';
 import { readdir, readFile, stat } from 'node:fs/promises';
@@ -20,7 +22,7 @@ import { JUDGE_PROMPT } from '../shared/judgePrompt.ts';
 const network = process.argv.includes('mainnet') ? 'mainnet' : 'testnet';
 const yes = process.argv.includes('--yes');
 const RPC = { testnet: 'https://rpc.testnet.near.org', mainnet: 'https://rpc.mainnet.near.org' }[network];
-const WASM = new URL('../near/desk/target/near/desk/desk.wasm', import.meta.url);
+const WASM = new URL('../near/target/near/desk/desk.opt.wasm', import.meta.url);
 const WASM_LIMIT = 300_000;
 const ATTESTER_PATH = 'rein-attester-v1';
 const EVIDENCE_MAX_AGE_MS = 24 * 3600 * 1000;
@@ -189,9 +191,9 @@ const steps: { what: string; args: string[] }[] = [];
 
 if (!deployed) {
   if (!wasm) fail(`no ${WASM.pathname}; build the desk first`);
-  if (wasm!.size > WASM_LIMIT) fail(`desk.wasm is ${wasm!.size} bytes, over ${WASM_LIMIT}`);
+  if (wasm!.size > WASM_LIMIT) fail(`desk.opt.wasm is ${wasm!.size} bytes, over ${WASM_LIMIT}`);
   steps.push({
-    what: `deploy desk.wasm (${wasm!.size} bytes) and call new`,
+    what: `deploy desk.opt.wasm (${wasm!.size} bytes) and call new`,
     args: [
       'contract',
       'deploy',
