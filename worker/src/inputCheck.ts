@@ -26,7 +26,8 @@ function fields(doc: string): Map<string, string> | null {
   return out;
 }
 
-const within = (got: bigint, want: bigint, ppm: bigint) => (got > want ? got - want : want - got) * 1_000_000n <= want * ppm;
+const within = (got: bigint, want: bigint, ppm: bigint) =>
+  (got > want ? got - want : want - got) * 1_000_000n <= want * ppm;
 
 /**
  * Whether the reading the model was shown agrees with what the oracle snapshotted when the post landed. A doc that
@@ -51,8 +52,9 @@ export function inputCheck(doc: string, post: PostSnapshot): InputCheck {
   const noAdapter = post.liquidityAtPost === maxUint256;
   if (liquidity === 'na' || noAdapter) return liquidity === 'na' && noAdapter ? 'match' : 'mismatch';
   const docBps = BigInt(Math.round(Number(liquidity) * 100));
-  const postBps = post.assetsAtPost === 0n || post.liquidityAtPost >= post.assetsAtPost
-    ? 10_000n
-    : (post.liquidityAtPost * 10_000n) / post.assetsAtPost;
+  const postBps =
+    post.assetsAtPost === 0n || post.liquidityAtPost >= post.assetsAtPost
+      ? 10_000n
+      : (post.liquidityAtPost * 10_000n) / post.assetsAtPost;
   return within(docBps, postBps, LIQUIDITY_PPM) ? 'match' : 'mismatch';
 }

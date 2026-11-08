@@ -10,17 +10,29 @@ import { mirror, type MirrorDeps, type OraclePost } from '../src/mirror';
 
 const NOW = 1_793_774_225;
 function order(id: number, status: DeskOrder['status']): DeskOrder {
-  return { id, source: 'near', payer: 'alice.testnet', chain: 'base',
-    vault: '0x00000000000000000000000000000000000000aa', amount: '1', created_s: NOW - 60,
-    status, exit_pending_s: null, valid_until: null };
+  return {
+    id,
+    source: 'near',
+    payer: 'alice.testnet',
+    chain: 'base',
+    vault: '0x00000000000000000000000000000000000000aa',
+    amount: '1',
+    created_s: NOW - 60,
+    status,
+    exit_pending_s: null,
+    valid_until: null,
+  };
 }
 function setup(orders: DeskOrder[]) {
   const pages: number[] = [];
   const desk = {
     open_orders: async (limit: number) => orders.filter((o) => o.status === 'open').slice(0, limit),
-    list_orders: async (from: number, limit: number) => { pages.push(from); return orders.filter((o) => o.id >= from && o.id < from + limit); },
+    list_orders: async (from: number, limit: number) => {
+      pages.push(from);
+      return orders.filter((o) => o.id >= from && o.id < from + limit);
+    },
     next_order_id: async () => orders.reduce((next, o) => Math.max(next, o.id + 1), 0),
-    stats: async () => ({} as DeskStats),
+    stats: async () => ({}) as DeskStats,
   };
   const deps: MirrorDeps = {
     desk,
@@ -28,15 +40,21 @@ function setup(orders: DeskOrder[]) {
   };
   return { deps, pages, desk };
 }
-beforeAll(async () => { await applyD1Migrations(env.DB, env.TEST_MIGRATIONS); });
+beforeAll(async () => {
+  await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
+});
 beforeEach(async () => {
-  await env.DB.batch(['cursors', 'orders', 'posts', 'docs', 'meta'].map((table) => env.DB.prepare(`DELETE FROM ${table}`)));
+  await env.DB.batch(
+    ['cursors', 'orders', 'posts', 'docs', 'meta'].map((table) => env.DB.prepare(`DELETE FROM ${table}`)),
+  );
 });
 
 it('post_failed_advances_mirror_cursor', async () => {
   const s = setup([order(0, 'post_failed'), order(1, 'delivered')]);
   await mirror(env, 'mainnet', s.deps, NOW);
-  expect(await env.DB.prepare('SELECT value FROM cursors WHERE key = ?').bind('mirror:orders:mainnet').first('value')).toBe(2);
+  expect(
+    await env.DB.prepare('SELECT value FROM cursors WHERE key = ?').bind('mirror:orders:mainnet').first('value'),
+  ).toBe(2);
   expect(await env.DB.prepare('SELECT status FROM orders WHERE id = 0').first('status')).toBe('post_failed');
 });
 
@@ -46,35 +64,57 @@ it('late_doc_repairs_post_linkage', async () => {
   const hashes = [keccak256(toBytes(doc)), keccak256(toBytes(badDoc))];
   const s = setup([]);
   let reads = 0;
-  s.deps.oracle = (chain) => chain !== 'base' ? null : {
-    postCount: async () => 2n,
-    getPost: async (id): Promise<OraclePost> => {
-      reads++;
-      return { vault: '0x00000000000000000000000000000000000000aa', verdict: 0, confidenceBps: 9000,
-        riskBps: 500, stateHash: hashes[Number(id) - 1], postedAt: BigInt(NOW),
-        ppsAtPost: 100n, assetsAtPost: 1000n, liquidityAtPost: 500n };
-    },
-  };
+  s.deps.oracle = (chain) =>
+    chain !== 'base'
+      ? null
+      : {
+          postCount: async () => 2n,
+          getPost: async (id): Promise<OraclePost> => {
+            reads++;
+            return {
+              vault: '0x00000000000000000000000000000000000000aa',
+              verdict: 0,
+              confidenceBps: 9000,
+              riskBps: 500,
+              stateHash: hashes[Number(id) - 1],
+              postedAt: BigInt(NOW),
+              ppsAtPost: 100n,
+              assetsAtPost: 1000n,
+              liquidityAtPost: 500n,
+            };
+          },
+        };
   await mirror(env, 'mainnet', s.deps, NOW);
-  expect(await env.DB.prepare('SELECT order_id, input_check FROM posts WHERE chain = ? AND id = 1').bind('base').first())
-    .toEqual({ order_id: null, input_check: 'unknown' });
+  expect(
+    await env.DB.prepare('SELECT order_id, input_check FROM posts WHERE chain = ? AND id = 1').bind('base').first(),
+  ).toEqual({ order_id: null, input_check: 'unknown' });
   await env.DB.batch([
     env.DB.prepare('INSERT INTO docs (hash, order_id, doc) VALUES (?, 7, ?)').bind(hashes[0], doc),
     env.DB.prepare('INSERT INTO docs (hash, order_id, doc) VALUES (?, 8, ?)').bind(hashes[1], badDoc),
-    env.DB.prepare('UPDATE posts SET sampled = 2, resample_at = 123, resolved = 1, adverse = 1, reasons = 3 WHERE chain = ? AND id = 1').bind('base'),
+    env.DB.prepare(
+      'UPDATE posts SET sampled = 2, resample_at = 123, resolved = 1, adverse = 1, reasons = 3 WHERE chain = ? AND id = 1',
+    ).bind('base'),
   ]);
   const logs: string[] = [];
   const originalError = console.error;
-  console.error = (...args) => { logs.push(args.join(' ')); };
+  console.error = (...args) => {
+    logs.push(args.join(' '));
+  };
   try {
     await mirror(env, 'mainnet', s.deps, NOW + 1);
   } finally {
     console.error = originalError;
   }
-  expect(await env.DB.prepare('SELECT order_id, input_check, sampled, resample_at, resolved, adverse, reasons FROM posts WHERE chain = ? AND id = 1').bind('base').first())
-    .toEqual({ order_id: 7, input_check: 'match', sampled: 2, resample_at: 123, resolved: 1, adverse: 1, reasons: 3 });
-  expect(await env.DB.prepare('SELECT order_id, input_check FROM posts WHERE chain = ? AND id = 2').bind('base').first())
-    .toEqual({ order_id: 8, input_check: 'mismatch' });
+  expect(
+    await env.DB.prepare(
+      'SELECT order_id, input_check, sampled, resample_at, resolved, adverse, reasons FROM posts WHERE chain = ? AND id = 1',
+    )
+      .bind('base')
+      .first(),
+  ).toEqual({ order_id: 7, input_check: 'match', sampled: 2, resample_at: 123, resolved: 1, adverse: 1, reasons: 3 });
+  expect(
+    await env.DB.prepare('SELECT order_id, input_check FROM posts WHERE chain = ? AND id = 2').bind('base').first(),
+  ).toEqual({ order_id: 8, input_check: 'mismatch' });
   expect(logs.some((line) => line.includes('post_input_mismatch'))).toBe(true);
   expect(reads).toBe(2);
   await mirror(env, 'mainnet', s.deps, NOW + 2);
@@ -86,9 +126,10 @@ it('late_doc_repairs_post_linkage', async () => {
     const hash = keccak256(toBytes(`${doc}|order=${id}`));
     await env.DB.batch([
       env.DB.prepare('INSERT INTO docs (hash, order_id, doc) VALUES (?, ?, ?)').bind(hash, id, `${doc}|order=${id}`),
-      env.DB.prepare(`INSERT INTO posts (chain, id, vault, verdict, confidence_bps, risk_bps, state_hash,
-        posted_at, pps_at_post, assets_at_post, liquidity_at_post) VALUES ('base', ?, '0xaa', 0, 9000, 500, ?, ?, '100', '1000', '500')`)
-        .bind(id, hash, NOW),
+      env.DB.prepare(
+        `INSERT INTO posts (chain, id, vault, verdict, confidence_bps, risk_bps, state_hash,
+        posted_at, pps_at_post, assets_at_post, liquidity_at_post) VALUES ('base', ?, '0xaa', 0, 9000, 500, ?, ?, '100', '1000', '500')`,
+      ).bind(id, hash, NOW),
     ]);
   }
   const bounded = setup([]);
@@ -110,18 +151,25 @@ it('pruned_id_range_does_not_stop_mirror', async () => {
       // All runner state is recreated: only durable cursors may carry progress across ticks.
       const fresh = setup(orders);
       const nextId = fresh.desk.next_order_id;
-      fresh.desk.next_order_id = async () => { boundsRead++; return nextId(); };
+      fresh.desk.next_order_id = async () => {
+        boundsRead++;
+        return nextId();
+      };
       const now = NOW + phase * 100 + n;
       await mirror(env, 'mainnet', fresh.deps, now);
       expect(fresh.pages.length).toBeLessThanOrEqual(10);
-      if (phase === 1) mirroredEarlier = await env.DB.prepare('SELECT status FROM orders WHERE id = 0').first('status') === 'signed';
+      if (phase === 1)
+        mirroredEarlier = (await env.DB.prepare('SELECT status FROM orders WHERE id = 0').first('status')) === 'signed';
       const desk = {
         ...fresh.desk,
         policy: async () => ({ exit_confirm_min_s: 30, exit_confirm_max_s: 300 }),
         get_signed_tx: async () => null,
       };
       const result = await tick(env, 'mainnet', {
-        desk, journal: new BroadcastJournal(env.DB, 'mainnet'), now: () => now, chain: () => ({}),
+        desk,
+        journal: new BroadcastJournal(env.DB, 'mainnet'),
+        now: () => now,
+        chain: () => ({}),
       } as unknown as OrderDeps);
       if (result[1600] === 'pending') workedLater = true;
       if (phase === 1 && result[0] === 'pending') revisitedEarlier = true;
@@ -139,7 +187,10 @@ it('an_older_empty_order_page_does_not_permanently_hide_a_new_order', async () =
   const list = s.desk.list_orders;
   let first = true;
   s.desk.list_orders = async (from, limit) => {
-    if (first) { first = false; return []; }
+    if (first) {
+      first = false;
+      return [];
+    }
     return list(from, limit);
   };
   await mirror(env, 'mainnet', s.deps, NOW);

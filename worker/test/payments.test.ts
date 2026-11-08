@@ -10,10 +10,23 @@ import { ONECLICK, PINGPAY, SIGN_WAIT_MS, rememberSignedTx, type PaymentDeps } f
 const VAULT = '0x00000000000000000000000000000000000000aa';
 const USDC = 'usdc.fakes.testnet';
 const T0 = 1_793_774_400_000;
-const postAbi = parseAbi(['function post(address vault, uint8 verdict, uint16 confidenceBps, uint16 riskBps, bytes32 stateHash, uint64 validUntil) returns (uint256 id)']);
+const postAbi = parseAbi([
+  'function post(address vault, uint8 verdict, uint16 confidenceBps, uint16 riskBps, bytes32 stateHash, uint64 validUntil) returns (uint256 id)',
+]);
 const SIGNED = serializeTransaction(
-  { chainId: 10143, nonce: 0, gas: 400_000n, maxFeePerGas: 1n, maxPriorityFeePerGas: 1n, to: '0x00000000000000000000000000000000000000cc',
-    data: encodeFunctionData({ abi: postAbi, functionName: 'post', args: [VAULT, 1, 9200, 7100, `0x${'11'.repeat(32)}`, BigInt(T0 / 1000 + 1800)] }) },
+  {
+    chainId: 10143,
+    nonce: 0,
+    gas: 400_000n,
+    maxFeePerGas: 1n,
+    maxPriorityFeePerGas: 1n,
+    to: '0x00000000000000000000000000000000000000cc',
+    data: encodeFunctionData({
+      abi: postAbi,
+      functionName: 'post',
+      args: [VAULT, 1, 9200, 7100, `0x${'11'.repeat(32)}`, BigInt(T0 / 1000 + 1800)],
+    }),
+  },
   { r: `0x${'01'.repeat(32)}`, s: `0x${'02'.repeat(32)}`, yParity: 0 },
 );
 
@@ -30,7 +43,9 @@ class Fakes {
   refusal: string | null = null;
   valid = true;
 
-  named(name: string) { return this.calls.filter((c) => c[0] === name); }
+  named(name: string) {
+    return this.calls.filter((c) => c[0] === name);
+  }
 
   deps(): PaymentDeps {
     const desk = rememberSignedTx({
@@ -39,7 +54,18 @@ class Fakes {
         this.calls.push(['submit_x402_request', chain, vault, payment_ref, amount]);
         if (this.refusal) throw new Error(`Smart contract panicked: ${this.refusal}`);
         const id = this.nextId++;
-        this.orders.set(id, { id, source: 'x402', payer: null, chain, vault, amount, created_s: this.clock / 1000, status: 'open', exit_pending_s: null, valid_until: null });
+        this.orders.set(id, {
+          id,
+          source: 'x402',
+          payer: null,
+          chain,
+          vault,
+          amount,
+          created_s: this.clock / 1000,
+          status: 'open',
+          exit_pending_s: null,
+          valid_until: null,
+        });
         return id;
       },
       get_order: async (id: number) => (this.orders.has(id) ? { ...this.orders.get(id)! } : null),
@@ -51,11 +77,29 @@ class Fakes {
         const body = init?.body ? JSON.parse(String(init.body)) : null;
         this.calls.push(['fetch', url, body]);
         if (url === `${ONECLICK.base}/quote`) {
-          return Response.json({ quote: { depositAddress: '0xdep051t', amountIn: body.amount, amountOut: '995000', deadline: '2026-11-04T13:00:00.000Z' } });
+          return Response.json({
+            quote: {
+              depositAddress: '0xdep051t',
+              amountIn: body.amount,
+              amountOut: '995000',
+              deadline: '2026-11-04T13:00:00.000Z',
+            },
+          });
         }
         if (url.startsWith(`${ONECLICK.base}/status?`)) return Response.json({ status: 'PENDING_DEPOSIT' });
-        if (url === PINGPAY.base + PINGPAY.verifyPath) return Response.json(this.valid ? { isValid: true, payer: 'buyer.testnet' } : { isValid: false, invalidReason: 'insufficient_funds' });
-        if (url === PINGPAY.base + PINGPAY.settlePath) return Response.json({ success: true, transaction: 'settle-tx', network: 'near:testnet', payer: 'buyer.testnet' });
+        if (url === PINGPAY.base + PINGPAY.verifyPath)
+          return Response.json(
+            this.valid
+              ? { isValid: true, payer: 'buyer.testnet' }
+              : { isValid: false, invalidReason: 'insufficient_funds' },
+          );
+        if (url === PINGPAY.base + PINGPAY.settlePath)
+          return Response.json({
+            success: true,
+            transaction: 'settle-tx',
+            network: 'near:testnet',
+            payer: 'buyer.testnet',
+          });
         return new Response('unexpected', { status: 500 });
       },
       desk,
@@ -63,36 +107,64 @@ class Fakes {
         this.calls.push(['tick']);
         for (const o of this.orders.values()) {
           if (o.status !== 'open' || this.outcome === 'stuck') continue;
-          if (this.outcome !== 'delivered') { o.status = this.outcome; continue; }
+          if (this.outcome !== 'delivered') {
+            o.status = this.outcome;
+            continue;
+          }
           o.status = 'signed';
           await desk.get_signed_tx(o.id);
           o.status = 'delivered';
         }
       },
-      sleep: async (ms) => { this.clock += ms; },
+      sleep: async (ms) => {
+        this.clock += ms;
+      },
       now: () => this.clock,
     };
   }
 }
 
-const payment = (nonce: string) => btoa(JSON.stringify({ x402Version: 1, scheme: 'exact', network: 'near:testnet', payload: { nonce } }));
+const payment = (nonce: string) =>
+  btoa(JSON.stringify({ x402Version: 1, scheme: 'exact', network: 'near:testnet', payload: { nonce } }));
 
 function call(fakes: Fakes, path: string, body: unknown, headers: Record<string, string> = {}) {
-  const request = new Request(`https://rein.test${path}`, { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json', ...headers } });
-  return handle(request, env, { kick: async () => ({}), health: async () => { throw new Error('unused'); }, payments: async () => fakes.deps() });
+  const request = new Request(`https://rein.test${path}`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers: { 'content-type': 'application/json', ...headers },
+  });
+  return handle(request, env, {
+    kick: async () => ({}),
+    health: async () => {
+      throw new Error('unused');
+    },
+    payments: async () => fakes.deps(),
+  });
 }
 const judge = (fakes: Fakes, pay?: string, chain = 'monad-testnet') =>
   call(fakes, '/v1/x402/judge', { chain, vault: VAULT }, pay ? { [PINGPAY.paymentHeader]: pay } : {});
 
 describe('payments', () => {
-  beforeAll(async () => { await applyD1Migrations(env.DB, env.TEST_MIGRATIONS); });
-  beforeEach(async () => { await env.DB.prepare('DELETE FROM meta').run(); });
+  beforeAll(async () => {
+    await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
+  });
+  beforeEach(async () => {
+    await env.DB.prepare('DELETE FROM meta').run();
+  });
 
   it('quote_targets_customer_account_and_usdc_on_near', async () => {
     const fakes = new Fakes();
-    const res = await call(fakes, '/v1/quote', { originAsset: 'nep141:eth.omft.near', amount: '400000000000000', recipientNear: 'alice.near' });
+    const res = await call(fakes, '/v1/quote', {
+      originAsset: 'nep141:eth.omft.near',
+      amount: '400000000000000',
+      recipientNear: 'alice.near',
+    });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ depositAddress: '0xdep051t', amountIn: '400000000000000', expiresAt: '2026-11-04T13:00:00.000Z' });
+    expect(await res.json()).toEqual({
+      depositAddress: '0xdep051t',
+      amountIn: '400000000000000',
+      expiresAt: '2026-11-04T13:00:00.000Z',
+    });
     const [[, url, sent]] = fakes.named('fetch') as [string, string, Record<string, unknown>][];
     expect(url).toBe(`${ONECLICK.base}/quote`);
     expect(sent).toMatchObject({
@@ -104,12 +176,19 @@ describe('payments', () => {
       refundTo: 'alice.near',
     });
 
-    const status = await handle(new Request('https://rein.test/v1/quote/status?depositAddress=0xdep051t'), env,
-      { kick: async () => ({}), health: async () => { throw new Error('unused'); }, payments: async () => fakes.deps() });
+    const status = await handle(new Request('https://rein.test/v1/quote/status?depositAddress=0xdep051t'), env, {
+      kick: async () => ({}),
+      health: async () => {
+        throw new Error('unused');
+      },
+      payments: async () => fakes.deps(),
+    });
     expect(await status.json()).toEqual({ status: 'PENDING_DEPOSIT' });
     expect(fakes.named('fetch').at(-1)![1]).toBe(`${ONECLICK.base}/status?depositAddress=0xdep051t`);
 
-    expect((await call(fakes, '/v1/quote', { originAsset: 'x', amount: '1', recipientNear: 'Not An Account' })).status).toBe(400);
+    expect(
+      (await call(fakes, '/v1/quote', { originAsset: 'x', amount: '1', recipientNear: 'Not An Account' })).status,
+    ).toBe(400);
   });
 
   it('x402_without_payment_returns_402', async () => {
@@ -118,10 +197,16 @@ describe('payments', () => {
     expect(res.status).toBe(402);
     const body = await res.json<Record<string, unknown>>();
     expect(body.x402Version).toBe(1);
-    expect(body.accepts).toEqual([expect.objectContaining({
-      scheme: 'exact', network: 'near:testnet', maxAmountRequired: '1000000', asset: USDC, payTo: env.AGENT_ACCOUNT,
-      resource: 'https://rein.test/v1/x402/judge',
-    })]);
+    expect(body.accepts).toEqual([
+      expect.objectContaining({
+        scheme: 'exact',
+        network: 'near:testnet',
+        maxAmountRequired: '1000000',
+        asset: USDC,
+        payTo: env.AGENT_ACCOUNT,
+        resource: 'https://rein.test/v1/x402/judge',
+      }),
+    ]);
     expect(fakes.named('submit_x402_request')).toEqual([]);
     expect((await judge(new Fakes(), undefined, 'base-sepolia')).status).toBe(402);
 
@@ -137,8 +222,15 @@ describe('payments', () => {
     const fakes = new Fakes();
     const res = await judge(fakes, payment('n1'));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ orderId: 40, signedTx: SIGNED, verdict: { verdict: 'EXIT', confidenceBps: 9200, riskBps: 7100 } });
-    expect(JSON.parse(atob(res.headers.get(PINGPAY.responseHeader)!))).toMatchObject({ success: true, transaction: 'settle-tx' });
+    expect(await res.json()).toEqual({
+      orderId: 40,
+      signedTx: SIGNED,
+      verdict: { verdict: 'EXIT', confidenceBps: 9200, riskBps: 7100 },
+    });
+    expect(JSON.parse(atob(res.headers.get(PINGPAY.responseHeader)!))).toMatchObject({
+      success: true,
+      transaction: 'settle-tx',
+    });
 
     const steps = fakes.calls.map((c) => (c[0] === 'fetch' ? String(c[1]).replace(PINGPAY.base, '') : c[0]));
     expect(steps).toEqual(['/verify', 'submit_x402_request', 'tick', '/settle']);
@@ -147,7 +239,12 @@ describe('payments', () => {
     expect(ref).toMatch(/^[0-9a-f]{64}$/);
     // Verify and settle carry the buyer's payload against the same requirements.
     const [verify, settle] = fakes.named('fetch').map((c) => c[2] as Record<string, unknown>);
-    expect(verify.paymentPayload).toEqual({ x402Version: 1, scheme: 'exact', network: 'near:testnet', payload: { nonce: 'n1' } });
+    expect(verify.paymentPayload).toEqual({
+      x402Version: 1,
+      scheme: 'exact',
+      network: 'near:testnet',
+      payload: { nonce: 'n1' },
+    });
     expect(settle).toEqual(verify);
   });
 

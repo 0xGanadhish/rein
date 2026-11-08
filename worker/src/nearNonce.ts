@@ -9,8 +9,14 @@ export async function callWithNonceRetry<T>(mutation: () => Promise<T>): Promise
       return await mutation();
     } catch (error) {
       // @near-js/providers flattens the RPC rejection into TypedError.type.
-      if (attempt >= 4 || typeof error !== 'object' || error === null
-        || !('type' in error) || error.type !== 'InvalidNonce') throw error;
+      if (
+        attempt >= 4 ||
+        typeof error !== 'object' ||
+        error === null ||
+        !('type' in error) ||
+        error.type !== 'InvalidNonce'
+      )
+        throw error;
       const delay = Promise.withResolvers<void>();
       setTimeout(delay.resolve, 100 * 2 ** attempt);
       await delay.promise;

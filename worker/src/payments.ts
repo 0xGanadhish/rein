@@ -40,14 +40,26 @@ export interface PaymentRequirements {
   asset: string;
 }
 
-interface VerifyResponse { isValid: boolean; invalidReason?: string; payer?: string }
-interface SettleResponse { success: boolean; errorReason?: string; transaction?: string; network?: string; payer?: string }
+interface VerifyResponse {
+  isValid: boolean;
+  invalidReason?: string;
+  payer?: string;
+}
+interface SettleResponse {
+  success: boolean;
+  errorReason?: string;
+  transaction?: string;
+  network?: string;
+  payer?: string;
+}
 
 /** How long a paid request waits for its order to be signed. */
 export const SIGN_WAIT_MS = 150_000;
 const POLL_MS = 5_000;
 const VERDICTS = ['HOLD', 'EXIT', 'MOVE'] as const;
-const postAbi = parseAbi(['function post(address vault, uint8 verdict, uint16 confidenceBps, uint16 riskBps, bytes32 stateHash, uint64 validUntil) returns (uint256 id)']);
+const postAbi = parseAbi([
+  'function post(address vault, uint8 verdict, uint16 confidenceBps, uint16 riskBps, bytes32 stateHash, uint64 validUntil) returns (uint256 id)',
+]);
 
 export interface PaymentDeps {
   /** Reaches 1Click and PingPay. */
@@ -82,7 +94,8 @@ const json = (body: unknown, status = 200, headers: Record<string, string> = {})
 
 const NEAR_ACCOUNT = /^(?=.{2,64}$)(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
 const isChain = (c: unknown): c is DeskChain => typeof c === 'string' && Object.hasOwn(CHAIN_IDS, c);
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e)).replace(/https?:\/\/\S+/g, '<url>').slice(0, 200);
+const message = (e: unknown) =>
+  (e instanceof Error ? e.message : String(e)).replace(/https?:\/\/\S+/g, '<url>').slice(0, 200);
 
 async function body(request: Request): Promise<Record<string, unknown> | null> {
   try {
@@ -98,8 +111,10 @@ export async function quote(request: Request, deps: Pick<PaymentDeps, 'fetch' | 
   const b = await body(request);
   const { originAsset, amount, recipientNear } = b ?? {};
   if (typeof originAsset !== 'string' || !originAsset) return json({ error: 'originAsset required' }, 400);
-  if (typeof amount !== 'string' || !/^[1-9]\d*$/.test(amount)) return json({ error: 'amount must be a positive integer string' }, 400);
-  if (typeof recipientNear !== 'string' || !NEAR_ACCOUNT.test(recipientNear)) return json({ error: 'recipientNear must be a NEAR account' }, 400);
+  if (typeof amount !== 'string' || !/^[1-9]\d*$/.test(amount))
+    return json({ error: 'amount must be a positive integer string' }, 400);
+  if (typeof recipientNear !== 'string' || !NEAR_ACCOUNT.test(recipientNear))
+    return json({ error: 'recipientNear must be a NEAR account' }, 400);
 
   const res = await deps.fetch(`${ONECLICK.base}/quote`, {
     method: 'POST',
@@ -132,14 +147,27 @@ export async function quoteStatus(url: URL, deps: Pick<PaymentDeps, 'fetch'>): P
   if (!depositAddress) return json({ error: 'depositAddress required' }, 400);
   const res = await deps.fetch(`${ONECLICK.base}/status?depositAddress=${encodeURIComponent(depositAddress)}`);
   if (res.status >= 400) return json({ error: 'quote status failed' }, res.status);
-  return new Response(res.body, { status: res.status, headers: { 'content-type': res.headers.get('content-type') ?? 'application/json' } });
+  return new Response(res.body, {
+    status: res.status,
+    headers: { 'content-type': res.headers.get('content-type') ?? 'application/json' },
+  });
 }
 
-async function pingpay<T>(env: Env, deps: PaymentDeps, path: string, payload: unknown, requirements: PaymentRequirements): Promise<T> {
+async function pingpay<T>(
+  env: Env,
+  deps: PaymentDeps,
+  path: string,
+  payload: unknown,
+  requirements: PaymentRequirements,
+): Promise<T> {
   const res = await deps.fetch(`${PINGPAY.base}${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${env.PINGPAY_API_KEY}` },
-    body: JSON.stringify({ x402Version: PINGPAY.x402Version, paymentPayload: payload, paymentRequirements: requirements }),
+    body: JSON.stringify({
+      x402Version: PINGPAY.x402Version,
+      paymentPayload: payload,
+      paymentRequirements: requirements,
+    }),
   });
   if (!res.ok) throw new Error(`pingpay ${path} ${res.status}`);
   return res.json<T>();
@@ -206,7 +234,12 @@ export async function x402Judge(request: Request, env: Env, deps: PaymentDeps): 
   // A payment opens one order at most, whatever happens to it.
   const paymentRef = await sha256Hex(header);
   const claim = await env.DB.prepare(`INSERT OR IGNORE INTO meta (key, json, at) VALUES (?, ?, ?)`)
-    .bind(`x402:${paymentRef}`, JSON.stringify({ chain, vault, payer: verified.payer ?? null }), Math.floor(deps.now() / 1000)).run();
+    .bind(
+      `x402:${paymentRef}`,
+      JSON.stringify({ chain, vault, payer: verified.payer ?? null }),
+      Math.floor(deps.now() / 1000),
+    )
+    .run();
   if (claim.meta.changes === 0) return json({ error: 'payment already used', paymentRef }, 409);
 
   let orderId: number;
@@ -215,7 +248,9 @@ export async function x402Judge(request: Request, env: Env, deps: PaymentDeps): 
   } catch (e) {
     return json({ error: 'refused', reason: message(e) }, 422);
   }
-  await env.DB.prepare(`UPDATE meta SET json = json_set(json, '$.orderId', ?) WHERE key = ?`).bind(orderId, `x402:${paymentRef}`).run();
+  await env.DB.prepare(`UPDATE meta SET json = json_set(json, '$.orderId', ?) WHERE key = ?`)
+    .bind(orderId, `x402:${paymentRef}`)
+    .run();
 
   const deadline = deps.now() + SIGN_WAIT_MS;
   let signedTx: string | null;
@@ -230,7 +265,8 @@ export async function x402Judge(request: Request, env: Env, deps: PaymentDeps): 
       signedTx = await deps.desk.get_signed_tx(orderId);
       if (signedTx) break;
     }
-    if (order && (order.status === 'rejected' || order.status === 'refunded' || order.status === 'post_failed')) return json({ orderId, reason: order.status }, 502);
+    if (order && (order.status === 'rejected' || order.status === 'refunded' || order.status === 'post_failed'))
+      return json({ orderId, reason: order.status }, 502);
     if (deps.now() >= deadline) return json({ orderId, reason: 'not signed in time' }, 502);
     await deps.sleep(POLL_MS);
   }
@@ -245,5 +281,7 @@ export async function x402Judge(request: Request, env: Env, deps: PaymentDeps): 
     console.error(JSON.stringify({ msg: 'x402_settle_failed', orderId, paymentRef, error: settled.errorReason }));
     return json({ orderId, reason: `settle failed: ${settled.errorReason ?? 'unknown'}` }, 502);
   }
-  return json({ orderId, signedTx, verdict: verdictOf(signedTx) }, 200, { [PINGPAY.responseHeader]: btoa(JSON.stringify(settled)) });
+  return json({ orderId, signedTx, verdict: verdictOf(signedTx) }, 200, {
+    [PINGPAY.responseHeader]: btoa(JSON.stringify(settled)),
+  });
 }

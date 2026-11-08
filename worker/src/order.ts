@@ -21,7 +21,13 @@ export interface ChainClient {
   nonce(address: string, blockTag?: 'latest' | 'pending'): Promise<number>;
   fees(): Promise<{ maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }>;
   /** Dry-runs the oracle post the answer leads to, from the desk's derived address. */
-  simulate(call: { from: string; order: DeskOrder; doc: string; response: string; validUntil: number }): Promise<{ ok: true } | { ok: false; reason: string }>;
+  simulate(call: {
+    from: string;
+    order: DeskOrder;
+    doc: string;
+    response: string;
+    validUntil: number;
+  }): Promise<{ ok: true } | { ok: false; reason: string }>;
   sendRaw(raw: Hex): Promise<Hex>;
   /** The receipt, or null if not mined. With `wait`, waits a short while for it first. */
   receipt(hash: Hex, opts?: { wait?: boolean }): Promise<Receipt | null>;
@@ -44,12 +50,21 @@ export interface OrderDeps {
 export type OrderOutcome = 'delivered' | 'rejected' | 'pending';
 
 /** Gas the derived address must hold before the desk signs a post for it (1 MON, 0.0001 ETH). */
-export const MIN_GAS_WEI: Record<DeskChain, bigint> = { 'monad-testnet': 10n ** 18n, monad: 10n ** 18n, base: 10n ** 14n, 'base-sepolia': 10n ** 14n };
+export const MIN_GAS_WEI: Record<DeskChain, bigint> = {
+  'monad-testnet': 10n ** 18n,
+  monad: 10n ** 18n,
+  base: 10n ** 14n,
+  'base-sepolia': 10n ** 14n,
+};
 /** Allows a late block/receipt to become visible after the Worker's clock crosses post expiry. */
 export const POST_EXPIRY_MARGIN_S = 30;
 
 /** Whether an order can advance now, before consuming a runner slot or paying for a model call. */
-export function orderReady(order: DeskOrder, now: number, policy: Pick<DeskPolicy, 'exit_confirm_min_s' | 'exit_confirm_max_s'>): boolean {
+export function orderReady(
+  order: DeskOrder,
+  now: number,
+  policy: Pick<DeskPolicy, 'exit_confirm_min_s' | 'exit_confirm_max_s'>,
+): boolean {
   if (order.status === 'signing') return false;
   if (order.status === 'exit_pending') {
     return order.exit_pending_s !== null && now >= order.exit_pending_s + policy.exit_confirm_min_s;
@@ -100,7 +115,11 @@ async function reject(order: DeskOrder, deps: OrderDeps, reason: string): Promis
 async function txParams(chain: ChainClient, from: string, order: DeskOrder, deps: OrderDeps): Promise<DeskTx> {
   const [proposed, fees] = await Promise.all([chain.nonce(from), chain.fees()]);
   const nonce = await deps.journal.nextNonce(order.chain, proposed, deps.desk);
-  return { nonce, max_fee_per_gas: String(fees.maxFeePerGas), max_priority_fee_per_gas: String(fees.maxPriorityFeePerGas) };
+  return {
+    nonce,
+    max_fee_per_gas: String(fees.maxFeePerGas),
+    max_priority_fee_per_gas: String(fees.maxPriorityFeePerGas),
+  };
 }
 
 /** Reads the vault, gets a signed answer the desk accepts, and hands it to `fulfil` or `confirm_exit`. */
@@ -112,7 +131,10 @@ async function answer(order: DeskOrder, deps: OrderDeps, call: 'fulfil' | 'confi
 
   let doc: string;
   try {
-    const [reading, flows] = await Promise.all([deps.read(order.chain, order.vault), deps.flows(order.chain, order.vault)]);
+    const [reading, flows] = await Promise.all([
+      deps.read(order.chain, order.vault),
+      deps.flows(order.chain, order.vault),
+    ]);
     doc = buildDoc(order, reading, flows, deps.now());
   } catch (e) {
     return reject(order, deps, `vault read failed: ${short(message(e))}`);
@@ -133,7 +155,8 @@ async function answer(order: DeskOrder, deps: OrderDeps, call: 'fulfil' | 'confi
     if (verdict === 'ok') j = candidate;
     else if (verdict === 'bad answer' && attempt === 0) continue;
     else {
-      if (verdict === 'unknown signer') await deps.alert(`order ${order.id}: unknown signer ${candidate.signingAddress}`);
+      if (verdict === 'unknown signer')
+        await deps.alert(`order ${order.id}: unknown signer ${candidate.signingAddress}`);
       return reject(order, deps, verdict);
     }
   }
@@ -184,7 +207,12 @@ async function deliver(order: DeskOrder, deps: OrderDeps, resigned: boolean): Pr
     if (known) return known;
     const receipt = await chain.receipt(tx, opts);
     if (receipt) {
-      await deps.journal.receipt(order, tx, receipt.status, receipt.gasUsed * receipt.effectiveGasPrice + (receipt.l1Fee ?? 0n));
+      await deps.journal.receipt(
+        order,
+        tx,
+        receipt.status,
+        receipt.gasUsed * receipt.effectiveGasPrice + (receipt.l1Fee ?? 0n),
+      );
       receipts.set(tx, receipt);
     }
     return receipt;
@@ -209,7 +237,8 @@ async function deliver(order: DeskOrder, deps: OrderDeps, resigned: boolean): Pr
         await deps.alert(`order ${order.id}: state already posted on ${order.chain}; delivery receipt needs recovery`);
         return 'pending';
       }
-      if (earlierPending && (order.valid_until === null || deps.now() <= order.valid_until + POST_EXPIRY_MARGIN_S)) return 'pending';
+      if (earlierPending && (order.valid_until === null || deps.now() <= order.valid_until + POST_EXPIRY_MARGIN_S))
+        return 'pending';
       receipt = latest ?? receipt;
     }
     if (receipt?.status === 'success') {
@@ -254,7 +283,9 @@ async function deliver(order: DeskOrder, deps: OrderDeps, resigned: boolean): Pr
         if (receipt) return finish(receipt);
         if (await chain.statePosted(raw)) {
           await deps.journal.markPosted(order);
-          await deps.alert(`order ${order.id}: state already posted on ${order.chain}; delivery receipt needs recovery`);
+          await deps.alert(
+            `order ${order.id}: state already posted on ${order.chain}; delivery receipt needs recovery`,
+          );
           return 'pending';
         }
         const from = await desk.derived_address();

@@ -31,7 +31,12 @@ export const NEAR_RPC: Record<NearNetwork, string> = {
 };
 
 export function rpcFor(env: Env, chain: DeskChain): string {
-  const url = { 'monad-testnet': env.RPC_MONAD_TESTNET, monad: env.RPC_MONAD, base: env.RPC_BASE, 'base-sepolia': env.RPC_BASE_SEPOLIA }[chain];
+  const url = {
+    'monad-testnet': env.RPC_MONAD_TESTNET,
+    monad: env.RPC_MONAD,
+    base: env.RPC_BASE,
+    'base-sepolia': env.RPC_BASE_SEPOLIA,
+  }[chain];
   if (!url) throw new Error(`no RPC configured for ${chain}`);
   return url;
 }

@@ -11,7 +11,8 @@ const prompt: DeskPrompt = {
 };
 const doc = 'rein-v1|order=1|chain=base|vault=0xaa|at=1|name=x';
 // Odd spacing and a non-ASCII character: the bytes must come back untouched, not re-serialised.
-const completion = '{"id":"chatcmpl-7",  "choices":[{"message":{"content":"{\\"verdict\\":\\"HOLD\\"} \u00e9"}}],"usage":{"prompt_tokens":10,"completion_tokens":5}}\n';
+const completion =
+  '{"id":"chatcmpl-7",  "choices":[{"message":{"content":"{\\"verdict\\":\\"HOLD\\"} \u00e9"}}],"usage":{"prompt_tokens":10,"completion_tokens":5}}\n';
 const signature = { signature_kind: 'ecdsa', text: 'a:b', signature: '0xsig', signing_address: '0xSigner' };
 
 type Call = { url: string; init: RequestInit };
@@ -25,7 +26,9 @@ function fakeFetch(calls: Call[]): typeof fetch {
   }) as typeof fetch;
 }
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('judge', () => {
   it('failed_judge_call_is_recorded', async () => {
@@ -33,17 +36,23 @@ describe('judge', () => {
     await env.DB.prepare('DELETE FROM judge_calls').run();
     const opts = {
       apiKey: 'test-only',
-      fetch: (async (input: RequestInfo | URL) => String(input) === NEAR_AI.completions
-        ? new Response('{"id":"billable","usage":{"prompt_tokens":244,"completion_tokens":34}}')
-        : new Response('unavailable', { status: 503 })) as typeof fetch,
+      fetch: (async (input: RequestInfo | URL) =>
+        String(input) === NEAR_AI.completions
+          ? new Response('{"id":"billable","usage":{"prompt_tokens":244,"completion_tokens":34}}')
+          : new Response('unavailable', { status: 503 })) as typeof fetch,
       record: async (call: { costUsdMicros: number; stage: string | null }) => {
-        await env.DB.prepare('INSERT INTO judge_calls (order_id, at, signing_address, cost_usd_micros) VALUES (1, 1, ?, ?)')
-          .bind(call.stage, call.costUsdMicros).run();
+        await env.DB.prepare(
+          'INSERT INTO judge_calls (order_id, at, signing_address, cost_usd_micros) VALUES (1, 1, ?, ?)',
+        )
+          .bind(call.stage, call.costUsdMicros)
+          .run();
       },
     };
     await expect(judge(doc, prompt, opts)).rejects.toThrow('signature: HTTP 503');
-    expect(await env.DB.prepare('SELECT signing_address, cost_usd_micros FROM judge_calls').first())
-      .toEqual({ signing_address: 'signature', cost_usd_micros: 37 });
+    expect(await env.DB.prepare('SELECT signing_address, cost_usd_micros FROM judge_calls').first()).toEqual({
+      signing_address: 'signature',
+      cost_usd_micros: 37,
+    });
   });
   it('sends_exact_prefix_doc_suffix', async () => {
     const calls: Call[] = [];
@@ -76,11 +85,14 @@ describe('judge', () => {
 
   it('times_out_after_20s', async () => {
     vi.useFakeTimers();
-    const hang = ((_: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_, reject) => {
-      init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
-    })) as typeof fetch;
+    const hang = ((_: RequestInfo | URL, init?: RequestInit) =>
+      new Promise<Response>((_, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+      })) as typeof fetch;
     let settled = false;
-    const p = judge(doc, prompt, { apiKey: 'k', fetch: hang }).finally(() => { settled = true; });
+    const p = judge(doc, prompt, { apiKey: 'k', fetch: hang }).finally(() => {
+      settled = true;
+    });
     p.catch(() => {});
     await vi.advanceTimersByTimeAsync(19_999);
     expect(settled).toBe(false);
