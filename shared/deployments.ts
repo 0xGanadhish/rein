@@ -9,6 +9,8 @@ export interface Deployment {
   agent: string | null;
   /** Rein oracle per chain; null until it's deployed there. */
   oracles: Partial<Record<DeskChain, Address | null>>;
+  /** Vaults the desk takes orders on, per chain. */
+  menu: Partial<Record<DeskChain, Address[]>>;
 }
 
 /**
@@ -20,10 +22,12 @@ export const DEPLOYMENTS: Record<'mainnet' | 'testnet', Deployment> = {
     desk: 'rein-desk.testnet',
     agent: 'agent.rein-desk.testnet',
     oracles: { 'monad-testnet': null, 'base-sepolia': null },
+    menu: { 'monad-testnet': [], 'base-sepolia': [] },
   },
   mainnet: {
     desk: null,
     agent: null,
     oracles: { monad: null, base: null },
+    menu: { monad: [], base: [] },
   },
 };
