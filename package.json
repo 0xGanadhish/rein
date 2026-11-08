@@ -12,6 +12,7 @@
     "fmt:rust:check": "cargo fmt --manifest-path near/Cargo.toml --all --check",
     "fmt:sol": "forge fmt --root evm",
     "fmt:sol:check": "forge fmt --root evm --check",
+    "demo": "node --experimental-strip-types --env-file-if-exists=.env scripts/demo.ts",
     "demo:replay": "node --experimental-strip-types --env-file-if-exists=.env scripts/demo-replay.ts",
     "verify:signer": "node --experimental-strip-types --env-file-if-exists=.env scripts/verify-signer.ts",
     "deploy:desk": "node --experimental-strip-types --env-file-if-exists=.env scripts/deploy-desk.ts"
