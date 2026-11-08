@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { callWithNonceRetry } from '../src/nearNonce';
 
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('NEAR mutation nonce recovery', () => {
   it('independent concurrent mutations recover a rejected nonce without replaying uncertain effects', async () => {
@@ -23,7 +25,9 @@ describe('NEAR mutation nonce recovery', () => {
       }
       if (selected <= nonce) {
         throw Object.assign(new Error('Transaction nonce must be larger than access key nonce'), {
-          type: 'InvalidNonce', tx_nonce: selected.toString(), ak_nonce: nonce.toString(),
+          type: 'InvalidNonce',
+          tx_nonce: selected.toString(),
+          ak_nonce: nonce.toString(),
         });
       }
       nonce = selected;
@@ -31,10 +35,7 @@ describe('NEAR mutation nonce recovery', () => {
       return id;
     };
 
-    const results = Promise.all([
-      callWithNonceRetry(() => mutate('cron')),
-      callWithNonceRetry(() => mutate('x402')),
-    ]);
+    const results = Promise.all([callWithNonceRetry(() => mutate('cron')), callWithNonceRetry(() => mutate('x402'))]);
     await vi.runAllTimersAsync();
     expect(await results).toEqual(['cron', 'x402']);
     expect(effects).toEqual(['cron', 'x402']);
@@ -43,30 +44,36 @@ describe('NEAR mutation nonce recovery', () => {
     // A lost response can hide successful execution: never sign a replacement.
     const lostResponse = new Error('Failed to fetch after submission');
     let uncertainAttempts = 0;
-    await expect(callWithNonceRetry(async () => {
-      uncertainAttempts++;
-      effects.push('uncertain');
-      throw lostResponse;
-    })).rejects.toBe(lostResponse);
+    await expect(
+      callWithNonceRetry(async () => {
+        uncertainAttempts++;
+        effects.push('uncertain');
+        throw lostResponse;
+      }),
+    ).rejects.toBe(lostResponse);
     expect(uncertainAttempts).toBe(1);
     expect(effects.filter((id) => id === 'uncertain')).toHaveLength(1);
 
     // Message text is not an explicit RPC rejection classification.
     const unclassified = new Error('InvalidNonce');
     let unclassifiedAttempts = 0;
-    await expect(callWithNonceRetry(async () => {
-      unclassifiedAttempts++;
-      throw unclassified;
-    })).rejects.toBe(unclassified);
+    await expect(
+      callWithNonceRetry(async () => {
+        unclassifiedAttempts++;
+        throw unclassified;
+      }),
+    ).rejects.toBe(unclassified);
     expect(unclassifiedAttempts).toBe(1);
 
     // A nonce that is too large is not the stale-key collision this recovers.
     const tooLarge = Object.assign(new Error('nonce too large'), { type: 'NonceTooLarge' });
     let tooLargeAttempts = 0;
-    await expect(callWithNonceRetry(async () => {
-      tooLargeAttempts++;
-      throw tooLarge;
-    })).rejects.toBe(tooLarge);
+    await expect(
+      callWithNonceRetry(async () => {
+        tooLargeAttempts++;
+        throw tooLarge;
+      }),
+    ).rejects.toBe(tooLarge);
     expect(tooLargeAttempts).toBe(1);
   });
 });

@@ -6,13 +6,19 @@
  */
 const [base, chain, vault, payment] = process.argv.slice(2);
 if (!base || !chain || !vault) {
-  console.error('usage: node --experimental-strip-types scripts/x402-buyer.ts <worker-url> <chain> <vault> [x-payment-header]');
+  console.error(
+    'usage: node --experimental-strip-types scripts/x402-buyer.ts <worker-url> <chain> <vault> [x-payment-header]',
+  );
   process.exit(1);
 }
 
 const url = new URL('/v1/x402/judge', base);
 const ask = (headers: Record<string, string> = {}) =>
-  fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify({ chain, vault }) });
+  fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...headers },
+    body: JSON.stringify({ chain, vault }),
+  });
 
 const first = await ask();
 console.log(first.status, JSON.stringify(await first.json(), null, 2));

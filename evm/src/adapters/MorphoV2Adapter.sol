@@ -22,7 +22,14 @@ interface IMorphoBlue {
     function market(bytes32 id)
         external
         view
-        returns (uint128 totalSupplyAssets, uint128 totalSupplyShares, uint128 totalBorrowAssets, uint128, uint128, uint128);
+        returns (
+            uint128 totalSupplyAssets,
+            uint128 totalSupplyShares,
+            uint128 totalBorrowAssets,
+            uint128,
+            uint128,
+            uint128
+        );
     function position(bytes32 id, address user) external view returns (uint256 supplyShares, uint128, uint128);
 }
 

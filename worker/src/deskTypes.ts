@@ -2,9 +2,17 @@
 import type { DeskChain, DeskOrder as SharedDeskOrder, DeskPolicy, DeskStats } from '../../shared/desk';
 import type { NearNetwork } from './env';
 
-export const CHAIN_IDS: Record<DeskChain, number> = { 'monad-testnet': 10143, monad: 143, base: 8453, 'base-sepolia': 84532 };
+export const CHAIN_IDS: Record<DeskChain, number> = {
+  'monad-testnet': 10143,
+  monad: 143,
+  base: 8453,
+  'base-sepolia': 84532,
+};
 /** The EVM chains a desk on each NEAR network posts to. */
-export const NETWORK_CHAINS: Record<NearNetwork, DeskChain[]> = { testnet: ['monad-testnet', 'base-sepolia'], mainnet: ['monad', 'base'] };
+export const NETWORK_CHAINS: Record<NearNetwork, DeskChain[]> = {
+  testnet: ['monad-testnet', 'base-sepolia'],
+  mainnet: ['monad', 'base'],
+};
 
 export type DeskOrder = SharedDeskOrder;
 
