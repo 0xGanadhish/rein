@@ -39,6 +39,11 @@ export function inputCheck(doc: string, post: PostSnapshot): InputCheck {
   const liquidity = f?.get('liquidity');
   if (!pps || !assets || !liquidity || !/^\d+$/.test(pps) || !/^\d+$/.test(assets)) return 'unknown';
   if (liquidity !== 'na' && !/^\d+(\.\d{1,2})?$/.test(liquidity)) return 'unknown';
+  // APY is not observable in the oracle snapshot. Validate its representation, never compare na as zero.
+  for (const key of ['apy_bps', 'apy_bps_prev']) {
+    const apy = f?.get(key);
+    if (apy !== undefined && apy !== 'na' && !/^-?\d+$/.test(apy)) return 'unknown';
+  }
 
   if (!within(BigInt(pps), post.ppsAtPost, PPS_PPM)) return 'mismatch';
   if (!within(BigInt(assets), post.assetsAtPost, ASSETS_PPM)) return 'mismatch';

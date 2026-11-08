@@ -12,7 +12,7 @@ export function liquidityPct(available: bigint | null, totalAssets: bigint): num
   return Number(bps > 10_000n ? 10_000n : bps) / 100;
 }
 
-export type ReadClient = Pick<PublicClient, 'readContract'>;
+export type ReadClient = Pick<PublicClient, 'readContract' | 'getBlockNumber'>;
 
 export interface VaultConfig {
   address: string;
@@ -38,35 +38,36 @@ export interface VaultStats {
  */
 export async function readVault(
   env: Env, chain: DeskChain, vault: VaultConfig,
-  opts: { client?: ReadClient; oracle?: Address | null } = {},
+  opts: { client?: ReadClient; oracle?: Address | null; blockNumber?: bigint } = {},
 ): Promise<VaultStats> {
   const client = opts.client ?? createPublicClient({ chain: CHAINS[chain], transport: http(rpcFor(env, chain), { retryCount: 2 }) });
+  const blockNumber = opts.blockNumber ?? await client.getBlockNumber();
   const oracle = opts.oracle !== undefined ? opts.oracle : ORACLES[chain];
   const address = vault.address as Address;
 
   let pps: bigint, totalAssets: bigint, available: bigint | null;
   if (oracle) {
-    const [p, a, liq] = await client.readContract({ address: oracle, abi: oracleAbi, functionName: 'metricsOf', args: [address] });
+    const [p, a, liq] = await client.readContract({ address: oracle, abi: oracleAbi, functionName: 'metricsOf', args: [address], blockNumber });
     [pps, totalAssets, available] = [p, a, liq === maxUint256 ? null : liq]; // max means "no adapter"
   } else {
     const [assets, decimals] = await Promise.all([
-      client.readContract({ address, abi: erc4626Abi, functionName: 'totalAssets' }),
-      client.readContract({ address, abi: erc4626Abi, functionName: 'decimals' }),
+      client.readContract({ address, abi: erc4626Abi, functionName: 'totalAssets', blockNumber }),
+      client.readContract({ address, abi: erc4626Abi, functionName: 'decimals', blockNumber }),
     ]);
     totalAssets = assets;
-    pps = await client.readContract({ address, abi: erc4626Abi, functionName: 'convertToAssets', args: [10n ** BigInt(decimals)] });
+    pps = await client.readContract({ address, abi: erc4626Abi, functionName: 'convertToAssets', args: [10n ** BigInt(decimals)], blockNumber });
     available = vault.mirror
-      ? await client.readContract({ address, abi: mirrorVaultAbi, functionName: 'availableLiquidity' })
+      ? await client.readContract({ address, abi: mirrorVaultAbi, functionName: 'availableLiquidity', blockNumber })
       : vault.adapter
-        ? await client.readContract({ address: vault.adapter as Address, abi: liquidityAdapterAbi, functionName: 'availableLiquidity', args: [address] })
+        ? await client.readContract({ address: vault.adapter as Address, abi: liquidityAdapterAbi, functionName: 'availableLiquidity', args: [address], blockNumber })
         : null;
   }
   const liq = liquidityPct(available, totalAssets);
 
   if (vault.mirror) {
     const [apyBps, utilBps] = await Promise.all([
-      client.readContract({ address, abi: mirrorVaultAbi, functionName: 'apyBps' }),
-      client.readContract({ address, abi: mirrorVaultAbi, functionName: 'utilizationBps' }),
+      client.readContract({ address, abi: mirrorVaultAbi, functionName: 'apyBps', blockNumber }),
+      client.readContract({ address, abi: mirrorVaultAbi, functionName: 'utilizationBps', blockNumber }),
     ]);
     return { pps, totalAssets, liquidityPct: liq, apyBps, utilBps };
   }

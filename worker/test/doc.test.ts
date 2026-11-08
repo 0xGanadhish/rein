@@ -12,6 +12,13 @@ const reading: VaultReading = {
 };
 
 describe('buildDoc', () => {
+  it('missing_apy_is_unavailable_not_zero', () => {
+    const unavailable = { ...reading, apyBps: null, apyBpsPrev: null };
+    const doc = buildDoc(order, unavailable, { netOutPct1h: 0 }, 1793774225);
+    expect(doc).toContain('|apy_bps=na|apy_bps_prev=na|');
+    expect(buildDoc(order, { ...reading, apyBps: 0, apyBpsPrev: 0 }, { netOutPct1h: 0 }, 1793774225))
+      .toContain('|apy_bps=0|apy_bps_prev=0|');
+  });
   it('doc_fields_in_order', () => {
     expect(buildDoc(order, reading, { netOutPct1h: -1.5 }, 1793774225)).toBe(
       'rein-v1|order=12|chain=base|vault=0x00000000000000000000000000000000000000aa|at=1793774225|block=41234567'

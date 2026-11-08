@@ -79,7 +79,7 @@ it('broadcast_crash_recovers_the_landed_attempt_without_refunding', async () => 
   const recovered = { ...s.deps, journal: new BroadcastJournal(env.DB, 'mainnet') };
   expect(await processOrder(s.order, recovered)).toBe('delivered');
   expect(await processOrder(s.order, recovered)).toBe('delivered');
-  expect(s.state()).toMatchObject({ refunds: 0, gas: 34n, reported: keccak256(raw(5)) });
+  expect(s.state()).toMatchObject({ refunds: 0, gas: 40n, reported: keccak256(raw(5)) });
   expect(sends).toBe(1);
   expect(await env.DB.prepare('SELECT COUNT(*) AS n FROM pending_nonces').first<number>('n')).toBe(0);
 });

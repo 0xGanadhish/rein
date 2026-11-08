@@ -4,6 +4,7 @@ export type NearNetwork = 'testnet' | 'mainnet';
 
 export interface Env {
   DB: D1Database;
+  QUOTE_RATE_LIMITER: RateLimit;
   NEAR_NETWORK: NearNetwork;
   DESK_ACCOUNT: string;
   AGENT_ACCOUNT: string;
@@ -20,6 +21,8 @@ export interface Env {
   PINGPAY_API_KEY: string;
   /** yoctoNEAR the agent's function-call key was granted; health flags it once under 20% is left. */
   AGENT_KEY_ALLOWANCE?: string;
+  /** Bearer token for manual cron kicks. Unset disables the endpoint. */
+  KICK_TOKEN?: string;
 }
 
 export const NEAR_RPC: Record<NearNetwork, string> = {

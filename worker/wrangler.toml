@@ -3,6 +3,14 @@ main = "src/index.ts"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
 
+[observability]
+enabled = true
+
+[[ratelimits]]
+name = "QUOTE_RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }
+
 [triggers]
 crons = ["* * * * *"]
 
@@ -21,4 +29,4 @@ database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "migrations"
 
 # Secrets, set with `wrangler secret put`: AGENT_KEY, NEAR_AI_API_KEY, EXECUTOR_KEY,
-# RPC_MONAD, RPC_MONAD_TESTNET, RPC_BASE, RPC_BASE_SEPOLIA, PINGPAY_API_KEY.
+# RPC_MONAD, RPC_MONAD_TESTNET, RPC_BASE, RPC_BASE_SEPOLIA, PINGPAY_API_KEY, KICK_TOKEN.

@@ -315,6 +315,27 @@ describe('processOrder', () => {
     expect(s.desk.named('report_delivery')).toEqual([['report_delivery', 7, keccak256(raw(9)), String(50_000n * 1_500_000_000n + 123n)]]);
   });
 
+  it('delivery_counts_reverted_prior_attempt_fee', async () => {
+    const s = setup();
+    const order = s.desk.add({ status: 'signed', valid_until: T0 + 100 });
+    await s.deps.journal.record(order, raw(8), T0 - 1, s.desk);
+    s.desk.signedTx.set(7, raw(9));
+    s.chain.receipts.set(keccak256(raw(8)), { status: 'reverted', gasUsed: 2n, effectiveGasPrice: 3n, l1Fee: 1n });
+    s.chain.receipts.set(keccak256(raw(9)), { status: 'success', gasUsed: 5n, effectiveGasPrice: 3n });
+    expect(await processOrder(order, s.deps)).toBe('delivered');
+    expect(s.desk.gas).toBe(22n);
+
+    // A successful earlier signature still owes the fee of a reverted replacement.
+    const recovered = setup();
+    const replacement = recovered.desk.add({ id: 8, status: 'signed', valid_until: T0 + 100 });
+    await recovered.deps.journal.record(replacement, raw(20), T0 - 1, recovered.desk);
+    recovered.desk.signedTx.set(8, raw(21));
+    recovered.chain.receipts.set(keccak256(raw(20)), { status: 'success', gasUsed: 5n, effectiveGasPrice: 3n });
+    recovered.chain.receipts.set(keccak256(raw(21)), { status: 'reverted', gasUsed: 2n, effectiveGasPrice: 3n, l1Fee: 1n });
+    expect(await processOrder(replacement, recovered.deps)).toBe('delivered');
+    expect(recovered.desk.gas).toBe(22n);
+  });
+
   it('reverted_post_fails_once_and_counts_gas_once', async () => {
     const s = setup();
     const order = s.desk.add({ status: 'signed', valid_until: T0 + 100 });

@@ -35,6 +35,7 @@ export interface OrderDeps {
   read(chain: DeskChain, vault: string): Promise<VaultReading>;
   flows(chain: DeskChain, vault: string): Promise<{ netOutPct1h: number }>;
   judge: typeof judgeFn;
+  judgeRefused?(judgement: Judgement, reason: string): Promise<void>;
   chain(c: DeskChain): ChainClient;
   now(): number;
   alert(msg: string): Promise<void>;
@@ -128,6 +129,7 @@ async function answer(order: DeskOrder, deps: OrderDeps, call: 'fulfil' | 'confi
       return reject(order, deps, 'judge unavailable');
     }
     const verdict = await desk.check_reading(order.id, doc, candidate.response, candidate.signature);
+    if (verdict !== 'ok') await deps.judgeRefused?.(candidate, verdict);
     if (verdict === 'ok') j = candidate;
     else if (verdict === 'bad answer' && attempt === 0) continue;
     else {
@@ -176,6 +178,17 @@ async function deliver(order: DeskOrder, deps: OrderDeps, resigned: boolean): Pr
   const hash = keccak256(raw);
   const owned = await deps.journal.record(order, raw, deps.now(), desk);
   const attempts = await deps.journal.attempts(order);
+  const receipts = new Map<Hex, Receipt>();
+  const receiptFor = async (tx: Hex, opts?: { wait?: boolean }) => {
+    const known = receipts.get(tx);
+    if (known) return known;
+    const receipt = await chain.receipt(tx, opts);
+    if (receipt) {
+      await deps.journal.receipt(order, tx, receipt.status, receipt.gasUsed * receipt.effectiveGasPrice + (receipt.l1Fee ?? 0n));
+      receipts.set(tx, receipt);
+    }
+    return receipt;
+  };
 
   const finish = async (receipt: Receipt | null, deliveredHash = hash): Promise<OrderOutcome> => {
     if (receipt?.status !== 'success') {
@@ -186,11 +199,11 @@ async function deliver(order: DeskOrder, deps: OrderDeps, resigned: boolean): Pr
       let earlierPending = false;
       for (const attempt of attempts) {
         if (attempt.hash === hash) continue;
-        const prior = await chain.receipt(attempt.hash);
+        const prior = await receiptFor(attempt.hash);
         if (prior?.status === 'success') return finish(prior, attempt.hash);
         if (!prior) earlierPending = true;
       }
-      const latest = await chain.receipt(hash);
+      const latest = await receiptFor(hash);
       if (latest?.status === 'success') return finish(latest);
       if (posted) {
         await deps.alert(`order ${order.id}: state already posted on ${order.chain}; delivery receipt needs recovery`);
@@ -199,7 +212,11 @@ async function deliver(order: DeskOrder, deps: OrderDeps, resigned: boolean): Pr
       if (earlierPending && (order.valid_until === null || deps.now() <= order.valid_until + POST_EXPIRY_MARGIN_S)) return 'pending';
       receipt = latest ?? receipt;
     }
-    const gas = String(receipt ? receipt.gasUsed * receipt.effectiveGasPrice + (receipt.l1Fee ?? 0n) : 0n);
+    if (receipt?.status === 'success') {
+      // Recover every mined replacement fee, not only the signature that posted successfully.
+      for (const attempt of attempts) if (attempt.hash !== deliveredHash) await receiptFor(attempt.hash);
+    }
+    const gas = String(await deps.journal.gas(order));
     const delivered = receipt?.status === 'success';
     try {
       if (delivered) await desk.report_delivery(order.id, deliveredHash, gas);
@@ -217,11 +234,11 @@ async function deliver(order: DeskOrder, deps: OrderDeps, resigned: boolean): Pr
 
   for (const attempt of attempts) {
     if (attempt.hash === hash) continue;
-    const prior = await chain.receipt(attempt.hash);
+    const prior = await receiptFor(attempt.hash);
     if (prior?.status === 'success') return finish(prior, attempt.hash);
   }
   if (attempts.some((attempt) => attempt.posted !== 0)) return finish(null);
-  let receipt = await chain.receipt(hash);
+  let receipt = await receiptFor(hash);
   if (!receipt) {
     if (order.valid_until !== null && deps.now() > order.valid_until) {
       if (deps.now() <= order.valid_until + POST_EXPIRY_MARGIN_S) return 'pending';
@@ -233,7 +250,7 @@ async function deliver(order: DeskOrder, deps: OrderDeps, resigned: boolean): Pr
     } catch (e) {
       if (isNonceTooLow(e)) {
         // Either this very transaction landed already, or another one used its nonce.
-        receipt = await chain.receipt(hash);
+        receipt = await receiptFor(hash);
         if (receipt) return finish(receipt);
         if (await chain.statePosted(raw)) {
           await deps.journal.markPosted(order);
@@ -253,7 +270,7 @@ async function deliver(order: DeskOrder, deps: OrderDeps, resigned: boolean): Pr
         return 'pending';
       }
     }
-    receipt = await chain.receipt(hash, { wait: true });
+    receipt = await receiptFor(hash, { wait: true });
     if (!receipt) return 'pending';
   }
 
