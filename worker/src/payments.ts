@@ -120,17 +120,18 @@ export async function quote(request: Request, deps: Pick<PaymentDeps, 'fetch' | 
       deadline: new Date(deps.now() + ONECLICK.quoteTtlS * 1000).toISOString(),
     }),
   });
-  if (!res.ok) return json({ error: 'quote failed', upstream: res.status, detail: (await res.text()).slice(0, 500) }, 502);
+  if (!res.ok) return json({ error: 'quote failed' }, 502);
   const q = (await res.json<{ quote?: { depositAddress?: string; amountIn?: string; deadline?: string } }>()).quote;
   if (!q?.depositAddress) return json({ error: 'quote has no deposit address' }, 502);
   return json({ depositAddress: q.depositAddress, amountIn: q.amountIn, expiresAt: q.deadline });
 }
 
-/** `GET /v1/quote/status?depositAddress=`: 1Click's status, as it answers. */
+/** `GET /v1/quote/status?depositAddress=`: pass through status responses, normalize upstream errors. */
 export async function quoteStatus(url: URL, deps: Pick<PaymentDeps, 'fetch'>): Promise<Response> {
   const depositAddress = url.searchParams.get('depositAddress');
   if (!depositAddress) return json({ error: 'depositAddress required' }, 400);
   const res = await deps.fetch(`${ONECLICK.base}/status?depositAddress=${encodeURIComponent(depositAddress)}`);
+  if (res.status >= 400) return json({ error: 'quote status failed' }, res.status);
   return new Response(res.body, { status: res.status, headers: { 'content-type': res.headers.get('content-type') ?? 'application/json' } });
 }
 

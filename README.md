@@ -110,6 +110,8 @@ not zero. Calls with missing usage are counted explicitly; the known-cost subtot
   measured `gas_wei`, the currency-vector `margin` (`usdc_less_inference_micros`, `near_yocto`,
   `native_gas_wei`, `near_gas_yocto: null`), `positive_margin`, `margin_unavailable_reason`, and `x402_settled`.
   Linked sample/resolve fees are included; unlinked executor fees remain in chain totals.
+  Only the newest 200 orders (descending order ID) are returned; `per_order_margin_truncated` reports
+  whether older orders were omitted. All totals still cover every order.
 
 Ledger `recent` entries add `grading_quality`, `grade_due_s`, `resolved_at`, and `grading_time_unknown`.
 Quality labels are independent: `unresolved` means due but not resolved; `late` means the chain resolution
@@ -127,11 +129,7 @@ Before the next deployment, install the exact `JUDGE_PROMPT` bytes from `shared/
 `set_prompt` call. Its added instruction forbids interpreting unavailable APY as zero or an APY change.
 The Worker continues to fetch the onchain prompt; nothing here deploys or changes it remotely.
 
-**Abuse controls:** `POST /v1/kick` requires `Authorization: Bearer <KICK_TOKEN>`; an unset secret disables
-all kicks. Set `KICK_TOKEN` as a Worker secret, never in committed configuration. `/v1/quote` allows ten
-requests per trusted `CF-Connecting-IP` per fixed minute in D1; it returns 429 with `Retry-After: 60` before
-initializing payment dependencies. Missing IP headers share one bucket. Stored IP identifiers are SHA-256
-hashes, not raw addresses. Each tick still advances at most ten orders per chain with the existing rotating
+Each tick still advances at most ten orders per chain with the existing rotating
 scan/active-order merge; cron mirrors and grades before processing orders so a paid-order backlog cannot
 delay that invocation's grading.
 
@@ -166,6 +164,27 @@ delay that invocation's grading.
 Both testnets use their own mock USDC and mirror vaults, a one-hour resolution window and no sampling.
 Base Sepolia uses the same fee cap as Base. Worker RPC settings include `RPC_BASE_SEPOLIA`; oracle addresses
 must be configured after deployment. Adding chain support does not deploy or fund anything.
+
+## API
+
+Routing uses Hono. Errors return `{"error":"<message>"}` with `content-type: application/json`,
+including 404 and 405; 405 retains `Allow`. Unexpected exceptions are logged with the request path
+and return 500 `{"error":"internal error"}`, never a stack trace. The x402 payment endpoint retains
+its protocol-specific response bodies and headers. Failed quote/status upstream responses use the
+same error shape; successful status responses still pass through.
+
+- `POST /v1/kick`: bearer-token middleware requires `Authorization: Bearer <KICK_TOKEN>`; missing or
+  incorrect tokens return 401, and an unset secret disables kicks.
+- `POST /v1/quote`: rate-limit middleware runs before parsing or initializing payment dependencies.
+  The Workers Rate Limiting binding allows 10 requests per 60 seconds, keyed on `CF-Connecting-IP`;
+  missing headers share the `unknown` bucket. Limits are approximate and local to each Cloudflare
+  location, not a strict global quota. Denials return 429 with `Retry-After: 60`.
+- `POST /v1/x402/judge`: payment verification stays in the x402 handler, without the kick/quote guards.
+- `GET /v1/ledger`, `/v1/orders/:id` (numeric ID), `/v1/quote/status`, `/v1/stats`, and `/v1/health`:
+  public reads without those guards. HEAD remains unsupported.
+
+Apply migrations through `worker/migrations/0005_drop_quote_limits.sql` before deploying; this removes
+the obsolete D1 limiter table. The binding is configured in `worker/wrangler.toml`, with observability enabled.
 
 ## Local verification
 

@@ -2,6 +2,7 @@ import type { DeskAmounts, DeskStats } from '../../shared/desk';
 
 interface MoneyOrder { id: number; source: string; status: string; amount: string; chain: string }
 const zero = (): DeskAmounts => ({ near: '0', usdc: '0' });
+const PER_ORDER_MARGIN_LIMIT = 200;
 function add(to: DeskAmounts, source: string, amount: string) {
   if (source === 'near' || source === 'usdc') to[source] = String(BigInt(to[source]) + BigInt(amount));
 }
@@ -42,10 +43,12 @@ export async function economics(db: D1Database, stats: DeskStats | null) {
     else credits += c.credits_usd_micros;
     if (c.tokens_in === null || c.tokens_out === null) unknownUsage++;
   }
-  const perOrder = orders.results.map((o) => {
+  for (const o of orders.results) {
     add(opened, o.source, o.amount);
     if (o.status === 'delivered') add(delivered, o.source, o.amount);
     if (['refunded', 'rejected', 'post_failed'].includes(o.status)) { add(refunds, o.source, o.amount); refundOrders++; }
+  }
+  const perOrder = orders.results.slice(0, PER_ORDER_MARGIN_LIMIT).map((o) => {
     const revenue = zero();
     if (o.status === 'delivered') add(revenue, o.source, o.amount);
     const inference = costByOrder.get(o.id) ?? 0;
@@ -89,5 +92,6 @@ export async function economics(db: D1Database, stats: DeskStats | null) {
     self_funding_reason: 'NEAR and USDC receipts do not replenish EVM native gas; no automatic conversion is configured.',
     x402_unsettled_usdc: stats?.sales_x402_usdc ?? '0',
     per_order_margin: perOrder,
+    per_order_margin_truncated: orders.results.length > PER_ORDER_MARGIN_LIMIT,
   };
 }

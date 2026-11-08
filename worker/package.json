@@ -15,6 +15,7 @@
     "@near-js/transactions": "2.5.1",
     "@near-js/types": "2.5.1",
     "@near-js/utils": "2.5.1",
+    "hono": "4.13.13",
     "viem": "2.57.16"
   },
   "devDependencies": {
