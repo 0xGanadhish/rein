@@ -78,6 +78,7 @@
 .gradeTag[data-state='hit'] { border: 1px solid var(--night-ink); background: var(--night-ink); color: var(--night); }
 .gradeTag[data-state='miss'] { border: 1px solid var(--signal); color: var(--signal); }
 
+.indexing { margin: 0 0 20px; padding: 12px 16px; border: 1px dashed var(--night-line); border-radius: 12px; color: var(--night-soft); font-size: 14px; }
 .error { padding: 32px; border: 1px dashed var(--night-line); border-radius: 16px; }
 .error h1 { margin: 0; font-family: var(--display); font-weight: 550; font-size: 32px; letter-spacing: -0.03em; }
 .error p { margin: 8px 0 0; color: var(--night-soft); }

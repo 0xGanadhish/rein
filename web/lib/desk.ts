@@ -34,6 +34,8 @@ export interface OrderPost {
 export interface OrderDetail extends DeskOrder {
   posts: OrderPost[];
   judge_calls: { at: number; signing_address: string }[];
+  /** The desk has the order but the Worker hasn't mirrored it yet, so posts and judge calls aren't known. */
+  indexing?: boolean;
 }
 
 const fixturesDir = () => process.env.FIXTURES_DIR ?? join(process.cwd(), 'fixtures');
@@ -70,11 +72,12 @@ export async function readDesk(): Promise<DeskInfo | null> {
 export async function readOrder(id: number): Promise<OrderDetail | null> {
   const cfg = publicConfig();
   if (cfg.sample) return (await fixture<OrderDetail[]>('orders.json')).find((o) => o.id === id) ?? null;
-  const order = await api<OrderDetail>(`/v1/orders/${id}`);
-  if (order && cfg.desk) {
-    const live = await view<DeskOrder | null>(cfg.network, cfg.desk, 'get_order', { order_id: id }).catch(() => null);
-    if (live) order.status = live.status;
-  }
+  const [order, live] = await Promise.all([
+    api<OrderDetail>(`/v1/orders/${id}`),
+    cfg.desk ? view<DeskOrder | null>(cfg.network, cfg.desk, 'get_order', { order_id: id }).catch(() => null) : null,
+  ]);
+  if (!order) return live ? { ...live, posts: [], judge_calls: [], indexing: true } : null;
+  if (live) order.status = live.status;
   return order;
 }
 

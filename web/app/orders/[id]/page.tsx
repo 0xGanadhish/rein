@@ -8,6 +8,7 @@ import { RefundButton } from '@/components/orders/RefundButton';
 import s from '@/components/orders/receipt.module.css';
 import { publicConfig } from '@/lib/config';
 import { readDesk, readOrder, type OrderDetail } from '@/lib/desk';
+import { refundable } from '@/lib/orders';
 import { hotFields, parseDoc } from '@/lib/doc';
 import { amount, bpsPct, reasonLabels, utcStamp } from '@/lib/format';
 import { shortAddress, vaultName } from '@/lib/vaults';
@@ -66,9 +67,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   const fields = post?.doc ? parseDoc(post.doc) : [];
   const hot = hotFields(fields);
   const field = Object.fromEntries(fields);
-  const deadline = desk ? order.created_s + desk.policy.deadline_s : null;
-  const refundable = (status === 'open' || status === 'exit_pending') && order.source !== 'watch' && order.source !== 'x402'
-    && deadline !== null && Date.now() / 1000 >= deadline;
+  const canRefund = refundable(order, desk?.policy ?? null, Date.now() / 1000);
   const finished = status === 'delivered' || failed;
   const past = (st: DeskOrderStatus) => reached >= FLOW.indexOf(st);
 
@@ -124,6 +123,11 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           <Link href="/orders" className={s.back}>← My orders</Link>
           {cfg.sample && <span className={s.sample}>Sample data</span>}
         </div>
+        {order.indexing && (
+          <p role="status" className={s.indexing}>
+            Pending indexing. The desk has this order; its readings and proof links appear here within a minute or two.
+          </p>
+        )}
 
         <ol aria-label="Order status" className={s.status}>
           {flow.map((st) => {
@@ -197,7 +201,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
             <div className={s.actions}>
               <Link href={`/guardian?vault=${order.vault}`} className={s.primary}>Guard this vault</Link>
               <Link href="/ledger" className={s.ghost}>See it on the Ledger</Link>
-              {refundable && <RefundButton orderId={order.id} className={s.ghost} />}
+              {canRefund && <RefundButton orderId={order.id} className={s.ghost} />}
             </div>
 
             {post && (

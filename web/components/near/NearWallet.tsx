@@ -65,23 +65,3 @@ export function useNearWallet(): NearWalletState {
   if (!v) throw new Error('useNearWallet outside NearWalletProvider');
   return v;
 }
-
-/**
- * The order id a payment opened: `request_judgement` returns it, and the desk logs "order N opened" from `ft_on_transfer`.
- * Null when the wallet didn't hand back an outcome.
- */
-export function orderIdFrom(outcome: unknown): number | null {
-  const o = outcome as { status?: { SuccessValue?: string }; receipts_outcome?: { outcome?: { logs?: string[] } }[] } | undefined;
-  for (const r of o?.receipts_outcome ?? []) {
-    for (const log of r.outcome?.logs ?? []) {
-      const m = /^order (\d+) opened$/.exec(log);
-      if (m) return Number(m[1]);
-    }
-  }
-  const v = o?.status?.SuccessValue;
-  if (v) {
-    const n = Number(atob(v));
-    if (Number.isInteger(n) && n > 0) return n;
-  }
-  return null;
-}

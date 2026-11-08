@@ -3,7 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import type { DeskChain } from '../../../shared/desk';
-import { orderIdFrom, useNearWallet } from '@/components/near/NearWallet';
+import { useNearWallet } from '@/components/near/NearWallet';
+import { orderIdFrom } from '@/lib/orders';
 import { amount, duration } from '@/lib/format';
 import s from './judge.module.css';
 
@@ -75,7 +76,7 @@ export function JudgeForm({ menu, initial, policy, sample, api }: {
           args: { receiver_id: desk, amount: policy.priceUsdc, msg: JSON.stringify(args) },
         });
       const id = orderIdFrom(outcome);
-      router.push(id ? `/orders/${id}` : '/orders');
+      router.push(id !== null ? `/orders/${id}` : '/orders');
     } catch (e) {
       setState({ k: 'error', msg: e instanceof Error ? e.message : 'The wallet didn’t send it.' });
     }
