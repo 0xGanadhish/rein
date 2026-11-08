@@ -1,0 +1,2139 @@
+[
+  {
+    "id": 4001,
+    "source": "near",
+    "payer": "k3-treasury.near",
+    "chain": "base",
+    "vault": "0x618495ccc4e751178c4914b1e939c0fe0fb07b9b",
+    "amount": "2000000000000000000000000",
+    "created_s": 1792184696,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 3982,
+        "verdict": "HOLD",
+        "confidence_bps": 8872,
+        "risk_bps": 254,
+        "state_hash": "0x2fba8182c18120a01a15d31f6c8705d5f0c55ab2a7e7ee45911df9b83ccc355f",
+        "posted_at": 1792184778,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4001|chain=base|vault=0x618495ccc4e751178c4914b1e939c0fe0fb07b9b|at=1792184738|block=53511732|pps=1044400|assets=193262601852417|liquidity=58.63|apy_bps=645|apy_bps_prev=639|util_bps=7172|net_out_pct_1h=-0.67|name=Re7 USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792184703,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x2c1c8a8065b47c5075c811f5e700324925ca07834d484bc5956c6c2d573080a9"
+  },
+  {
+    "id": 4004,
+    "source": "near",
+    "payer": "ana.near",
+    "chain": "base",
+    "vault": "0x1e9e47583f15d45a10df48c0b1846e0492c795d7",
+    "amount": "2000000000000000000000000",
+    "created_s": 1792233474,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 3985,
+        "verdict": "EXIT",
+        "confidence_bps": 9406,
+        "risk_bps": 8176,
+        "state_hash": "0x881e607708890d4f580ff05d4b8332b55f64831b04cd11b2231856bf9f335b0f",
+        "posted_at": 1792233557,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 1,
+        "reasons": 4,
+        "doc": "rein-v1|order=4004|chain=base|vault=0x1e9e47583f15d45a10df48c0b1846e0492c795d7|at=1792233517|block=53405992|pps=1045040|assets=196620059967041|liquidity=9.12|apy_bps=607|apy_bps_prev=489|util_bps=9390|net_out_pct_1h=5.72|name=Galaxy USDC Quality"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792233481,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      },
+      {
+        "at": 1792233544,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x5185660f3aeea3ce9f9cdc5ffcc48797bd33f291516c4b0af5e709e5ce165b79"
+  },
+  {
+    "id": 4005,
+    "source": "x402",
+    "payer": null,
+    "chain": "base",
+    "vault": "0xbeeff0be997cca5b1c13a7433c2004637975739e",
+    "amount": "5000000",
+    "created_s": 1792247827,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 3986,
+        "verdict": "MOVE",
+        "confidence_bps": 8739,
+        "risk_bps": 3001,
+        "state_hash": "0xa15bf4cc56194525bec3c917e54b677855f7f1a2ec03921ff3cf711c7ba7596a",
+        "posted_at": 1792247907,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4005|chain=base|vault=0xbeeff0be997cca5b1c13a7433c2004637975739e|at=1792247867|block=53514139|pps=1043957|assets=345215393066406|liquidity=44.35|apy_bps=554|apy_bps_prev=548|util_bps=7328|net_out_pct_1h=-0.90|name=Ethena x Steakhouse USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792247834,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x0fb60de38f330f0fc294f19b4ce154826993bf2b58add83a8f286e6ce27eaca3"
+  },
+  {
+    "id": 4006,
+    "source": "near",
+    "payer": "ana.near",
+    "chain": "base",
+    "vault": "0xbeeff0be997cca5b1c13a7433c2004637975739e",
+    "amount": "2000000000000000000000000",
+    "created_s": 1792274427,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 3987,
+        "verdict": "EXIT",
+        "confidence_bps": 8808,
+        "risk_bps": 7078,
+        "state_hash": "0xaed200936203b2d4bf5fcd746f82d22bb857f6c1e3daf0aa4486e0748f944dfc",
+        "posted_at": 1792274524,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 1,
+        "reasons": 2,
+        "doc": "rein-v1|order=4006|chain=base|vault=0xbeeff0be997cca5b1c13a7433c2004637975739e|at=1792274484|block=53400095|pps=1048359|assets=267069698333740|liquidity=6.65|apy_bps=531|apy_bps_prev=413|util_bps=9390|net_out_pct_1h=5.97|name=Ethena x Steakhouse USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792274434,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      },
+      {
+        "at": 1792274511,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xe7eb1b7506bae42303e90433e4b3e100af2f7b110366117c01fd032f56db3570"
+  },
+  {
+    "id": 4008,
+    "source": "near",
+    "payer": "steady-yield.near",
+    "chain": "base",
+    "vault": "0xbeeff7ae5e00aae3db302e4b0d8c883810a58100",
+    "amount": "2000000000000000000000000",
+    "created_s": 1792320997,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 3989,
+        "verdict": "HOLD",
+        "confidence_bps": 9305,
+        "risk_bps": 1424,
+        "state_hash": "0xd865cca329dc5b0aedfc04bef93a2e0b011bc5318722306549e48f049442f1f6",
+        "posted_at": 1792321098,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4008|chain=base|vault=0xbeeff7ae5e00aae3db302e4b0d8c883810a58100|at=1792321058|block=53481299|pps=1042522|assets=340912319183349|liquidity=63.14|apy_bps=567|apy_bps_prev=561|util_bps=7138|net_out_pct_1h=0.70|name=Steakhouse High Yield USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792321004,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x40ce44f28a62ba8ff1ec9c34041c900bd72305ee509765f930818504691efa8d"
+  },
+  {
+    "id": 4010,
+    "source": "usdc",
+    "payer": "ana.near",
+    "chain": "base",
+    "vault": "0x8b12106a70fe2f8bb255f691f1cf9a9ccfb278af",
+    "amount": "5000000",
+    "created_s": 1792335601,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 3991,
+        "verdict": "HOLD",
+        "confidence_bps": 8842,
+        "risk_bps": 1116,
+        "state_hash": "0x7dd0e03a577bae9e539b91bd3293ee96a192a3832baef9021e2e9093f7c36a9a",
+        "posted_at": 1792335679,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4010|chain=base|vault=0x8b12106a70fe2f8bb255f691f1cf9a9ccfb278af|at=1792335639|block=53508290|pps=1047721|assets=377117324829101|liquidity=47.52|apy_bps=691|apy_bps_prev=685|util_bps=7610|net_out_pct_1h=-0.84|name=Noon Ecosystem Vault"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792335608,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xeb789839d4486d6d53bc27a4787039487cfae831a8b803523a0d571f7d09b508"
+  },
+  {
+    "id": 4011,
+    "source": "x402",
+    "payer": null,
+    "chain": "base",
+    "vault": "0x1e9e47583f15d45a10df48c0b1846e0492c795d7",
+    "amount": "5000000",
+    "created_s": 1792356634,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 3992,
+        "verdict": "EXIT",
+        "confidence_bps": 8476,
+        "risk_bps": 6357,
+        "state_hash": "0xc9b27a2e7aec604021f8f23077cd50c5bda229f05dee6aabf5d87c0516834c08",
+        "posted_at": 1792356727,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 1,
+        "reasons": 2,
+        "doc": "rein-v1|order=4011|chain=base|vault=0x1e9e47583f15d45a10df48c0b1846e0492c795d7|at=1792356687|block=53467169|pps=1040655|assets=50251520633697|liquidity=11.33|apy_bps=879|apy_bps_prev=761|util_bps=9390|net_out_pct_1h=5.03|name=Galaxy USDC Quality"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792356641,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      },
+      {
+        "at": 1792356714,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x02dbd431bcc5d05bb2a87221db0b6066201a970a5a64a22bdcbc5dde857b0f30"
+  },
+  {
+    "id": 4012,
+    "source": "x402",
+    "payer": null,
+    "chain": "base",
+    "vault": "0x91c056b6d4311a743614fbc03ac32d4e6a2d3a3c",
+    "amount": "5000000",
+    "created_s": 1792372461,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 3993,
+        "verdict": "HOLD",
+        "confidence_bps": 9933,
+        "risk_bps": 699,
+        "state_hash": "0xd90f1a0feb6e1d40d1213cc5c37cbc647e094945d7e4ba56c160834407fa4a63",
+        "posted_at": 1792372543,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4012|chain=base|vault=0x91c056b6d4311a743614fbc03ac32d4e6a2d3a3c|at=1792372503|block=53438004|pps=1046951|assets=226813388824462|liquidity=27.05|apy_bps=633|apy_bps_prev=627|util_bps=7831|net_out_pct_1h=0.04|name=Clearstar cbAssets Vault"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792372468,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x7d982a2689b1b1c704f436317518546cc3c61f1c4bf85d4fd1a4031280670be9"
+  },
+  {
+    "id": 4015,
+    "source": "usdc",
+    "payer": "vault-watch.near",
+    "chain": "base",
+    "vault": "0xbeef0786756810478b88982de00f3cd7fdb8e7c7",
+    "amount": "5000000",
+    "created_s": 1792443546,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 3996,
+        "verdict": "HOLD",
+        "confidence_bps": 9357,
+        "risk_bps": 1667,
+        "state_hash": "0x39999d4f41b159b63b8646f939175983bcd08f3f18b58a48bd7c925ac3076508",
+        "posted_at": 1792443653,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4015|chain=base|vault=0xbeef0786756810478b88982de00f3cd7fdb8e7c7|at=1792443613|block=53419840|pps=1041244|assets=14793063163757|liquidity=94.81|apy_bps=706|apy_bps_prev=700|util_bps=7728|net_out_pct_1h=0.76|name=Grove x Steakhouse USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792443553,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x6d00f7b992a35ac17affdc33db0b37611a96186ad0a948f2bba68d46c95e45c3"
+  },
+  {
+    "id": 4017,
+    "source": "near",
+    "payer": "vault-watch.near",
+    "chain": "base",
+    "vault": "0x39e18c066187c83e860801befe45ae8ecd021575",
+    "amount": "2000000000000000000000000",
+    "created_s": 1792488028,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 3998,
+        "verdict": "HOLD",
+        "confidence_bps": 8682,
+        "risk_bps": 1301,
+        "state_hash": "0x0f85e0f4a62eb0cfda8db0881808b4c23815649fbc9619f5ba2c7d06561bbdaa",
+        "posted_at": 1792488134,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4017|chain=base|vault=0x39e18c066187c83e860801befe45ae8ecd021575|at=1792488094|block=53427256|pps=1040369|assets=136800433158874|liquidity=25.31|apy_bps=656|apy_bps_prev=650|util_bps=7678|net_out_pct_1h=-0.45|name=Bitso USDC Prime"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792488035,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x94e3fff40242035002877ad654f9cdaa66f6415ad85c5ee0c39379cd4478bb84"
+  },
+  {
+    "id": 4018,
+    "source": "near",
+    "payer": "vault-watch.near",
+    "chain": "base",
+    "vault": "0x392b3ccf36c8adb8094f45573346b457414cd752",
+    "amount": "2000000000000000000000000",
+    "created_s": 1792517892,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 3999,
+        "verdict": "EXIT",
+        "confidence_bps": 7790,
+        "risk_bps": 7745,
+        "state_hash": "0xf7b18a4900b96acf445fd163d22d768eb085c88fe9879f0c8bd496f61ee38eec",
+        "posted_at": 1792517979,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 1,
+        "reasons": 4,
+        "doc": "rein-v1|order=4018|chain=base|vault=0x392b3ccf36c8adb8094f45573346b457414cd752|at=1792517939|block=53487874|pps=1043736|assets=243278861999511|liquidity=11.27|apy_bps=504|apy_bps_prev=386|util_bps=9390|net_out_pct_1h=7.52|name=KPK USDC Yield"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792517899,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      },
+      {
+        "at": 1792517966,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xff75327be630380b2e1e42e0b1407f1aa039ead262759e0ba6002c87b36954e5"
+  },
+  {
+    "id": 4019,
+    "source": "x402",
+    "payer": null,
+    "chain": "base",
+    "vault": "0x8b12106a70fe2f8bb255f691f1cf9a9ccfb278af",
+    "amount": "5000000",
+    "created_s": 1792535277,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4000,
+        "verdict": "HOLD",
+        "confidence_bps": 9773,
+        "risk_bps": 784,
+        "state_hash": "0x041f2cd5342bb9ae1d50617fda97fee4df04d2351f9c41388460ffb68148b648",
+        "posted_at": 1792535372,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4019|chain=base|vault=0x8b12106a70fe2f8bb255f691f1cf9a9ccfb278af|at=1792535332|block=53404728|pps=1042243|assets=187258554458618|liquidity=38.63|apy_bps=628|apy_bps_prev=622|util_bps=8230|net_out_pct_1h=-0.47|name=Noon Ecosystem Vault"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792535284,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x75b21c2d90a243cedd07a0b90366b1bac396a22c5f251eef026e53307d60ab0b"
+  },
+  {
+    "id": 4020,
+    "source": "x402",
+    "payer": null,
+    "chain": "base",
+    "vault": "0xbeef0786756810478b88982de00f3cd7fdb8e7c7",
+    "amount": "5000000",
+    "created_s": 1792560218,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4001,
+        "verdict": "HOLD",
+        "confidence_bps": 9626,
+        "risk_bps": 999,
+        "state_hash": "0x1dfbb077634312c0de536a56e129b7a8a9d0d8aec48c07e7955bb2b7e52ac8f2",
+        "posted_at": 1792560303,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4020|chain=base|vault=0xbeef0786756810478b88982de00f3cd7fdb8e7c7|at=1792560263|block=53413150|pps=1044048|assets=95377231597900|liquidity=94.74|apy_bps=640|apy_bps_prev=634|util_bps=7557|net_out_pct_1h=-0.87|name=Grove x Steakhouse USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792560225,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x055aa39c8c34486ca36e2e47c09a1bf2b222d1903ca9bba3c73e67f6c382e93f"
+  },
+  {
+    "id": 4021,
+    "source": "x402",
+    "payer": null,
+    "chain": "base",
+    "vault": "0x0548a36028ffdc7d5aaa7a182f0d1fe0264f5a5c",
+    "amount": "5000000",
+    "created_s": 1792580959,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4002,
+        "verdict": "HOLD",
+        "confidence_bps": 9695,
+        "risk_bps": 396,
+        "state_hash": "0xf3ae2bc2c9e6a66c3b50bbb5cad804b21d51c1e1569e20d2e9d64bd700f8d0c5",
+        "posted_at": 1792581055,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 1,
+        "reasons": 1,
+        "doc": "rein-v1|order=4021|chain=base|vault=0x0548a36028ffdc7d5aaa7a182f0d1fe0264f5a5c|at=1792581015|block=53449856|pps=1048670|assets=361700559616088|liquidity=45.52|apy_bps=514|apy_bps_prev=508|util_bps=6102|net_out_pct_1h=0.54|name=K3 cbMaxxxing USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792580966,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x535327f4be327b250aef301ff322b1fd3055e1d35237e76d7c3ec322c4602982"
+  },
+  {
+    "id": 4022,
+    "source": "near",
+    "payer": "vault-watch.near",
+    "chain": "base",
+    "vault": "0xbeef0786756810478b88982de00f3cd7fdb8e7c7",
+    "amount": "2000000000000000000000000",
+    "created_s": 1792598439,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4003,
+        "verdict": "HOLD",
+        "confidence_bps": 8200,
+        "risk_bps": 416,
+        "state_hash": "0x786ae843c6d9b62ddaa49139911f769f0d7838d8f6ff5cc913bdf79188391c14",
+        "posted_at": 1792598534,
+        "input_check": "mismatch",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4022|chain=base|vault=0xbeef0786756810478b88982de00f3cd7fdb8e7c7|at=1792598494|block=53430144|pps=1041273|assets=20847023487091|liquidity=64.73|apy_bps=703|apy_bps_prev=697|util_bps=7162|net_out_pct_1h=0.86|name=Grove x Steakhouse USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792598446,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xe39ef430e81b41f48dd4c91d0b2c070be9d003edd24bbf55dbceec6b7daaf510"
+  },
+  {
+    "id": 4023,
+    "source": "x402",
+    "payer": null,
+    "chain": "base",
+    "vault": "0xbeeff7ae5e00aae3db302e4b0d8c883810a58100",
+    "amount": "5000000",
+    "created_s": 1792610827,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4004,
+        "verdict": "HOLD",
+        "confidence_bps": 9915,
+        "risk_bps": 1477,
+        "state_hash": "0x92462a2fb5dd8118916c7643d15f940d9c1b25678ea4c7daf38a8f9065e49cd6",
+        "posted_at": 1792610914,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4023|chain=base|vault=0xbeeff7ae5e00aae3db302e4b0d8c883810a58100|at=1792610874|block=53506045|pps=1042957|assets=11947751998901|liquidity=78.01|apy_bps=789|apy_bps_prev=783|util_bps=6183|net_out_pct_1h=0.93|name=Steakhouse High Yield USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792610834,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x1e1a2b3c4fa5ac50ec96e719ca4a5c24cf14b52679d684309f693c261b4bd9d7"
+  },
+  {
+    "id": 4024,
+    "source": "usdc",
+    "payer": "ana.near",
+    "chain": "base",
+    "vault": "0xbeeff2490feffa212fac2f6553682c219e6a8845",
+    "amount": "5000000",
+    "created_s": 1792635407,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4005,
+        "verdict": "EXIT",
+        "confidence_bps": 9184,
+        "risk_bps": 5989,
+        "state_hash": "0x1d9f817093777193d7d6324a717b58d838e3456da0eba1c03783fe151bbef485",
+        "posted_at": 1792635504,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 1,
+        "reasons": 2,
+        "doc": "rein-v1|order=4024|chain=base|vault=0xbeeff2490feffa212fac2f6553682c219e6a8845|at=1792635464|block=53441570|pps=1048066|assets=114000679016113|liquidity=6.63|apy_bps=514|apy_bps_prev=396|util_bps=9390|net_out_pct_1h=6.66|name=Steakhouse High Yield USDC Edition"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792635414,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      },
+      {
+        "at": 1792635491,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x6e469ea268244f11d02788cb854ff7b55dd70d907e5fa626eded37a59d5a2751"
+  },
+  {
+    "id": 4025,
+    "source": "near",
+    "payer": "steady-yield.near",
+    "chain": "monad",
+    "vault": "0x71c0d4e9b8a7f6e5d4c3b2a1908f7e6d5c4ba2f3",
+    "amount": "2000000000000000000000000",
+    "created_s": 1792655613,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "monad",
+        "id": 841,
+        "verdict": "MOVE",
+        "confidence_bps": 8618,
+        "risk_bps": 2861,
+        "state_hash": "0x5304507dcd6502b717d18196fc36d944bb7b6bdd300762e45f2e4dc90bcc34e3",
+        "posted_at": 1792655692,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4025|chain=monad|vault=0x71c0d4e9b8a7f6e5d4c3b2a1908f7e6d5c4ba2f3|at=1792655652|block=53473018|pps=1040183|assets=60182034432888|liquidity=85.85|apy_bps=680|apy_bps_prev=674|util_bps=6168|net_out_pct_1h=-0.63|name=USDC vault"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792655620,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x9e9ccacb7c6272ec2cbe440b817ecb28f5e1642ff4bfe5ffbd03b86883d8bcf4"
+  },
+  {
+    "id": 4027,
+    "source": "near",
+    "payer": "vault-watch.near",
+    "chain": "base",
+    "vault": "0xbeef0786756810478b88982de00f3cd7fdb8e7c7",
+    "amount": "2000000000000000000000000",
+    "created_s": 1792712722,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4007,
+        "verdict": "EXIT",
+        "confidence_bps": 7599,
+        "risk_bps": 7734,
+        "state_hash": "0xaa7136ab6fb821580eff55f8b43660652ea0bdf8431ac008388485577af46b3a",
+        "posted_at": 1792712831,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 1,
+        "reasons": 6,
+        "doc": "rein-v1|order=4027|chain=base|vault=0xbeef0786756810478b88982de00f3cd7fdb8e7c7|at=1792712791|block=53472065|pps=1043309|assets=48757577896118|liquidity=11.23|apy_bps=715|apy_bps_prev=597|util_bps=9390|net_out_pct_1h=5.36|name=Grove x Steakhouse USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792712729,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      },
+      {
+        "at": 1792712818,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xf8f184fc596018f025fcf37408218d059fcf6a86d27ca3073c7b0d27e5b04f50"
+  },
+  {
+    "id": 4028,
+    "source": "near",
+    "payer": "steady-yield.near",
+    "chain": "base",
+    "vault": "0xbeeff2490feffa212fac2f6553682c219e6a8845",
+    "amount": "2000000000000000000000000",
+    "created_s": 1792721307,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4008,
+        "verdict": "HOLD",
+        "confidence_bps": 8289,
+        "risk_bps": 815,
+        "state_hash": "0x17d6f7b2b8b49532e8befec2a626493e0a5beddbc2d2c922e837f0d1eb0b5707",
+        "posted_at": 1792721386,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4028|chain=base|vault=0xbeeff2490feffa212fac2f6553682c219e6a8845|at=1792721346|block=53469837|pps=1047756|assets=29185749053955|liquidity=73.85|apy_bps=849|apy_bps_prev=843|util_bps=7080|net_out_pct_1h=-0.41|name=Steakhouse High Yield USDC Edition"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792721314,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x119d9c3838e72dcf9d25c14845a6120b34864d88ad268eb840edac81eef15efd"
+  },
+  {
+    "id": 4029,
+    "source": "x402",
+    "payer": null,
+    "chain": "base",
+    "vault": "0x39e18c066187c83e860801befe45ae8ecd021575",
+    "amount": "5000000",
+    "created_s": 1792749863,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4009,
+        "verdict": "HOLD",
+        "confidence_bps": 9095,
+        "risk_bps": 429,
+        "state_hash": "0x443f87d53030e462e05b07a8f5bf1312485aa546db371233f173c78f5fdb118b",
+        "posted_at": 1792749934,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4029|chain=base|vault=0x39e18c066187c83e860801befe45ae8ecd021575|at=1792749894|block=53443485|pps=1048008|assets=282978654861450|liquidity=63.54|apy_bps=770|apy_bps_prev=764|util_bps=6026|net_out_pct_1h=-0.61|name=Bitso USDC Prime"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792749870,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x00d368616899a64a0b6195e3254cd26ec04dc45a25cd44f3e7d5586640acd7c3"
+  },
+  {
+    "id": 4030,
+    "source": "usdc",
+    "payer": "steady-yield.near",
+    "chain": "base",
+    "vault": "0xbeeff0be997cca5b1c13a7433c2004637975739e",
+    "amount": "5000000",
+    "created_s": 1792757629,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4010,
+        "verdict": "HOLD",
+        "confidence_bps": 9129,
+        "risk_bps": 1973,
+        "state_hash": "0x5082a350a1b66f42b212c40bdf43377471f2ddea9cade036ba0b89e2ee1dc3e0",
+        "posted_at": 1792757720,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4030|chain=base|vault=0xbeeff0be997cca5b1c13a7433c2004637975739e|at=1792757680|block=53500028|pps=1042148|assets=195041073322296|liquidity=37.17|apy_bps=726|apy_bps_prev=720|util_bps=7046|net_out_pct_1h=0.98|name=Ethena x Steakhouse USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792757636,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x261768508df8dabf1f892e4e7c4922899df6b2ee7334108ba8b4c24031ebc90e"
+  },
+  {
+    "id": 4031,
+    "source": "x402",
+    "payer": null,
+    "chain": "base",
+    "vault": "0x8b12106a70fe2f8bb255f691f1cf9a9ccfb278af",
+    "amount": "5000000",
+    "created_s": 1792786340,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4011,
+        "verdict": "HOLD",
+        "confidence_bps": 8465,
+        "risk_bps": 1051,
+        "state_hash": "0x368fbedb4130292529ddfac06bc9a91a89b5c9ac4a35a138acaece00a444b5bc",
+        "posted_at": 1792786426,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 1,
+        "reasons": 4,
+        "doc": "rein-v1|order=4031|chain=base|vault=0x8b12106a70fe2f8bb255f691f1cf9a9ccfb278af|at=1792786386|block=53514690|pps=1044342|assets=337241769790649|liquidity=91.28|apy_bps=869|apy_bps_prev=863|util_bps=7061|net_out_pct_1h=0.20|name=Noon Ecosystem Vault"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792786347,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x00bf8668d114ceb66fee8e36797c21acfcaf31834ef954a15c60442fb4d11b43"
+  },
+  {
+    "id": 4032,
+    "source": "usdc",
+    "payer": "steady-yield.near",
+    "chain": "base",
+    "vault": "0x39e18c066187c83e860801befe45ae8ecd021575",
+    "amount": "5000000",
+    "created_s": 1792811691,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4012,
+        "verdict": "HOLD",
+        "confidence_bps": 8271,
+        "risk_bps": 592,
+        "state_hash": "0x1312931ba42327404f1025a60e3c7be49fecf3b32495f8bc5c0060e4d0afdd07",
+        "posted_at": 1792811786,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4032|chain=base|vault=0x39e18c066187c83e860801befe45ae8ecd021575|at=1792811746|block=53418570|pps=1048713|assets=124226547241210|liquidity=89.40|apy_bps=511|apy_bps_prev=505|util_bps=7684|net_out_pct_1h=-0.92|name=Bitso USDC Prime"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792811698,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x6f253f1a80649c0153afc4572abf99660269342ff25dfb979e715eb3f693ebb5"
+  },
+  {
+    "id": 4033,
+    "source": "near",
+    "payer": "steady-yield.near",
+    "chain": "base",
+    "vault": "0xbeef0786756810478b88982de00f3cd7fdb8e7c7",
+    "amount": "2000000000000000000000000",
+    "created_s": 1792824498,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4013,
+        "verdict": "MOVE",
+        "confidence_bps": 9652,
+        "risk_bps": 2797,
+        "state_hash": "0xc991c8186ccb683636053d0d7ab3b33f2d641326160c76e153987181f26c9a9e",
+        "posted_at": 1792824597,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4033|chain=base|vault=0xbeef0786756810478b88982de00f3cd7fdb8e7c7|at=1792824557|block=53458617|pps=1047936|assets=364553905487060|liquidity=35.18|apy_bps=591|apy_bps_prev=585|util_bps=7777|net_out_pct_1h=-0.56|name=Grove x Steakhouse USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792824505,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x875f816f7c4a40991743f2415219c7fc7a980f161c0a102d93b99b853640b78f"
+  },
+  {
+    "id": 4034,
+    "source": "x402",
+    "payer": null,
+    "chain": "base",
+    "vault": "0xbeeff2490feffa212fac2f6553682c219e6a8845",
+    "amount": "5000000",
+    "created_s": 1792834657,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4014,
+        "verdict": "EXIT",
+        "confidence_bps": 8160,
+        "risk_bps": 7428,
+        "state_hash": "0x58aa34a0687dfe01d38ec6292fe4ab3801256d55359ea6bbd4290f51a284e255",
+        "posted_at": 1792834740,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4034|chain=base|vault=0xbeeff2490feffa212fac2f6553682c219e6a8845|at=1792834700|block=53488729|pps=1045208|assets=263004613876342|liquidity=9.90|apy_bps=840|apy_bps_prev=722|util_bps=9390|net_out_pct_1h=5.15|name=Steakhouse High Yield USDC Edition"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792834664,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      },
+      {
+        "at": 1792834727,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xe236e921eb65de00a3d334060b1a6be4391dc9684b9093db5719e122d1487011"
+  },
+  {
+    "id": 4037,
+    "source": "usdc",
+    "payer": "ana.near",
+    "chain": "monad",
+    "vault": "0x71c0d4e9b8a7f6e5d4c3b2a1908f7e6d5c4ba2f3",
+    "amount": "5000000",
+    "created_s": 1792878632,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "monad",
+        "id": 842,
+        "verdict": "MOVE",
+        "confidence_bps": 8976,
+        "risk_bps": 2896,
+        "state_hash": "0x3d2d6a6f0ae9748fdf52ed293ab7d685bf0849671dc3f62e015c093167e0835e",
+        "posted_at": 1792878723,
+        "input_check": "unknown",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4037|chain=monad|vault=0x71c0d4e9b8a7f6e5d4c3b2a1908f7e6d5c4ba2f3|at=1792878683|block=53422036|pps=1041910|assets=328729690074920|liquidity=50.67|apy_bps=581|apy_bps_prev=575|util_bps=6230|net_out_pct_1h=0.89|name=USDC vault"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792878639,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x624e5be06107b44af18ac13df15a682d89dd656386a472ff734917224f9cdee3"
+  },
+  {
+    "id": 4039,
+    "source": "x402",
+    "payer": null,
+    "chain": "base",
+    "vault": "0xbeef0e0834849acc03f0089f01f4f1eeb06873c9",
+    "amount": "5000000",
+    "created_s": 1792929015,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4018,
+        "verdict": "HOLD",
+        "confidence_bps": 8851,
+        "risk_bps": 477,
+        "state_hash": "0xcb7a5863b83fd1c215ac14edf3388087f863ec8044f4a59da45ce97bb8b9ea7b",
+        "posted_at": 1792929124,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4039|chain=base|vault=0xbeef0e0834849acc03f0089f01f4f1eeb06873c9|at=1792929084|block=53478764|pps=1040229|assets=125809609353542|liquidity=36.34|apy_bps=575|apy_bps_prev=569|util_bps=7526|net_out_pct_1h=-0.53|name=Steakhouse Prime USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792929022,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xd26cca25c0f4cebb4cdb82fffbc779ee3a27eabd5ee43103123bdf72299eaac0"
+  },
+  {
+    "id": 4041,
+    "source": "near",
+    "payer": "k3-treasury.near",
+    "chain": "base",
+    "vault": "0x39e18c066187c83e860801befe45ae8ecd021575",
+    "amount": "2000000000000000000000000",
+    "created_s": 1792956303,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4020,
+        "verdict": "MOVE",
+        "confidence_bps": 9663,
+        "risk_bps": 2987,
+        "state_hash": "0xbaa120b20a3a534e9fa8fd58b521e5a7168f2e14de7b7e0db45a00086cad41d1",
+        "posted_at": 1792956412,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4041|chain=base|vault=0x39e18c066187c83e860801befe45ae8ecd021575|at=1792956372|block=53463095|pps=1047270|assets=249846244812011|liquidity=88.04|apy_bps=586|apy_bps_prev=580|util_bps=6069|net_out_pct_1h=-0.21|name=Bitso USDC Prime"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792956310,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xcf93dd1cd81408725c06088cccef948d01840baa60775ec48a725adefcef503c"
+  },
+  {
+    "id": 4042,
+    "source": "usdc",
+    "payer": "vault-watch.near",
+    "chain": "base",
+    "vault": "0xbeeff2490feffa212fac2f6553682c219e6a8845",
+    "amount": "5000000",
+    "created_s": 1792977360,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4021,
+        "verdict": "HOLD",
+        "confidence_bps": 8495,
+        "risk_bps": 1920,
+        "state_hash": "0x5fd51cf784d712b04233b04d846f0f9dcdaf8bfdc299740828a664d184c8fde9",
+        "posted_at": 1792977432,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4042|chain=base|vault=0xbeeff2490feffa212fac2f6553682c219e6a8845|at=1792977392|block=53406369|pps=1045263|assets=99027229309082|liquidity=37.12|apy_bps=589|apy_bps_prev=583|util_bps=8298|net_out_pct_1h=-0.20|name=Steakhouse High Yield USDC Edition"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792977367,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xa5e1840bc99357ccebb96fabaabb8da0d98dd1235e505edd15c47a801297f48e"
+  },
+  {
+    "id": 4043,
+    "source": "near",
+    "payer": "vault-watch.near",
+    "chain": "base",
+    "vault": "0xbeeff2490feffa212fac2f6553682c219e6a8845",
+    "amount": "2000000000000000000000000",
+    "created_s": 1792995311,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4022,
+        "verdict": "EXIT",
+        "confidence_bps": 7556,
+        "risk_bps": 7740,
+        "state_hash": "0x35f42bf5ecc9cf11e04919913e777fe7507e919e85b9b570020b5106dcb2c6a4",
+        "posted_at": 1792995405,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4043|chain=base|vault=0xbeeff2490feffa212fac2f6553682c219e6a8845|at=1792995365|block=53516955|pps=1045213|assets=234261680603027|liquidity=8.01|apy_bps=538|apy_bps_prev=420|util_bps=9390|net_out_pct_1h=7.93|name=Steakhouse High Yield USDC Edition"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1792995318,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      },
+      {
+        "at": 1792995392,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x5004ca403868e8f8fd05ff71f289824256d65f8fe53b5af5182901c4174e7548"
+  },
+  {
+    "id": 4044,
+    "source": "usdc",
+    "payer": "k3-treasury.near",
+    "chain": "base",
+    "vault": "0xbeeff2490feffa212fac2f6553682c219e6a8845",
+    "amount": "5000000",
+    "created_s": 1793007993,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4023,
+        "verdict": "HOLD",
+        "confidence_bps": 8256,
+        "risk_bps": 1219,
+        "state_hash": "0xd0dc708ed9a51b24c1c49eb48f46c9f8dc2c91cd586944d3f8f145e784e857ae",
+        "posted_at": 1793008096,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4044|chain=base|vault=0xbeeff2490feffa212fac2f6553682c219e6a8845|at=1793008056|block=53472684|pps=1045063|assets=146704889297485|liquidity=40.17|apy_bps=572|apy_bps_prev=566|util_bps=7318|net_out_pct_1h=0.51|name=Steakhouse High Yield USDC Edition"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793008000,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x629ffc8140c1bc2224b0fc2dae9d0938c1e15d89d737dea72143c4c1921c2208"
+  },
+  {
+    "id": 4046,
+    "source": "x402",
+    "payer": null,
+    "chain": "monad",
+    "vault": "0x3f8a91c27d0e4b6a95c1f2e8d7a6b5c4e3f20b1e",
+    "amount": "5000000",
+    "created_s": 1793047580,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "monad",
+        "id": 843,
+        "verdict": "EXIT",
+        "confidence_bps": 8858,
+        "risk_bps": 8461,
+        "state_hash": "0xe26ab1f6fddbca47c70f9095c278cbe0f03a2f6d222e4186beb8a2a3b889df8b",
+        "posted_at": 1793047684,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 1,
+        "reasons": 5,
+        "doc": "rein-v1|order=4046|chain=monad|vault=0x3f8a91c27d0e4b6a95c1f2e8d7a6b5c4e3f20b1e|at=1793047644|block=53461434|pps=1048656|assets=233326269149780|liquidity=9.21|apy_bps=625|apy_bps_prev=507|util_bps=9390|net_out_pct_1h=7.38|name=USDC vault"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793047587,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      },
+      {
+        "at": 1793047671,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xd770e19474c793572ed5063cac1cc6b1aebedb39dfc3ae6993fa979f16b5b31f"
+  },
+  {
+    "id": 4047,
+    "source": "near",
+    "payer": "ana.near",
+    "chain": "monad",
+    "vault": "0x71c0d4e9b8a7f6e5d4c3b2a1908f7e6d5c4ba2f3",
+    "amount": "2000000000000000000000000",
+    "created_s": 1793063432,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "monad",
+        "id": 844,
+        "verdict": "HOLD",
+        "confidence_bps": 8487,
+        "risk_bps": 775,
+        "state_hash": "0x59503392c2e04aae7a401148372de454bc65c41e53f35748232c5761d6ccb69c",
+        "posted_at": 1793063528,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4047|chain=monad|vault=0x71c0d4e9b8a7f6e5d4c3b2a1908f7e6d5c4ba2f3|at=1793063488|block=53435208|pps=1040289|assets=108322132587432|liquidity=40.01|apy_bps=502|apy_bps_prev=496|util_bps=7476|net_out_pct_1h=-0.28|name=USDC vault"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793063439,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x813cbda10663eed6ef5e4658c9677420bfd7efc25198ec334c1dc11c27d6bf6d"
+  },
+  {
+    "id": 4048,
+    "source": "x402",
+    "payer": null,
+    "chain": "base",
+    "vault": "0x1e9e47583f15d45a10df48c0b1846e0492c795d7",
+    "amount": "5000000",
+    "created_s": 1793091299,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4025,
+        "verdict": "EXIT",
+        "confidence_bps": 8531,
+        "risk_bps": 6230,
+        "state_hash": "0x50dd9c99bd68eadf99a2b96bc6f91a7907d1e43d4ebbe7ce57c85b998833d0ac",
+        "posted_at": 1793091385,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4048|chain=base|vault=0x1e9e47583f15d45a10df48c0b1846e0492c795d7|at=1793091345|block=53488148|pps=1047113|assets=105137849807739|liquidity=7.60|apy_bps=747|apy_bps_prev=629|util_bps=9390|net_out_pct_1h=7.41|name=Galaxy USDC Quality"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793091306,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      },
+      {
+        "at": 1793091372,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x4f66c8e4980e170c890b8037af563a3b6336ef248488b663d403f41926d26a7c"
+  },
+  {
+    "id": 4050,
+    "source": "usdc",
+    "payer": "k3-treasury.near",
+    "chain": "base",
+    "vault": "0x1deefabee758aabdc29a542b24ca3b75afd56765",
+    "amount": "5000000",
+    "created_s": 1793112824,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4027,
+        "verdict": "HOLD",
+        "confidence_bps": 9385,
+        "risk_bps": 1902,
+        "state_hash": "0xe0028042255e2a48042b6afb129c16dd1e1b5ad6286d9c78e0b24b30d57e1b88",
+        "posted_at": 1793112901,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4050|chain=base|vault=0x1deefabee758aabdc29a542b24ca3b75afd56765|at=1793112861|block=53514819|pps=1044664|assets=123471284866333|liquidity=49.88|apy_bps=788|apy_bps_prev=782|util_bps=8030|net_out_pct_1h=0.51|name=Gauntlet USDC Frontier"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793112831,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x73941de26577f248d83e7d277403e45dc2632edfcf3e55ddb738409a25cece5e"
+  },
+  {
+    "id": 4052,
+    "source": "near",
+    "payer": "steady-yield.near",
+    "chain": "base",
+    "vault": "0xbeef0e0834849acc03f0089f01f4f1eeb06873c9",
+    "amount": "2000000000000000000000000",
+    "created_s": 1793127512,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4029,
+        "verdict": "EXIT",
+        "confidence_bps": 7786,
+        "risk_bps": 6306,
+        "state_hash": "0x67a7761f640da1a98cb3f1d21526235d6c7bd793eb0761b843515c292dc62071",
+        "posted_at": 1793127595,
+        "input_check": "unknown",
+        "resolved": 1,
+        "adverse": 1,
+        "reasons": 1,
+        "doc": "rein-v1|order=4052|chain=base|vault=0xbeef0e0834849acc03f0089f01f4f1eeb06873c9|at=1793127555|block=53427834|pps=1044741|assets=298246980667114|liquidity=8.08|apy_bps=898|apy_bps_prev=780|util_bps=9390|net_out_pct_1h=5.68|name=Steakhouse Prime USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793127519,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      },
+      {
+        "at": 1793127582,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x7188b66b6ed0f953b9ea1ab1c32ace001cad246d2bf0faaff3c88c52a99f6e25"
+  },
+  {
+    "id": 4053,
+    "source": "usdc",
+    "payer": "k3-treasury.near",
+    "chain": "base",
+    "vault": "0x0548a36028ffdc7d5aaa7a182f0d1fe0264f5a5c",
+    "amount": "5000000",
+    "created_s": 1793143427,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4030,
+        "verdict": "EXIT",
+        "confidence_bps": 9053,
+        "risk_bps": 8125,
+        "state_hash": "0x7674d4c4a21ba27c482fa9eabcde2809f55957d13714c56b55b83edab6176227",
+        "posted_at": 1793143527,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 1,
+        "reasons": 1,
+        "doc": "rein-v1|order=4053|chain=base|vault=0x0548a36028ffdc7d5aaa7a182f0d1fe0264f5a5c|at=1793143487|block=53498749|pps=1047222|assets=4645229339599|liquidity=6.91|apy_bps=538|apy_bps_prev=420|util_bps=9390|net_out_pct_1h=7.39|name=K3 cbMaxxxing USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793143434,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      },
+      {
+        "at": 1793143514,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x0ab366d4223ca94757f8eecec7a4558f91e2be0ea981c70d2cff558b276e7d76"
+  },
+  {
+    "id": 4054,
+    "source": "near",
+    "payer": "k3-treasury.near",
+    "chain": "base",
+    "vault": "0x1e9e47583f15d45a10df48c0b1846e0492c795d7",
+    "amount": "2000000000000000000000000",
+    "created_s": 1793172522,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4031,
+        "verdict": "MOVE",
+        "confidence_bps": 8288,
+        "risk_bps": 3922,
+        "state_hash": "0xed3992c85f56009e45248e4ca27aec2a399b1901d21b9b0c77a858a87fa72540",
+        "posted_at": 1793172610,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4054|chain=base|vault=0x1e9e47583f15d45a10df48c0b1846e0492c795d7|at=1793172570|block=53476279|pps=1048980|assets=67592502593994|liquidity=90.09|apy_bps=776|apy_bps_prev=770|util_bps=7345|net_out_pct_1h=-0.67|name=Galaxy USDC Quality"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793172529,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x6c030dd059777c35eeb61b5cdaec6f3e3a80cfa69398feaca35c7d20d819e4ad"
+  },
+  {
+    "id": 4055,
+    "source": "x402",
+    "payer": null,
+    "chain": "base",
+    "vault": "0x1deefabee758aabdc29a542b24ca3b75afd56765",
+    "amount": "5000000",
+    "created_s": 1793192691,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4032,
+        "verdict": "HOLD",
+        "confidence_bps": 8706,
+        "risk_bps": 831,
+        "state_hash": "0xa61df8ff512bcd01cc1a293bf4de644e4271132f79555d512554e82f7a6bae9f",
+        "posted_at": 1793192792,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 1,
+        "reasons": 1,
+        "doc": "rein-v1|order=4055|chain=base|vault=0x1deefabee758aabdc29a542b24ca3b75afd56765|at=1793192752|block=53418578|pps=1046283|assets=372740245819091|liquidity=48.43|apy_bps=543|apy_bps_prev=537|util_bps=6259|net_out_pct_1h=0.18|name=Gauntlet USDC Frontier"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793192698,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x7ea12423f50c2d9aadab4449b341ccf36ee6e7df183ce0739a22ccaaa2d8680d"
+  },
+  {
+    "id": 4057,
+    "source": "near",
+    "payer": "steady-yield.near",
+    "chain": "base",
+    "vault": "0x8b12106a70fe2f8bb255f691f1cf9a9ccfb278af",
+    "amount": "2000000000000000000000000",
+    "created_s": 1793221922,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4034,
+        "verdict": "HOLD",
+        "confidence_bps": 8327,
+        "risk_bps": 1304,
+        "state_hash": "0x6a80622da61491d18b28a00e68bc11f3c5dbdf95d9d8811013573c9347b0276f",
+        "posted_at": 1793221999,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4057|chain=base|vault=0x8b12106a70fe2f8bb255f691f1cf9a9ccfb278af|at=1793221959|block=53435385|pps=1046485|assets=316903806686401|liquidity=69.98|apy_bps=576|apy_bps_prev=570|util_bps=7450|net_out_pct_1h=0.03|name=Noon Ecosystem Vault"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793221929,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x6e402f9cc00cfdb01884db000e1cbda806f9bf4d486af0917a82674824b24e48"
+  },
+  {
+    "id": 4061,
+    "source": "x402",
+    "payer": null,
+    "chain": "monad",
+    "vault": "0x3f8a91c27d0e4b6a95c1f2e8d7a6b5c4e3f20b1e",
+    "amount": "5000000",
+    "created_s": 1793281442,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "monad",
+        "id": 845,
+        "verdict": "HOLD",
+        "confidence_bps": 9539,
+        "risk_bps": 1194,
+        "state_hash": "0x0b79a65a7a9b583c36b50c54fcc96d68dac6c8878a65e9f91da9b43481312260",
+        "posted_at": 1793281545,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4061|chain=monad|vault=0x3f8a91c27d0e4b6a95c1f2e8d7a6b5c4e3f20b1e|at=1793281505|block=53510170|pps=1044584|assets=231769348144531|liquidity=51.42|apy_bps=640|apy_bps_prev=634|util_bps=6976|net_out_pct_1h=0.98|name=USDC vault"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793281449,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xe2c377130e58e165c78efb701cb14e007e2c39cb04e83c44bdd0db9684be3d32"
+  },
+  {
+    "id": 4064,
+    "source": "near",
+    "payer": "steady-yield.near",
+    "chain": "base",
+    "vault": "0x39e18c066187c83e860801befe45ae8ecd021575",
+    "amount": "2000000000000000000000000",
+    "created_s": 1793340478,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4040,
+        "verdict": "HOLD",
+        "confidence_bps": 8868,
+        "risk_bps": 1285,
+        "state_hash": "0x05d07052bfbb8a8503a9500c34b452384c226b923486b73f431d96e14fd47968",
+        "posted_at": 1793340585,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4064|chain=base|vault=0x39e18c066187c83e860801befe45ae8ecd021575|at=1793340545|block=53407270|pps=1047087|assets=45881534576416|liquidity=88.40|apy_bps=579|apy_bps_prev=573|util_bps=6150|net_out_pct_1h=-0.05|name=Bitso USDC Prime"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793340485,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xdb27b84fd21e7ea1c62c3b02cb7ce4e2341f753454ce46ca21384fdce2be3fcb"
+  },
+  {
+    "id": 4065,
+    "source": "usdc",
+    "payer": "ana.near",
+    "chain": "base",
+    "vault": "0xbeeff0be997cca5b1c13a7433c2004637975739e",
+    "amount": "5000000",
+    "created_s": 1793354326,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4041,
+        "verdict": "HOLD",
+        "confidence_bps": 8273,
+        "risk_bps": 775,
+        "state_hash": "0x9b9ab3dd17ebee1c55bfcceb5151546cabb14e65a2ff0aaef2a31e5cb9bc6c8f",
+        "posted_at": 1793354429,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4065|chain=base|vault=0xbeeff0be997cca5b1c13a7433c2004637975739e|at=1793354389|block=53479334|pps=1045861|assets=338346267700195|liquidity=47.06|apy_bps=702|apy_bps_prev=696|util_bps=6319|net_out_pct_1h=-0.04|name=Ethena x Steakhouse USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793354333,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xad77306c0056422725f16d59f5335dff5cbb6ddf9fa9c70a26e77ad419d30f4d"
+  },
+  {
+    "id": 4067,
+    "source": "usdc",
+    "payer": "vault-watch.near",
+    "chain": "base",
+    "vault": "0xbeeff0be997cca5b1c13a7433c2004637975739e",
+    "amount": "5000000",
+    "created_s": 1793373534,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4043,
+        "verdict": "HOLD",
+        "confidence_bps": 8869,
+        "risk_bps": 936,
+        "state_hash": "0xce8cbab89ee09a70c91f80d511139adafb2ec5e566f64bf136ab1dc9f784d54f",
+        "posted_at": 1793373619,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4067|chain=base|vault=0xbeeff0be997cca5b1c13a7433c2004637975739e|at=1793373579|block=53425233|pps=1044584|assets=281318546295166|liquidity=88.17|apy_bps=594|apy_bps_prev=588|util_bps=6581|net_out_pct_1h=0.54|name=Ethena x Steakhouse USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793373541,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xee332f3c36814674a093a5ed50050882ada8f966e9de7fde15f3bba3c38a23a0"
+  },
+  {
+    "id": 4069,
+    "source": "near",
+    "payer": "steady-yield.near",
+    "chain": "base",
+    "vault": "0xbeeff7ae5e00aae3db302e4b0d8c883810a58100",
+    "amount": "2000000000000000000000000",
+    "created_s": 1793411941,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4045,
+        "verdict": "EXIT",
+        "confidence_bps": 9295,
+        "risk_bps": 8311,
+        "state_hash": "0x7836f6019acc11ebf7258285e2a3ac08fbe26d9e9c9594fa3cc73f1e38206fc1",
+        "posted_at": 1793412011,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 1,
+        "reasons": 4,
+        "doc": "rein-v1|order=4069|chain=base|vault=0xbeeff7ae5e00aae3db302e4b0d8c883810a58100|at=1793411971|block=53425130|pps=1046612|assets=340023876190185|liquidity=10.82|apy_bps=672|apy_bps_prev=554|util_bps=9390|net_out_pct_1h=7.35|name=Steakhouse High Yield USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793411948,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      },
+      {
+        "at": 1793411998,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x05269711f5e0606908809de175bd554e48623f5c14096c4bb5941fd0109f8874"
+  },
+  {
+    "id": 4071,
+    "source": "near",
+    "payer": "steady-yield.near",
+    "chain": "base",
+    "vault": "0xbeef0e0834849acc03f0089f01f4f1eeb06873c9",
+    "amount": "2000000000000000000000000",
+    "created_s": 1793424530,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4047,
+        "verdict": "EXIT",
+        "confidence_bps": 8553,
+        "risk_bps": 8361,
+        "state_hash": "0xe78e15223c9cd19a129e942a5d9de137ba58b9b6f1846d91bad686eb4e40f729",
+        "posted_at": 1793424611,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 1,
+        "reasons": 4,
+        "doc": "rein-v1|order=4071|chain=base|vault=0xbeef0e0834849acc03f0089f01f4f1eeb06873c9|at=1793424571|block=53517711|pps=1041063|assets=211111820697784|liquidity=11.22|apy_bps=828|apy_bps_prev=710|util_bps=9390|net_out_pct_1h=5.74|name=Steakhouse Prime USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793424537,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      },
+      {
+        "at": 1793424598,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x29337bd4da4d15f39791fa99e2bbc649f127ade22c5adc97758d79f5bb8d8028"
+  },
+  {
+    "id": 4072,
+    "source": "usdc",
+    "payer": "ana.near",
+    "chain": "base",
+    "vault": "0xbeef0e0834849acc03f0089f01f4f1eeb06873c9",
+    "amount": "5000000",
+    "created_s": 1793438264,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4048,
+        "verdict": "HOLD",
+        "confidence_bps": 8877,
+        "risk_bps": 1391,
+        "state_hash": "0x553b4639b634ea19337623ba7a9a7045df6d15f7c4803f2e103297f6ae8be229",
+        "posted_at": 1793438360,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4072|chain=base|vault=0xbeef0e0834849acc03f0089f01f4f1eeb06873c9|at=1793438320|block=53406955|pps=1047700|assets=345523000717163|liquidity=49.14|apy_bps=659|apy_bps_prev=653|util_bps=8153|net_out_pct_1h=-0.31|name=Steakhouse Prime USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793438271,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xe386647efa6a714a2405510697417c9b0663765f81483475731132b6490b6e0d"
+  },
+  {
+    "id": 4074,
+    "source": "near",
+    "payer": "steady-yield.near",
+    "chain": "base",
+    "vault": "0x1deefabee758aabdc29a542b24ca3b75afd56765",
+    "amount": "2000000000000000000000000",
+    "created_s": 1793456736,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4050,
+        "verdict": "HOLD",
+        "confidence_bps": 8905,
+        "risk_bps": 1470,
+        "state_hash": "0x5fac86ffceda8ba7ba2ca43b92bbab5e8299ca88a832d0efdd8a98bbf8c3a32d",
+        "posted_at": 1793456824,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4074|chain=base|vault=0x1deefabee758aabdc29a542b24ca3b75afd56765|at=1793456784|block=53484985|pps=1044748|assets=128865123748779|liquidity=85.81|apy_bps=775|apy_bps_prev=769|util_bps=7004|net_out_pct_1h=-0.41|name=Gauntlet USDC Frontier"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793456743,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xc04031f9a9511c6f027b9f32c9e909314f058176f4a40444f8c09a9b6a919aa6"
+  },
+  {
+    "id": 4075,
+    "source": "near",
+    "payer": "vault-watch.near",
+    "chain": "base",
+    "vault": "0x050ce30b927da55177a4914ec73480238bad56f0",
+    "amount": "2000000000000000000000000",
+    "created_s": 1793467641,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4051,
+        "verdict": "HOLD",
+        "confidence_bps": 9796,
+        "risk_bps": 1159,
+        "state_hash": "0x6a5d8343a9be7781ad3f2ef191e5382ae862b84d85a19c1c622bdbc51f6b52ef",
+        "posted_at": 1793467722,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4075|chain=base|vault=0x050ce30b927da55177a4914ec73480238bad56f0|at=1793467682|block=53416732|pps=1043763|assets=152091718673706|liquidity=87.30|apy_bps=825|apy_bps_prev=819|util_bps=6936|net_out_pct_1h=-0.23|name=Gauntlet USDC Prime"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793467648,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xf4320a3285e698f506c5ed39ec9d0d1600780a066dab217dd5eab9a5c8016097"
+  },
+  {
+    "id": 4079,
+    "source": "usdc",
+    "payer": "k3-treasury.near",
+    "chain": "base",
+    "vault": "0x0548a36028ffdc7d5aaa7a182f0d1fe0264f5a5c",
+    "amount": "5000000",
+    "created_s": 1793548212,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4055,
+        "verdict": "HOLD",
+        "confidence_bps": 9848,
+        "risk_bps": 1332,
+        "state_hash": "0x48fa5cca5e50ae0a1183c71d4ab2394d0788d8e00340de2a7e1337592eb2baa6",
+        "posted_at": 1793548306,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4079|chain=base|vault=0x0548a36028ffdc7d5aaa7a182f0d1fe0264f5a5c|at=1793548266|block=53466866|pps=1041181|assets=1982868671417|liquidity=60.33|apy_bps=526|apy_bps_prev=520|util_bps=7017|net_out_pct_1h=0.39|name=K3 cbMaxxxing USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793548219,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x83cb54619b26e3e4a64c8247b90a1df3d1cf8b822113a46f90d408c5510febb4"
+  },
+  {
+    "id": 4080,
+    "source": "near",
+    "payer": "steady-yield.near",
+    "chain": "base",
+    "vault": "0xbeeff0be997cca5b1c13a7433c2004637975739e",
+    "amount": "2000000000000000000000000",
+    "created_s": 1793560015,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4056,
+        "verdict": "HOLD",
+        "confidence_bps": 9608,
+        "risk_bps": 1466,
+        "state_hash": "0xfc51e3cfcca49da93a0d924e1c2c8937915f3c62e8281871517202b26d8d53a6",
+        "posted_at": 1793560087,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4080|chain=base|vault=0xbeeff0be997cca5b1c13a7433c2004637975739e|at=1793560047|block=53481589|pps=1046130|assets=312817932128906|liquidity=72.89|apy_bps=789|apy_bps_prev=783|util_bps=7054|net_out_pct_1h=0.67|name=Ethena x Steakhouse USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793560022,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xb21306fa1c6e12c30efec4bcbfba7b08bf87fa24a71cebff36e2cc6c5eb13a3e"
+  },
+  {
+    "id": 4081,
+    "source": "near",
+    "payer": "vault-watch.near",
+    "chain": "base",
+    "vault": "0xbeeff2490feffa212fac2f6553682c219e6a8845",
+    "amount": "2000000000000000000000000",
+    "created_s": 1793573263,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4057,
+        "verdict": "HOLD",
+        "confidence_bps": 8476,
+        "risk_bps": 1410,
+        "state_hash": "0x7ec68f08331a22eb8c082142dcc741589131a7dac4900306f940f84a03905705",
+        "posted_at": 1793573340,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4081|chain=base|vault=0xbeeff2490feffa212fac2f6553682c219e6a8845|at=1793573300|block=53449192|pps=1044667|assets=134487844467163|liquidity=83.88|apy_bps=744|apy_bps_prev=738|util_bps=7198|net_out_pct_1h=0.67|name=Steakhouse High Yield USDC Edition"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793573270,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xd9ff97f727c243f573aefe15313e613e7b40582417c9106a0e0305c5fe342ac8"
+  },
+  {
+    "id": 4084,
+    "source": "x402",
+    "payer": null,
+    "chain": "monad",
+    "vault": "0x71c0d4e9b8a7f6e5d4c3b2a1908f7e6d5c4ba2f3",
+    "amount": "5000000",
+    "created_s": 1793617558,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "monad",
+        "id": 846,
+        "verdict": "MOVE",
+        "confidence_bps": 9448,
+        "risk_bps": 4414,
+        "state_hash": "0x0e52e4a60374be04025d6311781f478dc8e7d4cf4bbd4ac3ac388961dc20755d",
+        "posted_at": 1793617651,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4084|chain=monad|vault=0x71c0d4e9b8a7f6e5d4c3b2a1908f7e6d5c4ba2f3|at=1793617611|block=53436406|pps=1041426|assets=121351660251617|liquidity=45.04|apy_bps=827|apy_bps_prev=821|util_bps=7555|net_out_pct_1h=0.32|name=USDC vault"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793617565,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x28f845cdd78935c0ad727547e0da7dee85d57b44c363887e81725d3c0989dcc6"
+  },
+  {
+    "id": 4086,
+    "source": "usdc",
+    "payer": "k3-treasury.near",
+    "chain": "base",
+    "vault": "0x8b12106a70fe2f8bb255f691f1cf9a9ccfb278af",
+    "amount": "5000000",
+    "created_s": 1793635065,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4061,
+        "verdict": "MOVE",
+        "confidence_bps": 8312,
+        "risk_bps": 2855,
+        "state_hash": "0x0f706d345fce56fada6b228b09644a65dc1ae0ce92082c42aaf30665c6447012",
+        "posted_at": 1793635164,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 1,
+        "reasons": 4,
+        "doc": "rein-v1|order=4086|chain=base|vault=0x8b12106a70fe2f8bb255f691f1cf9a9ccfb278af|at=1793635124|block=53495652|pps=1043845|assets=282511354446411|liquidity=64.49|apy_bps=712|apy_bps_prev=706|util_bps=6451|net_out_pct_1h=0.93|name=Noon Ecosystem Vault"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793635072,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xe6b3657bd3a8e47e084ebf48934ef968a9c58f1a3c2adb6ea426934fd923fd11"
+  },
+  {
+    "id": 4087,
+    "source": "usdc",
+    "payer": "vault-watch.near",
+    "chain": "base",
+    "vault": "0x91c056b6d4311a743614fbc03ac32d4e6a2d3a3c",
+    "amount": "5000000",
+    "created_s": 1793658306,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4062,
+        "verdict": "HOLD",
+        "confidence_bps": 8536,
+        "risk_bps": 202,
+        "state_hash": "0xe98cae691ee8c35b4a81b2ad18d981886aa77caf13c0e0dc3e38150105ddbe55",
+        "posted_at": 1793658388,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4087|chain=base|vault=0x91c056b6d4311a743614fbc03ac32d4e6a2d3a3c|at=1793658348|block=53437473|pps=1041149|assets=292250908374786|liquidity=52.11|apy_bps=694|apy_bps_prev=688|util_bps=7948|net_out_pct_1h=-0.20|name=Clearstar cbAssets Vault"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793658313,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xabd5108885b7be35946ab5ace521f80a043f3c2b7be5cbd046b2bcb5390d5195"
+  },
+  {
+    "id": 4088,
+    "source": "x402",
+    "payer": null,
+    "chain": "base",
+    "vault": "0xbeef0e0834849acc03f0089f01f4f1eeb06873c9",
+    "amount": "5000000",
+    "created_s": 1793666088,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4063,
+        "verdict": "HOLD",
+        "confidence_bps": 9578,
+        "risk_bps": 602,
+        "state_hash": "0xb6b1baace3925407be7613607d4208981041736fd9181c5993c1d4052d509c1f",
+        "posted_at": 1793666170,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4088|chain=base|vault=0xbeef0e0834849acc03f0089f01f4f1eeb06873c9|at=1793666130|block=53429827|pps=1046237|assets=351197982788085|liquidity=38.93|apy_bps=628|apy_bps_prev=622|util_bps=8343|net_out_pct_1h=-0.93|name=Steakhouse Prime USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793666095,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xa7d0097cb898745b191e0435f90b8710e0ddbf509a06a496b9407eeb80b7221a"
+  },
+  {
+    "id": 4090,
+    "source": "x402",
+    "payer": null,
+    "chain": "base",
+    "vault": "0x8b12106a70fe2f8bb255f691f1cf9a9ccfb278af",
+    "amount": "5000000",
+    "created_s": 1793705883,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4065,
+        "verdict": "HOLD",
+        "confidence_bps": 9288,
+        "risk_bps": 1707,
+        "state_hash": "0x2e7e78cdd18a0b7e7db848efb4ce07ab5e57d213eeec26afddf9e4b9b40b961d",
+        "posted_at": 1793705981,
+        "input_check": "match",
+        "resolved": 1,
+        "adverse": 0,
+        "reasons": 0,
+        "doc": "rein-v1|order=4090|chain=base|vault=0x8b12106a70fe2f8bb255f691f1cf9a9ccfb278af|at=1793705941|block=53498051|pps=1046461|assets=91874385833740|liquidity=87.56|apy_bps=517|apy_bps_prev=511|util_bps=6922|net_out_pct_1h=-0.15|name=Noon Ecosystem Vault"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793705890,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x5b250974d854ad6ad1c83c61b5bf4666acb491350c2d7f01d79548aefe3ba014"
+  },
+  {
+    "id": 4091,
+    "source": "near",
+    "payer": "steady-yield.near",
+    "chain": "base",
+    "vault": "0x91c056b6d4311a743614fbc03ac32d4e6a2d3a3c",
+    "amount": "2000000000000000000000000",
+    "created_s": 1793726787,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4066,
+        "verdict": "HOLD",
+        "confidence_bps": 8296,
+        "risk_bps": 983,
+        "state_hash": "0x0c5e0ed39c03c85f2f3624ae9196eff2eec2daf24d51141ffaac8c703e02afa2",
+        "posted_at": 1793726887,
+        "input_check": "match",
+        "resolved": 0,
+        "adverse": null,
+        "reasons": null,
+        "doc": "rein-v1|order=4091|chain=base|vault=0x91c056b6d4311a743614fbc03ac32d4e6a2d3a3c|at=1793726847|block=53404288|pps=1048053|assets=163807941436767|liquidity=76.70|apy_bps=668|apy_bps_prev=662|util_bps=7141|net_out_pct_1h=0.03|name=Clearstar cbAssets Vault"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793726794,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x485f4df76f4a7dd6979fdf56b18ff5827696f1ab47fb2d3048289278d59485c5"
+  },
+  {
+    "id": 4092,
+    "source": "near",
+    "payer": "steady-yield.near",
+    "chain": "base",
+    "vault": "0x618495ccc4e751178c4914b1e939c0fe0fb07b9b",
+    "amount": "2000000000000000000000000",
+    "created_s": 1793751230,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4067,
+        "verdict": "MOVE",
+        "confidence_bps": 9395,
+        "risk_bps": 3580,
+        "state_hash": "0xd03f16648eaadb8e2637784893ac14336ca1d5fc68de912aba25f4b238428932",
+        "posted_at": 1793751325,
+        "input_check": "match",
+        "resolved": 0,
+        "adverse": null,
+        "reasons": null,
+        "doc": "rein-v1|order=4092|chain=base|vault=0x618495ccc4e751178c4914b1e939c0fe0fb07b9b|at=1793751285|block=53504281|pps=1040172|assets=146529280602931|liquidity=81.09|apy_bps=657|apy_bps_prev=651|util_bps=6870|net_out_pct_1h=0.92|name=Re7 USDC"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793751237,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x8e1bbff9feb54482fd56e442813e10cffd5a9cb00c9aa99b2530f2c2edcd6ca3"
+  },
+  {
+    "id": 4093,
+    "source": "x402",
+    "payer": null,
+    "chain": "base",
+    "vault": "0x050ce30b927da55177a4914ec73480238bad56f0",
+    "amount": "5000000",
+    "created_s": 1793775813,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4068,
+        "verdict": "MOVE",
+        "confidence_bps": 8672,
+        "risk_bps": 3660,
+        "state_hash": "0x59e4dfbf4a2f9b4ac7aa3dfd065d47977ad1b984d0d2727328767a736e2e88b5",
+        "posted_at": 1793775895,
+        "input_check": "match",
+        "resolved": 0,
+        "adverse": null,
+        "reasons": null,
+        "doc": "rein-v1|order=4093|chain=base|vault=0x050ce30b927da55177a4914ec73480238bad56f0|at=1793775855|block=53407893|pps=1041798|assets=154996920585632|liquidity=82.05|apy_bps=785|apy_bps_prev=779|util_bps=8183|net_out_pct_1h=0.04|name=Gauntlet USDC Prime"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793775820,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0xe05ecac45c90d828efe1b43bc33c8556ca9ec384d7a0343b39f882ac1a1dab56"
+  },
+  {
+    "id": 4094,
+    "source": "usdc",
+    "payer": "vault-watch.near",
+    "chain": "base",
+    "vault": "0x050ce30b927da55177a4914ec73480238bad56f0",
+    "amount": "5000000",
+    "created_s": 1793789769,
+    "status": "delivered",
+    "posts": [
+      {
+        "chain": "base",
+        "id": 4069,
+        "verdict": "EXIT",
+        "confidence_bps": 9092,
+        "risk_bps": 8534,
+        "state_hash": "0x56acb19c5d1ba0f7ec94998843c7202dd410b8440641295ebde80411061e68a5",
+        "posted_at": 1793789854,
+        "input_check": "match",
+        "resolved": 0,
+        "adverse": null,
+        "reasons": null,
+        "doc": "rein-v1|order=4094|chain=base|vault=0x050ce30b927da55177a4914ec73480238bad56f0|at=1793789814|block=53416983|pps=1046022|assets=17022920608520|liquidity=6.05|apy_bps=702|apy_bps_prev=584|util_bps=9390|net_out_pct_1h=5.10|name=Gauntlet USDC Prime"
+      }
+    ],
+    "judge_calls": [
+      {
+        "at": 1793789776,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      },
+      {
+        "at": 1793789841,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": "0x0541e3531ba98107f15311d4fe60a8b4c3364c48cada273690b31524f02e089c"
+  },
+  {
+    "id": 4095,
+    "source": "near",
+    "payer": "vault-watch.near",
+    "chain": "base",
+    "vault": "0x91c056b6d4311a743614fbc03ac32d4e6a2d3a3c",
+    "amount": "2000000000000000000000000",
+    "created_s": 1793802636,
+    "status": "exit_pending",
+    "posts": [],
+    "judge_calls": [
+      {
+        "at": 1793802643,
+        "signing_address": "0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"
+      }
+    ],
+    "post_tx": null
+  },
+  {
+    "id": 4096,
+    "source": "usdc",
+    "payer": "vault-watch.near",
+    "chain": "base",
+    "vault": "0x050ce30b927da55177a4914ec73480238bad56f0",
+    "amount": "5000000",
+    "created_s": 1793802711,
+    "status": "open",
+    "posts": [],
+    "judge_calls": [],
+    "post_tx": null
+  }
+]

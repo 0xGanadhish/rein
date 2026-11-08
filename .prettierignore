@@ -16,7 +16,9 @@ near/desk/tests/vectors.json
 evm/lib/
 evm/broadcast/
 graphify-out/
-web/
+web/next-env.d.ts
+web/test-results/
+web/playwright-report/
 .worktrees/
 .git/
 .env*

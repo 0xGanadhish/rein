@@ -186,7 +186,7 @@ describe('api', () => {
     const body = await res.json<{
       network: string;
       score: { n: number; brier: number; early: boolean; bands: { band: string; n: number; hitRate: number }[] };
-      recent: { id: number; verdict: string; repeat: boolean }[];
+      recent: { id: number; verdict: string; repeat: boolean; signer: string | null; doc: string | null }[];
       business: unknown;
     }>();
     expect(body.network).toBe('testnet');
@@ -201,6 +201,12 @@ describe('api', () => {
       [3, 'HOLD', false],
       [2, 'EXIT', true],
       [1, 'EXIT', false],
+    ]);
+    expect(body.recent.map((r) => [r.id, r.signer, r.doc])).toEqual([
+      [4, null, null],
+      [3, null, null],
+      [2, '0xs', null],
+      [1, '0xs', null],
     ]);
     expect(body.business).toMatchObject({
       desk: { ...STATS, as_of: T },
@@ -397,5 +403,56 @@ describe('api', () => {
     const res = await get('/v1/health', { health: () => checkHealth('mainnet', deps()) });
     expect(res.status).toBe(503);
     expect((await res.json<Record<string, unknown>>()).flags).toEqual(['low_gas:base', 'low_near', 'low_allowance']);
+  });
+
+  it('orders_by_payer_returns_their_orders', async () => {
+    await env.DB.prepare(
+      `INSERT INTO orders (id, source, payer, chain, vault, amount, created_s, status) VALUES
+        (1, 'near', 'alice.testnet', 'monad-testnet', ?1, '1', ?2, 'delivered'), (2, 'near', 'bob.testnet', 'monad-testnet', ?1, '1', ?2, 'open'),
+        (3, 'usdc', 'alice.testnet', 'base-sepolia', ?1, '1', ?2, 'open')`,
+    )
+      .bind(VAULT, T)
+      .run();
+    const res = await get('/v1/orders?payer=alice.testnet');
+    expect(res.status).toBe(200);
+    expect((await res.json<{ orders: { id: number }[] }>()).orders.map((o) => o.id)).toEqual([3, 1]);
+    expect(
+      (await get('/v1/orders?payer=alice.testnet&limit=1').then((r) => r.json<{ orders: unknown[] }>())).orders,
+    ).toHaveLength(1);
+    expect((await get('/v1/orders')).status).toBe(400);
+  });
+
+  it('receipt_includes_doc_and_judge_calls', async () => {
+    const doc = 'rein-v1|order=5|chain=monad-testnet';
+    const hash = keccak256(toBytes(doc));
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO orders (id, source, payer, chain, vault, amount, created_s, status) VALUES
+          (5, 'near', 'alice.testnet', 'monad-testnet', ?, '1', ?, 'delivered')`,
+      ).bind(VAULT, T),
+      env.DB.prepare('INSERT INTO docs (hash, order_id, doc) VALUES (?, 5, ?)').bind(hash, doc),
+      env.DB.prepare(
+        `INSERT INTO posts (chain, id, vault, verdict, confidence_bps, risk_bps, state_hash, posted_at, pps_at_post,
+          assets_at_post, liquidity_at_post, order_id) VALUES ('monad-testnet', 1, ?, 0, 9000, 1000, ?, ?, '1', '1', '1', 5)`,
+      ).bind(VAULT, hash, T),
+      env.DB.prepare(
+        `INSERT INTO judge_calls (order_id, at, signing_address, cost_usd_micros, stage, failure) VALUES
+          (5, ?, '0xsigner', 37, NULL, NULL), (5, ?, '', 37, 'signature', 'HTTP 500')`,
+      ).bind(T, T + 1),
+      env.DB.prepare(
+        `INSERT INTO broadcast_attempts (network, chain, order_id, nonce, hash, raw_tx, attempted_at, receipt_status) VALUES
+          ('testnet', 'monad-testnet', 5, 0, '0xreverted', '0x', ?1, 'reverted'), ('testnet', 'monad-testnet', 5, 0, '0xlanded', '0x', ?1, 'success')`,
+      ).bind(T),
+    ]);
+    const body = await (
+      await get('/v1/orders/5')
+    ).json<{
+      posts: { doc: string | null }[];
+      judge_calls: { at: number; signing_address: string }[];
+      post_tx: string | null;
+    }>();
+    expect(body.posts[0].doc).toBe(doc);
+    expect(body.post_tx).toBe('0xlanded');
+    expect(body.judge_calls).toEqual([{ at: T, signing_address: '0xsigner' }]);
   });
 });

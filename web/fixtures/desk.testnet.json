@@ -1,0 +1,44 @@
+{
+  "policy": {
+    "spacing_s": 600,
+    "per_vault_max": 6,
+    "global_max": 120,
+    "watch_daily_max": 48,
+    "deadline_s": 1800,
+    "doc_max_age_s": 120,
+    "exit_confirm_min_s": 30,
+    "exit_confirm_max_s": 600,
+    "max_open_paid": 20,
+    "price_usdc": "5000000",
+    "price_near": "2000000000000000000000000",
+    "split_treasury_bps": 7000,
+    "split_agent_bps": 3000,
+    "kill": false,
+    "usdc_token": "usdc.fakes.testnet",
+    "agent": "agent.rein.testnet",
+    "treasury": "treasury.rein.testnet",
+    "oracle": {
+      "monad-testnet": "0x5a1c0e9b7d3f2a6c8e4b1d0f9a7c5e3b2d4f6a81",
+      "monad": null,
+      "base": null
+    },
+    "gas_limit": {
+      "monad-testnet": 200000,
+      "monad": 200000,
+      "base": 200000
+    },
+    "max_fee_cap": {
+      "monad-testnet": "200000000000",
+      "monad": "200000000000",
+      "base": "5000000000"
+    },
+    "signer": "v1.signer-prod.testnet"
+  },
+  "menu": {
+    "monad-testnet": [
+      "0x9e22b17a6c5d4e3f2a1b0c9d8e7f6a5b4c3d44c8",
+      "0x2b7e1d9f8a6c5e4d3b2a1f0e9d8c7b6a5f4e3a17",
+      "0xc4a8e2f6b1d3957e8a0c2b4d6f8e1a3c5b7d9e02"
+    ]
+  }
+}

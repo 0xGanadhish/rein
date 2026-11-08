@@ -1,0 +1,139 @@
+:root {
+  --bone: #ebeae4;
+  --paper: #f5f4ef;
+  --line: #d3d1c8;
+  --line-soft: #e2e1da;
+  --ink: #10110f;
+  --ink-2: #2e2f2b;
+  --mute: #5b5c56;
+  --faint: #a9a79e;
+  /* EXIT. As text on bone use --signal-ink, which passes 4.5:1. */
+  --signal: #ff5420;
+  --signal-ink: #b23608;
+  /* MOVE. On night grounds use --cobalt-light. */
+  --cobalt: #3047f5;
+  --cobalt-light: #93a0ff;
+  /* Night pages: the receipt, Guardian, the Ledger band on the landing page. */
+  --night: #0c0d0b;
+  --night-2: #121310;
+  --night-3: #10110e;
+  --night-line: #2a2b26;
+  --night-ink: #ecebe5;
+  --night-soft: #c9c8c1;
+  --night-mute: #9a9b93;
+  --display: var(--font-display), 'Helvetica Neue', Arial, sans-serif;
+  --sans: var(--font-sans), 'Helvetica Neue', Arial, sans-serif;
+  --mono: var(--font-mono), ui-monospace, Menlo, monospace;
+  --gutter: clamp(16px, 4vw, 40px);
+  --ease: cubic-bezier(0.2, 0.7, 0.1, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bone);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: var(--signal);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 2px;
+}
+
+.container {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding-inline: var(--gutter);
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+.label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  padding: 5px 8px;
+  border-radius: 4px;
+}
+.chip[data-verdict='HOLD'] {
+  background: var(--ink);
+  color: var(--bone);
+}
+.chip[data-verdict='EXIT'] {
+  background: var(--signal);
+  color: var(--ink);
+}
+.chip[data-verdict='MOVE'] {
+  background: var(--cobalt);
+  color: #fff;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes grow-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
