@@ -37,6 +37,9 @@ export function realGradeDeps(env: Env): GradeDeps {
         },
         sender: {
           async send({ to, data, kind, verdictId }) {
+            // A signed exit may not have reached the RPC yet. Its nonce stays reserved until its receipt is durable.
+            if (await env.DB.prepare('SELECT 1 FROM exit_attempts WHERE chain = ? AND settled = 0').bind(chain).first())
+              throw new Error('executor nonce reserved by pending exit');
             const hash = await wallet.sendTransaction({ to, data });
             const r = await client.waitForTransactionReceipt({ hash, timeout: 30_000 });
             await env.DB.prepare(
