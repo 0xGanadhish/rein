@@ -51,6 +51,19 @@ export class BroadcastJournal {
       .bind(this.network, order.chain, order.id).run();
   }
 
+  async receipt(order: DeskOrder, hash: Hex, status: string, gas: bigint): Promise<void> {
+    await this.db.prepare(`UPDATE broadcast_attempts SET receipt_status = ?, gas_wei = ?
+      WHERE network = ? AND chain = ? AND order_id = ? AND hash = ?`)
+      .bind(status, String(gas), this.network, order.chain, order.id, hash).run();
+  }
+
+  async gas(order: DeskOrder): Promise<bigint> {
+    const { results } = await this.db.prepare(`SELECT gas_wei FROM broadcast_attempts
+      WHERE network = ? AND chain = ? AND order_id = ? AND gas_wei IS NOT NULL`)
+      .bind(this.network, order.chain, order.id).all<{ gas_wei: string }>();
+    return results.reduce((sum, r) => sum + BigInt(r.gas_wei), 0n);
+  }
+
   async nextNonce(chain: DeskChain, proposed: number, desk: Pick<DeskClient, 'get_order'>): Promise<number> {
     const held = await this.db.prepare(`SELECT nonce, order_id FROM pending_nonces
       WHERE network = ? AND chain = ? AND nonce >= ? ORDER BY nonce`)

@@ -6,7 +6,7 @@ import { CHAINS, viemChain } from './broadcast';
 import { NETWORK_CHAINS, type DeskClient, type DeskOrder } from './deskTypes';
 import { rpcFor, type Env, type NearNetwork } from './env';
 import { gradeDue, realGradeDeps, type GradeDeps } from './grade';
-import { checkHealth, type HealthDeps } from './health';
+import { checkHealth, readActivity, type HealthDeps, type Health } from './health';
 import { judge } from './judge';
 import { BroadcastJournal } from './journal';
 import { withLock } from './lock';
@@ -67,28 +67,34 @@ function realDeps(env: Env, desk: DeskClient): OrderDeps {
     journal: new BroadcastJournal(env.DB, env.NEAR_NETWORK),
     async read(c, vault) {
       const client = createPublicClient({ chain: CHAINS[c], transport: http(rpcFor(env, c), { retryCount: 2 }) });
-      const [block, name, stats, prev] = await Promise.all([
-        client.getBlockNumber(),
-        client.readContract({ address: vault as Address, abi: erc4626Abi, functionName: 'name' }),
-        readVault(env, c, { address: vault, mirror: c === 'monad-testnet' || c === 'base-sepolia' }, { client }),
+      const block = await client.getBlockNumber();
+      const [name, stats, prev] = await Promise.all([
+        client.readContract({ address: vault as Address, abi: erc4626Abi, functionName: 'name', blockNumber: block }),
+        readVault(env, c, { address: vault, mirror: c === 'monad-testnet' || c === 'base-sepolia' }, { client, blockNumber: block }),
         env.DB.prepare('SELECT apy_bps FROM watch_snapshots WHERE chain = ? AND vault = ? ORDER BY at DESC LIMIT 1')
           .bind(c, vault.toLowerCase()).first<number | null>('apy_bps'),
       ]);
-      // Vaults without an APY source read as 0, as the watch feed has no APY for them either.
-      const apyBps = stats.apyBps ?? 0;
-      return { block, name, pps: stats.pps, totalAssets: stats.totalAssets, liquidityPct: stats.liquidityPct, apyBps, apyBpsPrev: prev ?? apyBps, utilBps: stats.utilBps };
+      return { block, name, pps: stats.pps, totalAssets: stats.totalAssets, liquidityPct: stats.liquidityPct,
+        apyBps: stats.apyBps, apyBpsPrev: prev, utilBps: stats.utilBps };
     },
     flows: async (c, vault) => ({ netOutPct1h: await netOutPct1h(env.DB, c, vault, Math.floor(Date.now() / 1000)) }),
     judge: async (doc, prompt, opts) => {
-      const j = await judge(doc, prompt, { ...opts, apiKey: env.NEAR_AI_API_KEY });
       const orderId = Number(/\|order=(\d+)\|/.exec(doc)?.[1] ?? -1);
-      await env.DB.batch([
-        env.DB.prepare('INSERT INTO judge_calls (order_id, at, signing_address, cost_usd_micros) VALUES (?, ?, ?, ?)')
-          .bind(orderId, Math.floor(Date.now() / 1000), j.signingAddress, j.costUsdMicros),
-        // The oracle post commits to keccak256(doc); this leads the mirrored post back to its order and doc.
-        env.DB.prepare('INSERT OR IGNORE INTO docs (hash, order_id, doc) VALUES (?, ?, ?)').bind(keccak256(toBytes(doc)), orderId, doc),
-      ]);
+      const j = await judge(doc, prompt, { ...opts, apiKey: env.NEAR_AI_API_KEY, record: async (call) => {
+        const result = await env.DB.prepare(`INSERT INTO judge_calls
+          (order_id, at, signing_address, cost_usd_micros, stage, failure, tokens_in, tokens_out, model)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+          .bind(orderId, Math.floor(Date.now() / 1000), call.signingAddress, call.costUsdMicros,
+            call.stage, call.failure, call.tokensIn, call.tokensOut, call.model).run();
+        return result.meta.last_row_id;
+      } });
+      // The oracle commits to keccak256(doc); retain the exact judged bytes.
+      await env.DB.prepare('INSERT OR IGNORE INTO docs (hash, order_id, doc) VALUES (?, ?, ?)').bind(keccak256(toBytes(doc)), orderId, doc).run();
       return j;
+    },
+    judgeRefused: async (j, reason) => {
+      if (j.recordingId !== undefined) await env.DB.prepare("UPDATE judge_calls SET stage = 'reading', failure = ? WHERE rowid = ?")
+        .bind(reason, j.recordingId).run();
     },
     chain: (c) => {
       let client = chains.get(c);
@@ -129,6 +135,7 @@ export interface CronDeps {
   mirror: MirrorDeps;
   grade: GradeDeps;
   watch: WatchDeps;
+  health?(): Promise<Health>;
 }
 
 async function realCronDeps(env: Env): Promise<CronDeps> {
@@ -136,7 +143,8 @@ async function realCronDeps(env: Env): Promise<CronDeps> {
   const { nearDesk } = await import('./near');
   // One desk per request, shared by the order loop and the x402 route, so a signed tx read by one is seen by both.
   const desk = rememberSignedTx(nearDesk(env));
-  return { order: realDeps(env, desk), mirror: realMirrorDeps(env, desk), grade: realGradeDeps(env), watch: realWatchDeps(env, desk) };
+  return { order: realDeps(env, desk), mirror: realMirrorDeps(env, desk), grade: realGradeDeps(env), watch: realWatchDeps(env, desk),
+    health: async () => checkHealth(env.NEAR_NETWORK, await realHealthDeps(env)) };
 }
 
 async function realHealthDeps(env: Env): Promise<HealthDeps> {
@@ -146,6 +154,12 @@ async function realHealthDeps(env: Env): Promise<HealthDeps> {
     gasBalance: (chain, address) => createPublicClient({ chain: CHAINS[chain], transport: http(rpcFor(env, chain)) }).getBalance({ address: address as Address }),
     agent: () => agentStatus(env),
     allowanceGranted: env.AGENT_KEY_ALLOWANCE ? BigInt(env.AGENT_KEY_ALLOWANCE) : null,
+    deskAccount: env.DESK_ACCOUNT,
+    db: env.DB,
+    activity: async () => {
+      const policy = await nearDesk(env).policy();
+      return readActivity(env.DB, env.NEAR_NETWORK, policy.deadline_s, Math.floor(Date.now() / 1000), policy.kill);
+    },
   };
 }
 
@@ -159,20 +173,26 @@ const step = async <T>(name: string, fn: () => Promise<T>): Promise<T | 'error'>
 };
 
 /**
- * Everything one cron minute does: advance orders, mirror orders and posts, grade what is due, then the watch feed.
+ * Each cron minute mirrors state and grades first, then advances at most ten orders per chain and runs the watch feed.
  * Each step works from stored state, so running it twice at once or back to back does nothing twice.
  */
-export async function runAll(env: Env, network: NearNetwork, now: number, deps: CronDeps) {
-  const orders = await step('orders', () => tick(env, network, deps.order));
+export async function runAll(env: Env, network: NearNetwork, now: number, deps: CronDeps, scheduled = false) {
   const mirrored = await step('mirror', () => mirror(env, network, deps.mirror, now));
   const graded = await step('grade', async () => {
     const run = await withLock(env.DB, `grade:${network}`, LOCK_TTL_S, () => gradeDue(env, network, now, deps.grade));
     return run.ran ? run.value : 'busy';
   });
+  const orders = await step('orders', () => tick(env, network, deps.order));
   const watched = await step('watch', async () => {
     const run = await withLock(env.DB, `watch:${network}`, LOCK_TTL_S, () => watchOnce(env, network, now, deps.watch));
     return run.ran ? run.value : 'busy';
   });
+  const successful = typeof orders !== 'string' && Object.values(orders).every((v) => v !== 'error' && v !== 'busy')
+    && typeof mirrored !== 'string' && typeof graded !== 'string' && Object.values(graded).every((v) => !v?.failed)
+    && typeof watched !== 'string' && watched.failed === 0;
+  if (scheduled && successful) await env.DB.prepare(`INSERT INTO meta (key, json, at) VALUES (?, '{}', ?)
+    ON CONFLICT (key) DO UPDATE SET at = excluded.at`).bind(`cron:${network}`, Math.floor(Date.now() / 1000)).run();
+  if (deps.health) await step('health', deps.health);
   return { orders, mirror: mirrored, grade: graded, watch: watched };
 }
 
@@ -196,6 +216,6 @@ export default {
     });
   },
   async scheduled(_controller, env, ctx) {
-    ctx.waitUntil(realCronDeps(env).then((deps) => runAll(env, env.NEAR_NETWORK, nowS(), deps)));
+    ctx.waitUntil(realCronDeps(env).then((deps) => runAll(env, env.NEAR_NETWORK, nowS(), deps, true)));
   },
 } satisfies ExportedHandler<Env>;

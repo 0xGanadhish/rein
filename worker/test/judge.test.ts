@@ -1,3 +1,5 @@
+import { applyD1Migrations } from 'cloudflare:test';
+import { env } from 'cloudflare:workers';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { judge, NEAR_AI } from '../src/judge';
 import type { DeskPrompt } from '../src/deskTypes';
@@ -26,6 +28,23 @@ function fakeFetch(calls: Call[]): typeof fetch {
 afterEach(() => { vi.useRealTimers(); });
 
 describe('judge', () => {
+  it('failed_judge_call_is_recorded', async () => {
+    await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
+    await env.DB.prepare('DELETE FROM judge_calls').run();
+    const opts = {
+      apiKey: 'test-only',
+      fetch: (async (input: RequestInfo | URL) => String(input) === NEAR_AI.completions
+        ? new Response('{"id":"billable","usage":{"prompt_tokens":244,"completion_tokens":34}}')
+        : new Response('unavailable', { status: 503 })) as typeof fetch,
+      record: async (call: { costUsdMicros: number; stage: string | null }) => {
+        await env.DB.prepare('INSERT INTO judge_calls (order_id, at, signing_address, cost_usd_micros) VALUES (1, 1, ?, ?)')
+          .bind(call.stage, call.costUsdMicros).run();
+      },
+    };
+    await expect(judge(doc, prompt, opts)).rejects.toThrow('signature: HTTP 503');
+    expect(await env.DB.prepare('SELECT signing_address, cost_usd_micros FROM judge_calls').first())
+      .toEqual({ signing_address: 'signature', cost_usd_micros: 37 });
+  });
   it('sends_exact_prefix_doc_suffix', async () => {
     const calls: Call[] = [];
     const r = await judge(doc, prompt, { apiKey: 'k', fetch: fakeFetch(calls) });

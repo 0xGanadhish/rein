@@ -28,6 +28,38 @@ describe('api', () => {
   beforeAll(async () => { await applyD1Migrations(env.DB, env.TEST_MIGRATIONS); });
   beforeEach(async () => { await env.DB.batch(TABLES.map((t) => env.DB.prepare(`DELETE FROM ${t}`))); });
 
+  it('kick_refused_without_token', async () => {
+    let invoked = false;
+    const deps = { kick: async () => { invoked = true; return {}; }, health: null!, payments: null! };
+    const response = await handle(new Request('https://rein.test/v1/kick', { method: 'POST' }), env, deps);
+    expect(response.status).toBe(401);
+    expect(invoked).toBe(false);
+    const configured = { ...env, KICK_TOKEN: 'test-only-kick' };
+    expect((await handle(new Request('https://rein.test/v1/kick', { method: 'POST' }), configured, deps)).status).toBe(401);
+    expect((await handle(new Request('https://rein.test/v1/kick', {
+      method: 'POST', headers: { Authorization: 'Bearer test-only-kick' },
+    }), configured, deps)).status).toBe(200);
+  });
+
+  it('health_flags_stuck_order_and_stale_cron', async () => {
+    const deps = {
+      derivedAddress: async () => '0xdead',
+      gasBalance: async () => 10n ** 18n,
+      agent: async () => ({ balance: 10n ** 24n, allowance: null }),
+      allowanceGranted: null,
+      activity: async () => ({
+        last_cron_s: T - 601, last_delivery_s: T - 100,
+        oldest_stuck_order: { id: 7, status: 'signed', created_s: T - 3601, deadline_s: 1800, valid_until: T - 1801 },
+        pending_refunds: { usdc: '0', near: '0', orders: 0 },
+      }),
+      now: () => T,
+    };
+    const health = await checkHealth('testnet', deps);
+    expect(health.flags).toContain('stale_cron');
+    expect(health.flags).toContain('stuck_order:7');
+    expect(health).toMatchObject({ last_cron_s: T - 601, last_delivery_s: T - 100, oldest_stuck_order: { id: 7 } });
+  });
+
   it('ledger_returns_score_and_business_panel', async () => {
     const post = env.DB.prepare(`INSERT INTO posts (chain, id, vault, verdict, confidence_bps, risk_bps, state_hash, posted_at, pps_at_post,
         assets_at_post, liquidity_at_post, order_id, input_check, resolved, adverse, reasons) VALUES (?, ?, ?, ?, ?, ?, '0x00', ?, '1', '1', '1', ?, ?, ?, ?, ?)`);
@@ -58,7 +90,7 @@ describe('api', () => {
     expect(body.score.early).toBe(true);
     expect(body.score.bands.find((b: any) => b.band === '95-100')).toEqual({ band: '95-100', n: 1, hitRate: 1 });
     expect(body.recent.map((r: any) => [r.id, r.verdict, r.repeat])).toEqual([[4, 'MOVE', false], [3, 'HOLD', false], [2, 'EXIT', true], [1, 'EXIT', false]]);
-    expect(body.business).toEqual({
+    expect(body.business).toMatchObject({
       desk: { ...STATS, as_of: T },
       judge_calls: 2,
       judge_cost_usd_micros: 2000,
@@ -116,7 +148,8 @@ describe('api', () => {
       },
       watch: { desk, read: async () => ({ apyBps: 500, utilBps: 5000, totalAssets: 5_000_000n }) },
     };
-    const kick = () => handle(new Request('https://rein.test/v1/kick', { method: 'POST' }), env, { kick: () => runAll(env, 'testnet', T, deps), health: null!, payments: null! });
+    const kick = () => handle(new Request('https://rein.test/v1/kick', { method: 'POST', headers: { Authorization: 'Bearer test-only-kick' } }),
+      { ...env, KICK_TOKEN: 'test-only-kick' }, { kick: () => runAll(env, 'testnet', T, deps), health: null!, payments: null! });
     const dump = async () => Promise.all(['orders', 'posts', 'watch_snapshots', 'watch_baselines', 'watch_requests'].map(async (t) => (await env.DB.prepare(`SELECT * FROM ${t}`).all()).results));
 
     const first = await (await kick()).json();
@@ -150,7 +183,7 @@ describe('api', () => {
       allowanceGranted: 10n ** 23n,
       ...over,
     });
-    expect(await checkHealth('mainnet', deps())).toEqual({
+    expect(await checkHealth('mainnet', deps())).toMatchObject({
       ok: false,
       flags: ['low_gas:base', 'low_near', 'low_allowance'],
       gas: { monad: '1000000000000000000', base: '99999999999999' },

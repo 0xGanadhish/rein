@@ -75,9 +75,13 @@ export async function mirror(env: Env, network: NearNetwork, deps: MirrorDeps, n
     const end = Math.min(from + ORDER_PAGE, bound);
     const orders: DeskOrder[] = await deps.desk.list_orders(from, end - from);
     if (orders.length) {
-      await db.batch(orders.map((o) => db.prepare(`INSERT INTO orders (id, source, payer, chain, vault, amount, created_s, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET status = excluded.status`)
-        .bind(o.id, o.source, o.payer, o.chain, o.vault.toLowerCase(), o.amount, o.created_s, o.status)));
+      await db.batch(orders.map((o) => db.prepare(`INSERT INTO orders
+          (id, source, payer, chain, vault, amount, created_s, status, valid_until, exit_pending_s, delivered_s)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET status = excluded.status,
+          valid_until = excluded.valid_until, exit_pending_s = excluded.exit_pending_s,
+          delivered_s = COALESCE(orders.delivered_s, excluded.delivered_s)`)
+        .bind(o.id, o.source, o.payer, o.chain, o.vault.toLowerCase(), o.amount, o.created_s, o.status,
+          o.valid_until, o.exit_pending_s, o.status === 'delivered' ? now : null)));
       tally.orders += orders.length;
     }
     if (from === low) {

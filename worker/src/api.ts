@@ -1,3 +1,8 @@
+import type { DeskChain } from '../../shared/desk';
+import { CRON_INTERVAL_S } from './health';
+import { RESOLVE_WINDOW_S, SAMPLE_WINDOW_S } from './vendor/cadence';
+import type { DeskStats } from '../../shared/desk';
+import { economics } from './economics';
 import { newCalls, scoreLedger, type ScoreVerdict } from '../../shared/score';
 import { NETWORK_CHAINS } from './deskTypes';
 import type { Env, NearNetwork } from './env';
@@ -14,6 +19,27 @@ export interface ApiDeps {
 const VERDICTS: ScoreVerdict[] = ['HOLD', 'EXIT', 'MOVE'];
 const LEDGER_POSTS = 200;
 
+async function kickAuthorized(request: Request, token: string | undefined): Promise<boolean> {
+  if (!token) return false;
+  const provided = /^Bearer (.+)$/.exec(request.headers.get('authorization') ?? '')?.[1] ?? '';
+  const encoder = new TextEncoder();
+  const [a, b] = await Promise.all([provided, token].map((s) => crypto.subtle.digest('SHA-256', encoder.encode(s))));
+  return crypto.subtle.timingSafeEqual(a, b);
+}
+
+/** Atomic fixed-window limiter: 10 quotes/IP/minute, before body parsing or payment dependencies. */
+async function allowQuote(request: Request, db: D1Database): Promise<boolean> {
+  const now = Math.floor(Date.now() / 1000);
+  const window = now - now % 60;
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(request.headers.get('CF-Connecting-IP') ?? 'unknown'));
+  const ip = Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, '0')).join('');
+  await db.prepare('DELETE FROM quote_limits WHERE window_s < ?').bind(window - 60).run();
+  const row = await db.prepare(`INSERT INTO quote_limits (ip_hash, window_s, requests) VALUES (?, ?, 1)
+    ON CONFLICT (ip_hash) DO UPDATE SET requests = CASE WHEN window_s = excluded.window_s THEN requests + 1 ELSE 1 END,
+      window_s = excluded.window_s RETURNING requests`).bind(ip, window).first<{ requests: number }>();
+  return row !== null && row.requests <= 10;
+}
+
 interface PostRow {
   chain: string;
   id: number;
@@ -27,6 +53,8 @@ interface PostRow {
   resolved: number;
   adverse: number | null;
   reasons: number | null;
+  sampled: number;
+  resolved_at: number | null;
 }
 
 const json = (body: unknown, status = 200) =>
@@ -47,12 +75,13 @@ async function business(env: Env) {
     judge_cost_usd_micros: cost?.micros ?? 0,
     orders: orders.results,
     watch: { asked: watch?.asked ?? 0, opened: watch?.opened ?? 0 },
+    ...await economics(db, stats ? JSON.parse(stats.json) as DeskStats : null),
   };
 }
 
 async function ledger(env: Env, network: NearNetwork) {
   const chains = NETWORK_CHAINS[network];
-  const { results } = await env.DB.prepare(`SELECT chain, id, vault, verdict, confidence_bps, risk_bps, posted_at, order_id, input_check, resolved, adverse, reasons
+  const { results } = await env.DB.prepare(`SELECT chain, id, vault, verdict, confidence_bps, risk_bps, posted_at, order_id, input_check, resolved, adverse, reasons, sampled, resolved_at
       FROM posts WHERE chain IN (${chains.map(() => '?').join(', ')}) ORDER BY posted_at, chain, id`).bind(...chains).all<PostRow>();
   const rows = results.map((r) => ({
     ...r,
@@ -64,6 +93,7 @@ async function ledger(env: Env, network: NearNetwork) {
     adverse: r.adverse === null ? null : r.adverse === 1,
   }));
   const calls = newCalls(rows);
+  const now = Math.floor(Date.now() / 1000);
   const isNew = new Set(calls);
   return {
     network,
@@ -80,8 +110,20 @@ async function ledger(env: Env, network: NearNetwork) {
       chain: r.chain, id: r.id, vault: r.vault, verdict: r.verdict, confidence_bps: r.confidence_bps, risk_bps: r.risk_bps,
       posted_at: r.posted_at, order_id: r.order_id, input_check: r.input_check, resolved: r.resolved, adverse: r.adverse,
       reasons: r.reasons, repeat: !isNew.has(r),
+      ...gradeQuality(r, now),
     })),
   };
+}
+
+function gradeQuality(row: Omit<PostRow, 'resolved' | 'adverse' | 'verdict'> & { resolved: boolean | number }, now: number) {
+  const chain = row.chain as DeskChain;
+  const due = row.posted_at + RESOLVE_WINDOW_S[chain] + SAMPLE_WINDOW_S[chain];
+  const quality: string[] = [];
+  if (!row.resolved && now >= due) quality.push('unresolved');
+  if (row.resolved_at !== null && row.resolved_at > due + CRON_INTERVAL_S) quality.push('late');
+  if (SAMPLE_WINDOW_S[chain] > 0 && now >= due && row.sampled < 2) quality.push('degraded');
+  return { grading_quality: quality, grade_due_s: due, resolved_at: row.resolved_at,
+    grading_time_unknown: !!row.resolved && row.resolved_at === null };
 }
 
 /** The Worker's HTTP API. */
@@ -90,11 +132,16 @@ export async function handle(request: Request, env: Env, deps: ApiDeps): Promise
   const path = url.pathname;
   if (path === '/v1/kick') {
     if (request.method !== 'POST') return new Response('method not allowed', { status: 405, headers: { Allow: 'POST' } });
+    if (!await kickAuthorized(request, env.KICK_TOKEN)) return json({ error: 'unauthorized' }, 401);
     return json(await deps.kick());
   }
   const post = (handler: () => Promise<Response>) =>
     request.method === 'POST' ? handler() : new Response('method not allowed', { status: 405, headers: { Allow: 'POST' } });
-  if (path === '/v1/quote') return post(async () => quote(request, await deps.payments()));
+  if (path === '/v1/quote') return post(async () => {
+    if (!await allowQuote(request, env.DB)) return new Response(JSON.stringify({ error: 'rate limited' }),
+      { status: 429, headers: { 'content-type': 'application/json', 'Retry-After': '60' } });
+    return quote(request, await deps.payments());
+  });
   if (path === '/v1/x402/judge') return post(async () => x402Judge(request, env, await deps.payments()));
   if (request.method !== 'GET') return new Response('method not allowed', { status: 405, headers: { Allow: 'GET' } });
 

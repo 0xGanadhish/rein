@@ -24,13 +24,16 @@ export function realGradeDeps(env: Env): GradeDeps {
         oracle,
         async readResolution(id) {
           const r = await client.readContract({ address: oracle, abi: oracleAbi, functionName: 'getResolution', args: [id] });
-          return { resolved: r.resolved, adverse: r.adverse, reasons: r.reasons };
+          return { resolved: r.resolved, adverse: r.adverse, reasons: r.reasons, resolvedAt: Number(r.resolvedAt) };
         },
         sender: {
-          async send({ to, data }) {
+          async send({ to, data, kind, verdictId }) {
             const hash = await wallet.sendTransaction({ to, data });
             const r = await client.waitForTransactionReceipt({ hash, timeout: 30_000 });
-            return { status: r.status, hash, logs: r.logs };
+            await env.DB.prepare('INSERT OR IGNORE INTO executor_fees (chain, hash, kind, gas_wei, verdict_id) VALUES (?, ?, ?, ?, ?)')
+              .bind(chain, hash, kind, String(r.gasUsed * r.effectiveGasPrice + ('l1Fee' in r ? BigInt(r.l1Fee ?? 0) : 0n)), verdictId).run();
+            const block = await client.getBlock({ blockHash: r.blockHash });
+            return { status: r.status, hash, logs: r.logs, resolvedAt: Number(block.timestamp) };
           },
         },
       };

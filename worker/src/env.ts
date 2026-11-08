@@ -20,6 +20,8 @@ export interface Env {
   PINGPAY_API_KEY: string;
   /** yoctoNEAR the agent's function-call key was granted; health flags it once under 20% is left. */
   AGENT_KEY_ALLOWANCE?: string;
+  /** Bearer token for manual cron kicks. Unset disables the endpoint. */
+  KICK_TOKEN?: string;
 }
 
 export const NEAR_RPC: Record<NearNetwork, string> = {
