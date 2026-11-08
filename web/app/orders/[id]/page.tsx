@@ -21,13 +21,26 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 const FLOW: DeskOrderStatus[] = ['open', 'exit_pending', 'signing', 'signed', 'delivered'];
 
 const Check = () => (
-  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5 4.8 9 10 3" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+    <path
+      d="M2 6.5 4.8 9 10 3"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
 );
 
 function paidLine(o: OrderDetail): string {
-  if (o.source === 'watch') return 'Opened by the desk’s own watch feed after the vault moved. Nobody paid; the desk judged it on its own.';
+  if (o.source === 'watch')
+    return 'Opened by the desk’s own watch feed after the vault moved. Nobody paid; the desk judged it on its own.';
   if (o.source === 'x402') return `${amount(o.amount, 6)} USDC paid upfront over x402. There is no onchain escrow.`;
-  const paid = o.source === 'near' ? `${amount(o.amount, 24)} NEAR via request_judgement` : `${amount(o.amount, 6)} USDC via ft_transfer_call`;
+  const paid =
+    o.source === 'near'
+      ? `${amount(o.amount, 24)} NEAR via request_judgement`
+      : `${amount(o.amount, 6)} USDC via ft_transfer_call`;
   return `${paid}${o.payer ? ` from ${o.payer}` : ''}. Held by the desk until delivery.`;
 }
 
@@ -43,7 +56,10 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
       <div className={s.page}>
         <Header active="orders" dark />
         <main className="container" style={{ paddingBlock: 64 }}>
-          <div className={s.error} role="alert"><h1>Order #{id} can’t be read right now.</h1><p>{e instanceof Error ? e.message : ''} It’s still on the desk contract; try again in a minute.</p></div>
+          <div className={s.error} role="alert">
+            <h1>Order #{id} can’t be read right now.</h1>
+            <p>{e instanceof Error ? e.message : ''} It’s still on the desk contract; try again in a minute.</p>
+          </div>
         </main>
       </div>
     );
@@ -68,51 +84,128 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   const finished = status === 'delivered' || failed;
   const past = (st: DeskOrderStatus) => reached >= FLOW.indexOf(st);
 
-  const steps: { title: string; at?: number; done: boolean; live?: boolean; signal?: boolean; body: React.ReactNode }[] = [
-    { title: order.source === 'watch' ? 'Watch order opened' : 'Order paid', at: order.created_s, done: true, body: <p>{paidLine(order)}</p> },
+  const steps: {
+    title: string;
+    at?: number;
+    done: boolean;
+    live?: boolean;
+    signal?: boolean;
+    body: React.ReactNode;
+  }[] = [
     {
-      title: 'Model answered, enclave signed', at: judged?.at, done: !!judged, live: !judged && !failed,
+      title: order.source === 'watch' ? 'Watch order opened' : 'Order paid',
+      at: order.created_s,
+      done: true,
+      body: <p>{paidLine(order)}</p>,
+    },
+    {
+      title: 'Model answered, enclave signed',
+      at: judged?.at,
+      done: !!judged,
+      live: !judged && !failed,
       body: judged ? (
         <>
           <p>NEAR AI private inference in a TEE. Its signature covers the exact request and response bytes.</p>
           <div className={s.mono}>
             signing_address <b>{judged.signing_address}</b>
-            {verdict && post && <><br />answer <b className={verdict === 'EXIT' ? s.hot : undefined}>{verdict} · confidence {bpsPct(post.confidence_bps)} · risk {bpsPct(post.risk_bps)}</b></>}
+            {verdict && post && (
+              <>
+                <br />
+                answer{' '}
+                <b className={verdict === 'EXIT' ? s.hot : undefined}>
+                  {verdict} · confidence {bpsPct(post.confidence_bps)} · risk {bpsPct(post.risk_bps)}
+                </b>
+              </>
+            )}
           </div>
         </>
-      ) : <p>Waiting for the agent to read the vault and ask the model.</p>,
+      ) : (
+        <p>Waiting for the agent to read the vault and ask the model.</p>
+      ),
     },
     {
-      title: 'Desk contract verified the reading', at: judged?.at, done: past('exit_pending') || past('signing'),
+      title: 'Desk contract verified the reading',
+      at: judged?.at,
+      done: past('exit_pending') || past('signing'),
       body: (
         <div className={s.chips}>
-          {['signer known', `order ${order.id}`, `chain ${order.chain}`, 'vault match', 'doc fresh'].map((c) => <span key={c} className={s.chip}>{c}</span>)}
-          <span className={s.chip} data-on={past('signing') || status === 'exit_pending' || undefined}>check_reading → ok</span>
+          {['signer known', `order ${order.id}`, `chain ${order.chain}`, 'vault match', 'doc fresh'].map((c) => (
+            <span key={c} className={s.chip}>
+              {c}
+            </span>
+          ))}
+          <span className={s.chip} data-on={past('signing') || status === 'exit_pending' || undefined}>
+            check_reading → ok
+          </span>
         </div>
       ),
     },
-    ...(isExit ? [{
-      title: 'EXIT confirmed by a second reading', at: confirmed?.at, done: past('signing'), live: status === 'exit_pending', signal: true,
-      body: <p>An EXIT waits inside the confirm window and is judged again at a newer block before anything is signed.{past('signing') ? ' Both readings said leave.' : ''}</p>,
-    }] : []),
+    ...(isExit
+      ? [
+          {
+            title: 'EXIT confirmed by a second reading',
+            at: confirmed?.at,
+            done: past('signing'),
+            live: status === 'exit_pending',
+            signal: true,
+            body: (
+              <p>
+                An EXIT waits inside the confirm window and is judged again at a newer block before anything is signed.
+                {past('signing') ? ' Both readings said leave.' : ''}
+              </p>
+            ),
+          },
+        ]
+      : []),
     {
-      title: 'Signed with NEAR Chain Signatures', done: past('signed'), live: status === 'signing',
-      body: <p>The desk’s derived {CHAIN[order.chain]} address signs the oracle post. The fee is capped by the desk; no hot key is involved.</p>,
+      title: 'Signed with NEAR Chain Signatures',
+      done: past('signed'),
+      live: status === 'signing',
+      body: (
+        <p>
+          The desk’s derived {CHAIN[order.chain]} address signs the oracle post. The fee is capped by the desk; no hot
+          key is involved.
+        </p>
+      ),
     },
     {
-      title: `Delivered to the Rein oracle on ${CHAIN[order.chain]}`, at: post?.posted_at, done: status === 'delivered', live: status === 'signed',
-      body: <p>{post ? `Verdict #${post.id} on the oracle. Guardian positions on this vault can act on it now.` : 'The signed post is broadcast and confirmed onchain.'}</p>,
+      title: `Delivered to the Rein oracle on ${CHAIN[order.chain]}`,
+      at: post?.posted_at,
+      done: status === 'delivered',
+      live: status === 'signed',
+      body: (
+        <p>
+          {post
+            ? `Verdict #${post.id} on the oracle. Guardian positions on this vault can act on it now.`
+            : 'The signed post is broadcast and confirmed onchain.'}
+        </p>
+      ),
     },
   ];
   if (failed) {
-    const why = status === 'refunded'
-      ? 'The order missed its deadline, the kill switch was on, or its signed post expired without landing.'
-      : status === 'post_failed' ? 'The signed post never landed onchain: it reverted or expired.'
-      : 'The desk refused this order.';
-    const money = order.source === 'x402' ? ' The x402 payment became a credit for one free judgement; send the same payment again to redeem it.'
-      : order.source === 'watch' ? ''
-      : ' The desk sent the escrow back to the payer in full. If that transfer failed, the amount is held as owed and can be claimed with claim_owed.';
-    steps.push({ title: status === 'rejected' ? 'Rejected' : 'Refund authorized', done: true, signal: true, body: <p>{why}{money}</p> });
+    const why =
+      status === 'refunded'
+        ? 'The order missed its deadline, the kill switch was on, or its signed post expired without landing.'
+        : status === 'post_failed'
+          ? 'The signed post never landed onchain: it reverted or expired.'
+          : 'The desk refused this order.';
+    const money =
+      order.source === 'x402'
+        ? ' The x402 payment became a credit for one free judgement; send the same payment again to redeem it.'
+        : order.source === 'watch'
+          ? ''
+          : ' The desk sent the escrow back to the payer in full. If that transfer failed, the amount is held as owed and can be claimed with claim_owed.';
+    steps.push({
+      title: status === 'rejected' ? 'Rejected' : 'Refund authorized',
+      done: true,
+      signal: true,
+      body: (
+        <p>
+          {why}
+          {money}
+        </p>
+      ),
+    });
   }
 
   return (
@@ -121,7 +214,9 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
       <Header active="orders" dark />
       <main className="container" style={{ paddingTop: 'clamp(28px, 4vw, 48px)', paddingBottom: 80 }}>
         <div className={s.top}>
-          <Link href="/orders" className={s.back}>← My orders</Link>
+          <Link href="/orders" className={s.back}>
+            ← My orders
+          </Link>
           {cfg.sample && <span className={s.sample}>Sample data</span>}
         </div>
         {order.indexing && (
@@ -132,23 +227,42 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
 
         <ol aria-label="Order status" className={s.status}>
           {statusTrack(order).map((st) => (
-            <li key={st.status} data-done={st.done || undefined} data-signal={((st.status === 'exit_pending' || failed) && st.done) || undefined} data-now={st.now || undefined}>
-              <span className={s.bar} /><span>{st.label}</span>
+            <li
+              key={st.status}
+              data-done={st.done || undefined}
+              data-signal={((st.status === 'exit_pending' || failed) && st.done) || undefined}
+              data-now={st.now || undefined}
+            >
+              <span className={s.bar} />
+              <span>{st.label}</span>
             </li>
           ))}
         </ol>
 
         <div className={s.grid}>
           <article aria-label="Signed call" className={s.receipt}>
-            <div className={s.rHead}><span>REIN · {post ? 'SIGNED CALL' : 'ORDER'}</span><span>#{order.id}</span></div>
+            <div className={s.rHead}>
+              <span>REIN · {post ? 'SIGNED CALL' : 'ORDER'}</span>
+              <span>#{order.id}</span>
+            </div>
             <h1 className={s.vault}>{vaultName(order.chain, order.vault)}</h1>
-            <div className={s.addr}>{order.chain} · {order.vault}</div>
+            <div className={s.addr}>
+              {order.chain} · {order.vault}
+            </div>
 
             <div className={s.stampZone}>
               {verdict ? (
                 <div className={s.stamp} data-verdict={verdict}>
                   <span className={s.stampWord}>{verdict}</span>
-                  <span className={s.stampSub}>{verdict === 'EXIT' ? (past('signing') ? 'READ TWICE · AGREED' : 'CONFIRMING') : status === 'delivered' ? 'SIGNED · DELIVERED' : 'SIGNING'}</span>
+                  <span className={s.stampSub}>
+                    {verdict === 'EXIT'
+                      ? past('signing')
+                        ? 'READ TWICE · AGREED'
+                        : 'CONFIRMING'
+                      : status === 'delivered'
+                        ? 'SIGNED · DELIVERED'
+                        : 'SIGNING'}
+                  </span>
                 </div>
               ) : (
                 <div className={s.stamp} data-verdict="none">
@@ -159,36 +273,82 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
             </div>
 
             <dl className={s.facts}>
-              <div><dt>Confidence</dt><dd className={s.big}>{post ? bpsPct(post.confidence_bps) : '–'}</dd></div>
-              <div><dt>Risk</dt><dd className={s.big}>{post ? bpsPct(post.risk_bps) : '–'}</dd></div>
-              <div><dt>Read at block</dt><dd>{field.block ? Number(field.block).toLocaleString('en-US') : '–'}</dd></div>
-              <div><dt>Posted</dt><dd>{post ? `${utcStamp(post.posted_at)} UTC` : '–'}</dd></div>
+              <div>
+                <dt>Confidence</dt>
+                <dd className={s.big}>{post ? bpsPct(post.confidence_bps) : '–'}</dd>
+              </div>
+              <div>
+                <dt>Risk</dt>
+                <dd className={s.big}>{post ? bpsPct(post.risk_bps) : '–'}</dd>
+              </div>
+              <div>
+                <dt>Read at block</dt>
+                <dd>{field.block ? Number(field.block).toLocaleString('en-US') : '–'}</dd>
+              </div>
+              <div>
+                <dt>Posted</dt>
+                <dd>{post ? `${utcStamp(post.posted_at)} UTC` : '–'}</dd>
+              </div>
             </dl>
 
             {fields.length > 0 && (
               <div className={s.saw}>
                 <div className={s.k}>What the model saw</div>
-                <p>rein-v1{fields.map(([k, v]) => <span key={k}>|{hot.has(k) ? <mark>{k}={v}</mark> : `${k}=${v}`}</span>)}</p>
+                <p>
+                  rein-v1
+                  {fields.map(([k, v]) => (
+                    <span key={k}>
+                      |
+                      {hot.has(k) ? (
+                        <mark>
+                          {k}={v}
+                        </mark>
+                      ) : (
+                        `${k}=${v}`
+                      )}
+                    </span>
+                  ))}
+                </p>
               </div>
             )}
 
             <div className={s.rFoot}>
-              <span className={s.hash}>{post ? `state ${shortAddress(post.state_hash)}` : `opened ${utcStamp(order.created_s)} UTC`}</span>
-              <span className={s.hash}>{post?.input_check === 'mismatch' ? 'input check: mismatch' : post ? `input check: ${post.input_check}` : ''}</span>
+              <span className={s.hash}>
+                {post ? `state ${shortAddress(post.state_hash)}` : `opened ${utcStamp(order.created_s)} UTC`}
+              </span>
+              <span className={s.hash}>
+                {post?.input_check === 'mismatch'
+                  ? 'input check: mismatch'
+                  : post
+                    ? `input check: ${post.input_check}`
+                    : ''}
+              </span>
             </div>
           </article>
 
           <section aria-labelledby="prov" className={s.prov}>
-            <div className={s.k} style={{ color: 'var(--night-mute)' }}>Provenance</div>
-            <h2 id="prov" className={s.h2}>From the vault to the chain, step by step.</h2>
+            <div className={s.k} style={{ color: 'var(--night-mute)' }}>
+              Provenance
+            </div>
+            <h2 id="prov" className={s.h2}>
+              From the vault to the chain, step by step.
+            </h2>
             <ol className={s.steps}>
               {steps.map((st, i) => (
                 <li key={st.title} className={s.step} style={{ animationDelay: `${0.15 + i * 0.12}s` }}>
-                  <span className={s.node} data-done={st.done || undefined} data-live={st.live || undefined} data-signal={(st.signal && st.done) || undefined}>
+                  <span
+                    className={s.node}
+                    data-done={st.done || undefined}
+                    data-live={st.live || undefined}
+                    data-signal={(st.signal && st.done) || undefined}
+                  >
                     {st.done && <Check />}
                   </span>
                   <div className={s.stepBody}>
-                    <div className={s.stepHead}><span>{st.title}</span>{st.at && <time>{utcStamp(st.at)}</time>}</div>
+                    <div className={s.stepHead}>
+                      <span>{st.title}</span>
+                      {st.at && <time>{utcStamp(st.at)}</time>}
+                    </div>
                     {st.body}
                   </div>
                 </li>
@@ -196,25 +356,44 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
             </ol>
 
             <div className={s.actions}>
-              <Link href={`/guardian?vault=${order.vault}`} className={s.primary}>Guard this vault</Link>
-              <Link href="/ledger" className={s.ghost}>See it on the Ledger</Link>
+              <Link href={`/guardian?vault=${order.vault}`} className={s.primary}>
+                Guard this vault
+              </Link>
+              <Link href="/ledger" className={s.ghost}>
+                See it on the Ledger
+              </Link>
               {canRefund && <RefundButton orderId={order.id} className={s.ghost} />}
             </div>
             {links.length > 0 && (
               <ul aria-label="Proof links" className={s.links}>
-                {links.map((l) => <li key={l.href}><a href={l.href} target="_blank" rel="noreferrer">{l.label} ↗</a></li>)}
+                {links.map((l) => (
+                  <li key={l.href}>
+                    <a href={l.href} target="_blank" rel="noreferrer">
+                      {l.label} ↗
+                    </a>
+                  </li>
+                ))}
               </ul>
             )}
 
             {post && (
               <div className={s.grade}>
                 <div>
-                  <div className={s.k} style={{ color: 'var(--night-mute)' }}>Ledger</div>
-                  <div>{!post.resolved ? 'Resolving. Graded once the outcome window closes.'
-                    : post.adverse ? `Graded: adverse${reasonLabels(post.reasons).length ? ` (${reasonLabels(post.reasons).join(', ')})` : ''}.`
-                      : 'Graded: clean. Nothing went wrong in the window.'}</div>
+                  <div className={s.k} style={{ color: 'var(--night-mute)' }}>
+                    Ledger
+                  </div>
+                  <div>
+                    {!post.resolved
+                      ? 'Resolving. Graded once the outcome window closes.'
+                      : post.adverse
+                        ? `Graded: adverse${reasonLabels(post.reasons).length ? ` (${reasonLabels(post.reasons).join(', ')})` : ''}.`
+                        : 'Graded: clean. Nothing went wrong in the window.'}
+                  </div>
                 </div>
-                <span className={s.gradeTag} data-state={!post.resolved ? 'wait' : (verdict === 'EXIT') === !!post.adverse ? 'hit' : 'miss'}>
+                <span
+                  className={s.gradeTag}
+                  data-state={!post.resolved ? 'wait' : (verdict === 'EXIT') === !!post.adverse ? 'hit' : 'miss'}
+                >
                   {!post.resolved ? 'pending' : (verdict === 'EXIT') === !!post.adverse ? 'hit' : 'miss'}
                 </span>
               </div>

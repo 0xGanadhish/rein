@@ -16,17 +16,30 @@ export default async function JudgePage({ searchParams }: { searchParams: Promis
   const chains = NETWORK_CHAINS[cfg.network];
   const entries = desk
     ? chains.flatMap((chain) => (desk.menu[chain] ?? []).map((vault) => ({ chain, vault })))
-    : cfg.network === 'mainnet' ? BASE_MENU.map((vault) => ({ chain: 'base' as const, vault })) : [];
+    : cfg.network === 'mainnet'
+      ? BASE_MENU.map((vault) => ({ chain: 'base' as const, vault }))
+      : [];
   const menu: MenuVault[] = buildMenu({
-    entries, recent: ledger.ok ? ledger.ledger.recent : [], spacingS: desk?.policy.spacing_s ?? 600, nowS: Math.floor(Date.now() / 1000),
-  }).map(({ chain, vault, last, nextAt }) => {
-    const snap = chain === 'base' ? SNAPSHOT[vault.toLowerCase()] : undefined;
-    return {
-      chain, vault, name: vaultName(chain, vault), short: shortAddress(vault),
-      tvlUsd: snap?.tvlUsd ?? null, tvl: snap ? usdShort(snap.tvlUsd) : null, withdrawable: snap?.withdrawablePct ?? null,
-      last, nextAt,
-    };
-  }).sort((a, b) => (b.tvlUsd ?? -1) - (a.tvlUsd ?? -1) || a.name.localeCompare(b.name));
+    entries,
+    recent: ledger.ok ? ledger.ledger.recent : [],
+    spacingS: desk?.policy.spacing_s ?? 600,
+    nowS: Math.floor(Date.now() / 1000),
+  })
+    .map(({ chain, vault, last, nextAt }) => {
+      const snap = chain === 'base' ? SNAPSHOT[vault.toLowerCase()] : undefined;
+      return {
+        chain,
+        vault,
+        name: vaultName(chain, vault),
+        short: shortAddress(vault),
+        tvlUsd: snap?.tvlUsd ?? null,
+        tvl: snap ? usdShort(snap.tvlUsd) : null,
+        withdrawable: snap?.withdrawablePct ?? null,
+        last,
+        nextAt,
+      };
+    })
+    .sort((a, b) => (b.tvlUsd ?? -1) - (a.tvlUsd ?? -1) || a.name.localeCompare(b.name));
 
   return (
     <>
@@ -42,10 +55,18 @@ export default async function JudgePage({ searchParams }: { searchParams: Promis
         <JudgeForm
           menu={menu}
           initial={asked?.toLowerCase() ?? null}
-          policy={desk ? {
-            priceNear: desk.policy.price_near, priceUsdc: desk.policy.price_usdc, usdcToken: desk.policy.usdc_token,
-            deadlineS: desk.policy.deadline_s, spacingS: desk.policy.spacing_s, kill: desk.policy.kill,
-          } : null}
+          policy={
+            desk
+              ? {
+                  priceNear: desk.policy.price_near,
+                  priceUsdc: desk.policy.price_usdc,
+                  usdcToken: desk.policy.usdc_token,
+                  deadlineS: desk.policy.deadline_s,
+                  spacingS: desk.policy.spacing_s,
+                  kill: desk.policy.kill,
+                }
+              : null
+          }
           sample={cfg.sample}
           api={cfg.api}
         />

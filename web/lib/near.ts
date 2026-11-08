@@ -11,8 +11,16 @@ export async function view<T>(network: Network, contract: string, method: string
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      jsonrpc: '2.0', id: 'rein', method: 'query',
-      params: { request_type: 'call_function', finality: 'final', account_id: contract, method_name: method, args_base64: btoa(JSON.stringify(args)) },
+      jsonrpc: '2.0',
+      id: 'rein',
+      method: 'query',
+      params: {
+        request_type: 'call_function',
+        finality: 'final',
+        account_id: contract,
+        method_name: method,
+        args_base64: btoa(JSON.stringify(args)),
+      },
     }),
   });
   const body = (await res.json()) as { result?: { result?: number[] }; error?: { message?: string } };

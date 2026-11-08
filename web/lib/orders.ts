@@ -5,7 +5,8 @@ import type { DeskOrder, DeskPolicy } from '../../shared/desk';
  * Null when the wallet didn't hand back an outcome.
  */
 export function orderIdFrom(outcome: unknown): number | null {
-  const o = outcome as { status?: { SuccessValue?: string }; receipts_outcome?: { outcome?: { logs?: string[] } }[] } | undefined;
+  const o = outcome as
+    { status?: { SuccessValue?: string }; receipts_outcome?: { outcome?: { logs?: string[] } }[] } | undefined;
   for (const r of o?.receipts_outcome ?? []) {
     for (const log of r.outcome?.logs ?? []) {
       const m = /^order (\d+) opened$/.exec(log);

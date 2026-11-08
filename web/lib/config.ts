@@ -22,8 +22,12 @@ const DEFAULT_DESK: Record<Network, string | null> = { testnet: 'desk.rein.testn
 export function publicConfig(): PublicConfig {
   const sample = process.env.DATA_SOURCE === 'fixtures';
   // Sample data shows mainnet (Base and Monad) unless NEAR_NETWORK says otherwise; a live app defaults to testnet, like the Worker.
-  const network: Network = process.env.NEAR_NETWORK === 'mainnet' || process.env.NEAR_NETWORK === 'testnet'
-    ? process.env.NEAR_NETWORK : sample ? 'mainnet' : 'testnet';
+  const network: Network =
+    process.env.NEAR_NETWORK === 'mainnet' || process.env.NEAR_NETWORK === 'testnet'
+      ? process.env.NEAR_NETWORK
+      : sample
+        ? 'mainnet'
+        : 'testnet';
   const guardian = process.env.GUARDIAN_BASE;
   return {
     network,

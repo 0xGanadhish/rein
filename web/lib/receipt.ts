@@ -5,17 +5,31 @@ const FLOW: DeskOrderStatus[] = ['open', 'exit_pending', 'signing', 'signed', 'd
 const FAILED: DeskOrderStatus[] = ['rejected', 'refunded', 'post_failed'];
 
 export const STATUS_LABEL: Record<DeskOrderStatus, string> = {
-  open: 'Open', exit_pending: 'EXIT pending', signing: 'Signing', signed: 'Signed', delivered: 'Delivered',
-  rejected: 'Rejected', refunded: 'Refunded', post_failed: 'Post failed',
+  open: 'Open',
+  exit_pending: 'EXIT pending',
+  signing: 'Signing',
+  signed: 'Signed',
+  delivered: 'Delivered',
+  rejected: 'Rejected',
+  refunded: 'Refunded',
+  post_failed: 'Post failed',
 };
 export const CHAIN_LABEL: Record<DeskChain, string> = {
-  base: 'Base', monad: 'Monad', 'monad-testnet': 'Monad testnet', 'base-sepolia': 'Base Sepolia',
+  base: 'Base',
+  monad: 'Monad',
+  'monad-testnet': 'Monad testnet',
+  'base-sepolia': 'Base Sepolia',
 };
 const TX_EXPLORER: Record<DeskChain, string> = {
-  base: 'https://basescan.org/tx/', 'base-sepolia': 'https://sepolia.basescan.org/tx/',
-  monad: 'https://monadscan.com/tx/', 'monad-testnet': 'https://testnet.monadscan.com/tx/',
+  base: 'https://basescan.org/tx/',
+  'base-sepolia': 'https://sepolia.basescan.org/tx/',
+  monad: 'https://monadscan.com/tx/',
+  'monad-testnet': 'https://testnet.monadscan.com/tx/',
 };
-const NEAR_EXPLORER: Record<Network, string> = { mainnet: 'https://nearblocks.io/address/', testnet: 'https://testnet.nearblocks.io/address/' };
+const NEAR_EXPLORER: Record<Network, string> = {
+  mainnet: 'https://nearblocks.io/address/',
+  testnet: 'https://testnet.nearblocks.io/address/',
+};
 
 interface TrackOrder {
   status: DeskOrderStatus;
@@ -32,7 +46,10 @@ export function statusTrack(o: TrackOrder): { status: DeskOrderStatus; label: st
   const failed = FAILED.includes(o.status);
   const reached = FLOW.indexOf(o.status);
   const track = FLOW.filter((st) => st !== 'exit_pending' || isExitOrder(o)).map((st) => ({
-    status: st, label: STATUS_LABEL[st], done: !failed && reached >= FLOW.indexOf(st), now: st === o.status,
+    status: st,
+    label: STATUS_LABEL[st],
+    done: !failed && reached >= FLOW.indexOf(st),
+    now: st === o.status,
   }));
   return failed ? [...track, { status: o.status, label: STATUS_LABEL[o.status], done: true, now: true }] : track;
 }
@@ -45,6 +62,7 @@ export function proofLinks(
 ): { label: string; href: string }[] {
   const links: { label: string; href: string }[] = [];
   if (desk) links.push({ label: 'Order on the NEAR desk', href: `${NEAR_EXPLORER[network]}${desk}` });
-  if (o.post_tx) links.push({ label: `Oracle post on ${CHAIN_LABEL[o.chain]}`, href: `${TX_EXPLORER[o.chain]}${o.post_tx}` });
+  if (o.post_tx)
+    links.push({ label: `Oracle post on ${CHAIN_LABEL[o.chain]}`, href: `${TX_EXPLORER[o.chain]}${o.post_tx}` });
   return links;
 }

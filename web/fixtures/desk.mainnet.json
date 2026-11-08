@@ -35,10 +35,7 @@
     "signer": "v1.signer"
   },
   "menu": {
-    "monad": [
-      "0x3f8a91c27d0e4b6a95c1f2e8d7a6b5c4e3f20b1e",
-      "0x71c0d4e9b8a7f6e5d4c3b2a1908f7e6d5c4ba2f3"
-    ],
+    "monad": ["0x3f8a91c27d0e4b6a95c1f2e8d7a6b5c4e3f20b1e", "0x71c0d4e9b8a7f6e5d4c3b2a1908f7e6d5c4ba2f3"],
     "base": [
       "0xbeef0786756810478b88982de00f3cd7fdb8e7c7",
       "0xbeeff2490feffa212fac2f6553682c219e6a8845",

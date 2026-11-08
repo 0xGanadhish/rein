@@ -59,9 +59,7 @@ export interface Ledger {
   recent: LedgerPost[];
 }
 
-export type LedgerResult =
-  | { ok: true; ledger: Ledger; sample: boolean }
-  | { ok: false; error: string };
+export type LedgerResult = { ok: true; ledger: Ledger; sample: boolean } | { ok: false; error: string };
 
 export const isNetwork = (v: unknown): v is Network => v === 'testnet' || v === 'mainnet';
 

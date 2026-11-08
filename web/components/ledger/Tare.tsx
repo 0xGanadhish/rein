@@ -22,12 +22,26 @@ export function TareComparison({ tare, rein }: { tare: LedgerScore | null; rein:
       </figcaption>
       <table className={styles.compare}>
         <thead>
-          <tr><th scope="col">Oracle</th><th scope="col" className={styles.right}>Resolved</th><th scope="col" className={styles.right}>Brier</th></tr>
+          <tr>
+            <th scope="col">Oracle</th>
+            <th scope="col" className={styles.right}>
+              Resolved
+            </th>
+            <th scope="col" className={styles.right}>
+              Brier
+            </th>
+          </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.name}>
-              <th scope="row">{r.name}<small>{r.note}{r.s.early && ' · early data'}</small></th>
+              <th scope="row">
+                {r.name}
+                <small>
+                  {r.note}
+                  {r.s.early && ' · early data'}
+                </small>
+              </th>
               <td className={styles.right}>{r.s.n}</td>
               <td className={styles.right}>{brier(r.s)}</td>
             </tr>
@@ -36,7 +50,9 @@ export function TareComparison({ tare, rein }: { tare: LedgerScore | null; rein:
       </table>
       <p className={styles.note}>
         Lower Brier is better. Tare grades the same way, but its scores aren’t verified here.{' '}
-        <a href={TARE_SITE} target="_blank" rel="noreferrer">Tare ↗</a>
+        <a href={TARE_SITE} target="_blank" rel="noreferrer">
+          Tare ↗
+        </a>
       </p>
     </figure>
   );

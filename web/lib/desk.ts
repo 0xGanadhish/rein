@@ -7,7 +7,10 @@ import type { Network } from './ledger';
 import { view } from './near';
 
 /** The chains a desk on each NEAR network posts to (worker/src/deskTypes.ts). */
-export const NETWORK_CHAINS: Record<Network, DeskChain[]> = { testnet: ['monad-testnet', 'base-sepolia'], mainnet: ['monad', 'base'] };
+export const NETWORK_CHAINS: Record<Network, DeskChain[]> = {
+  testnet: ['monad-testnet', 'base-sepolia'],
+  mainnet: ['monad', 'base'],
+};
 
 export interface DeskInfo {
   policy: DeskPolicy;
@@ -41,7 +44,8 @@ export interface OrderDetail extends DeskOrder {
 }
 
 const fixturesDir = () => process.env.FIXTURES_DIR ?? join(process.cwd(), 'fixtures');
-const fixture = async <T>(name: string): Promise<T> => JSON.parse(await readFile(join(fixturesDir(), name), 'utf8')) as T;
+const fixture = async <T>(name: string): Promise<T> =>
+  JSON.parse(await readFile(join(fixturesDir(), name), 'utf8')) as T;
 
 async function api<T>(path: string): Promise<T | null> {
   const base = process.env.REIN_API_URL;

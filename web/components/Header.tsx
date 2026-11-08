@@ -35,11 +35,16 @@ export function Header({ active, dark = false }: { active: Tab; dark?: boolean }
         </Link>
         <nav aria-label="App" className={styles.nav}>
           {TABS.map((t) => (
-            <Link key={t.id} href={t.href} className={styles.tab} aria-current={t.id === active ? 'page' : undefined}>{t.label}</Link>
+            <Link key={t.id} href={t.href} className={styles.tab} aria-current={t.id === active ? 'page' : undefined}>
+              {t.label}
+            </Link>
           ))}
         </nav>
         <div className={styles.right}>
-          <span className={styles.network}><span className={styles.netDot} aria-hidden="true" />NEAR {network}</span>
+          <span className={styles.network}>
+            <span className={styles.netDot} aria-hidden="true" />
+            NEAR {network}
+          </span>
           <Account />
         </div>
       </div>

@@ -1,1 +1,11 @@
-{"n":70,"brier":0.3394257142857143,"early":false,"bands":[{"band":"<80","n":58,"hitRate":0.7758620689655172},{"band":"80-89","n":12,"hitRate":0.8333333333333334},{"band":"90-94","n":0,"hitRate":null},{"band":"95-100","n":0,"hitRate":null}]}
+{
+  "n": 70,
+  "brier": 0.3394257142857143,
+  "early": false,
+  "bands": [
+    { "band": "<80", "n": 58, "hitRate": 0.7758620689655172 },
+    { "band": "80-89", "n": 12, "hitRate": 0.8333333333333334 },
+    { "band": "90-94", "n": 0, "hitRate": null },
+    { "band": "95-100", "n": 0, "hitRate": null }
+  ]
+}

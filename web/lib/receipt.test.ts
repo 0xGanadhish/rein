@@ -3,9 +3,17 @@ import type { DeskOrderStatus } from '../../shared/desk';
 import { proofLinks, statusTrack } from './receipt';
 
 const order = (status: DeskOrderStatus, post_tx: string | null = null) => ({
-  id: 7, chain: 'monad-testnet' as const, status, judge_calls: [], posts: [], post_tx,
+  id: 7,
+  chain: 'monad-testnet' as const,
+  status,
+  judge_calls: [],
+  posts: [],
+  post_tx,
 });
-const done = (status: DeskOrderStatus) => statusTrack(order(status)).filter((s) => s.done).map((s) => s.status);
+const done = (status: DeskOrderStatus) =>
+  statusTrack(order(status))
+    .filter((s) => s.done)
+    .map((s) => s.status);
 
 describe('receipt', () => {
   it('order_status_walks_open_to_delivered_with_links', () => {

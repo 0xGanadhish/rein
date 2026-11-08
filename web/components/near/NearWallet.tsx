@@ -29,7 +29,15 @@ const Ctx = createContext<NearWalletState | null>(null);
 const GAS = '100000000000000';
 
 /** The connected NEAR account, through NEAR Connect (HOT, Meteor, Intear, MyNearWallet and others). */
-export function NearWalletProvider({ network, desk, children }: { network: Network; desk: string | null; children: React.ReactNode }) {
+export function NearWalletProvider({
+  network,
+  desk,
+  children,
+}: {
+  network: Network;
+  desk: string | null;
+  children: React.ReactNode;
+}) {
   const connector = useRef<NearConnector | null>(null);
   const [account, setAccount] = useState<string | null>(null);
 
@@ -41,19 +49,33 @@ export function NearWalletProvider({ network, desk, children }: { network: Netwo
       connector.current = c;
       c.on('wallet:signIn', (e) => setAccount(e.accounts[0]?.accountId ?? null));
       c.on('wallet:signOut', () => setAccount(null));
-      c.getConnectedWallet().then(({ accounts }) => live && setAccount(accounts[0]?.accountId ?? null)).catch(() => {});
+      c.getConnectedWallet()
+        .then(({ accounts }) => live && setAccount(accounts[0]?.accountId ?? null))
+        .catch(() => {});
     });
-    return () => { live = false; };
+    return () => {
+      live = false;
+    };
   }, [network]);
 
-  const connect = useCallback(async () => { await connector.current?.connect(); }, []);
-  const disconnect = useCallback(async () => { await connector.current?.disconnect(); setAccount(null); }, []);
+  const connect = useCallback(async () => {
+    await connector.current?.connect();
+  }, []);
+  const disconnect = useCallback(async () => {
+    await connector.current?.disconnect();
+    setAccount(null);
+  }, []);
   const call = useCallback(async (fc: FunctionCall) => {
     if (!connector.current) throw new Error('Wallet is still loading.');
     const wallet = await connector.current.wallet();
     return wallet.signAndSendTransaction({
       receiverId: fc.receiverId,
-      actions: [{ type: 'FunctionCall', params: { methodName: fc.methodName, args: fc.args, gas: fc.gas ?? GAS, deposit: fc.deposit } }],
+      actions: [
+        {
+          type: 'FunctionCall',
+          params: { methodName: fc.methodName, args: fc.args, gas: fc.gas ?? GAS, deposit: fc.deposit },
+        },
+      ],
     });
   }, []);
 

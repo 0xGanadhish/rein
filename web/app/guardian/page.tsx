@@ -20,17 +20,29 @@ export default async function GuardianPage({ searchParams }: { searchParams: Pro
     exits.set(k, [...(exits.get(k) ?? []), { confidenceBps: p.confidence_bps, postedAt: p.posted_at }]);
   }
   const vaults: GuardVault[] = menu.map((v) => ({
-    vault: v.toLowerCase() as `0x${string}`, name: vaultName('base', v), short: shortAddress(v),
-    withdrawable: SNAPSHOT[v.toLowerCase()]?.withdrawablePct ?? null, exits: (exits.get(v.toLowerCase()) ?? []).slice(0, 6),
+    vault: v.toLowerCase() as `0x${string}`,
+    name: vaultName('base', v),
+    short: shortAddress(v),
+    withdrawable: SNAPSHOT[v.toLowerCase()]?.withdrawablePct ?? null,
+    exits: (exits.get(v.toLowerCase()) ?? []).slice(0, 6),
   }));
-  const initial = vaults.find((v) => v.vault === asked?.toLowerCase())?.vault
-    ?? vaults.find((v) => v.exits.length > 0)?.vault ?? vaults[0]?.vault;
+  const initial =
+    vaults.find((v) => v.vault === asked?.toLowerCase())?.vault ??
+    vaults.find((v) => v.exits.length > 0)?.vault ??
+    vaults[0]?.vault;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--night)', color: 'var(--night-ink)' }}>
       <Header active="guardian" dark />
       <main className="container" style={{ paddingTop: 'clamp(32px, 4vw, 56px)', paddingBottom: 80 }}>
-        <GuardianPanel vaults={vaults} initial={initial} guardian={cfg.guardian} rpc={cfg.baseRpc} sample={cfg.sample} exitWorker={cfg.exitWorker} />
+        <GuardianPanel
+          vaults={vaults}
+          initial={initial}
+          guardian={cfg.guardian}
+          rpc={cfg.baseRpc}
+          sample={cfg.sample}
+          exitWorker={cfg.exitWorker}
+        />
       </main>
     </div>
   );

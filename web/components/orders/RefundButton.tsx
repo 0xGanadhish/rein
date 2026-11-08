@@ -12,16 +12,26 @@ export function RefundButton({ orderId, className }: { orderId: number; classNam
   if (!desk) return null;
   return (
     <>
-      <button type="button" className={className} onClick={async () => {
-        if (!account) return void connect();
-        try {
-          await call({ receiverId: desk, methodName: 'refund', args: { order_id: orderId }, deposit: '0' });
-          router.refresh();
-        } catch (e) {
-          setMsg(e instanceof Error ? e.message : 'The refund didn’t go through.');
-        }
-      }}>{account ? 'Refund this order' : 'Connect NEAR to refund'}</button>
-      {msg && <p role="alert" style={{ margin: 0, fontSize: 13, color: 'var(--signal)' }}>{msg}</p>}
+      <button
+        type="button"
+        className={className}
+        onClick={async () => {
+          if (!account) return void connect();
+          try {
+            await call({ receiverId: desk, methodName: 'refund', args: { order_id: orderId }, deposit: '0' });
+            router.refresh();
+          } catch (e) {
+            setMsg(e instanceof Error ? e.message : 'The refund didn’t go through.');
+          }
+        }}
+      >
+        {account ? 'Refund this order' : 'Connect NEAR to refund'}
+      </button>
+      {msg && (
+        <p role="alert" style={{ margin: 0, fontSize: 13, color: 'var(--signal)' }}>
+          {msg}
+        </p>
+      )}
     </>
   );
 }

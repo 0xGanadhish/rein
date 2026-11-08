@@ -18,7 +18,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
       <body>
-        <NearWalletProvider network={network} desk={desk}>{children}</NearWalletProvider>
+        <NearWalletProvider network={network} desk={desk}>
+          {children}
+        </NearWalletProvider>
       </body>
     </html>
   );

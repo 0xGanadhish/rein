@@ -8,7 +8,15 @@ describe('how it works', () => {
     const checks = html.match(/<ol[^>]*aria-label="What the desk checks"[\s\S]*?<\/ol>/)?.[0] ?? '';
     expect(checks.match(/<li/g)).toHaveLength(7);
     const limits = html.match(/<ul[^>]*aria-label="Disclosed limits"[\s\S]*?<\/ul>/)?.[0] ?? '';
-    for (const name of ['False inputs', 'Signer approval', 'Withholding', 'The model', 'Verifier scope', 'Delivery reports', 'x402 payments']) {
+    for (const name of [
+      'False inputs',
+      'Signer approval',
+      'Withholding',
+      'The model',
+      'Verifier scope',
+      'Delivery reports',
+      'x402 payments',
+    ]) {
       expect(limits).toContain(name);
     }
     expect(limits).toContain('Temperature 0');

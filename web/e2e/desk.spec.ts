@@ -29,7 +29,10 @@ test('receipt walks the order to delivered and links the oracle post', async ({ 
   const status = page.getByRole('list', { name: 'Order status' });
   await expect(status.getByText('Delivered')).toBeVisible();
   const proof = page.getByRole('list', { name: 'Proof links' });
-  await expect(proof.getByRole('link', { name: /Oracle post on Base/ })).toHaveAttribute('href', /^https:\/\/basescan\.org\/tx\/0x[0-9a-f]{64}$/);
+  await expect(proof.getByRole('link', { name: /Oracle post on Base/ })).toHaveAttribute(
+    'href',
+    /^https:\/\/basescan\.org\/tx\/0x[0-9a-f]{64}$/,
+  );
   await fitsWidth(page);
 });
 
@@ -38,6 +41,8 @@ test('how it works lists the checks and the disclosed limits', async ({ page }) 
   await page.getByRole('link', { name: 'How it works' }).first().click();
   await expect(page).toHaveURL(/\/how$/);
   await expect(page.getByRole('list', { name: 'What the desk checks' }).getByRole('listitem')).toHaveCount(7);
-  await expect(page.getByRole('list', { name: 'Disclosed limits' }).getByRole('heading', { name: 'x402 payments' })).toBeVisible();
+  await expect(
+    page.getByRole('list', { name: 'Disclosed limits' }).getByRole('heading', { name: 'x402 payments' }),
+  ).toBeVisible();
   await fitsWidth(page);
 });
