@@ -1,0 +1,8 @@
+# 2026-11-08T18:30:25.694Z · rein-desk.testnet · order 5 · fulfil Bq9ka981r5houMTo2ADEisKVYTdzCqeWrUCkdvrngxXA
+ok   control: the untouched reading: ok
+ok   one character of the answer changed: unknown signer
+ok   a doc containing ": bad doc
+ok   the real reading replayed on order 4: wrong order
+ok   signed by a throwaway key 0xe025FE1ed54C10F17988F322F5C284a912384dbA: unknown signer
+ok   signature with a corrupted recovery byte: bad signature
+

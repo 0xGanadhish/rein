@@ -14,6 +14,7 @@
     "fmt:sol:check": "forge fmt --root evm --check",
     "demo": "node --experimental-strip-types --env-file-if-exists=.env scripts/demo.ts",
     "demo:tamper": "node --experimental-strip-types --env-file-if-exists=.env scripts/demo-tamper.ts",
+    "burst:replay": "node --experimental-strip-types --env-file-if-exists=.env scripts/burst-replay.ts",
     "demo:replay": "node --experimental-strip-types --env-file-if-exists=.env scripts/demo-replay.ts",
     "verify:signer": "node --experimental-strip-types --env-file-if-exists=.env scripts/verify-signer.ts",
     "deploy:desk": "node --experimental-strip-types --env-file-if-exists=.env scripts/deploy-desk.ts"

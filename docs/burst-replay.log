@@ -1,0 +1,6 @@
+# 2026-11-08T19:34:30.989Z · rein-desk.testnet · monad-testnet 0xa32cf682da4a62c056fd631ee91dfe3c713ef1db · 140 calls across 20 keys in 16.5 s
+orders opened: 1 (12) · next_order_id 12 -> 13
+refused by the desk: 139
+  139 × vault has an open order
+as expected: 1 order, 139 refused
+
