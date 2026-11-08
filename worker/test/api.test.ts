@@ -13,6 +13,7 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DeskPolicy, DeskStats } from '../../shared/desk';
 import { oracleAbi } from '../src/abis';
 import { handle, type ApiDeps } from '../src/api';
+import { ORACLES } from '../src/broadcast';
 import type { DeskOrder } from '../src/deskTypes';
 import { checkHealth, type HealthDeps } from '../src/health';
 import { runAll, type CronDeps } from '../src/index';
@@ -403,7 +404,7 @@ describe('api', () => {
     // The deployment manifest, the Worker's config and the live desk policy must agree.
     const testnetPolicy = {
       agent: 'agent.rein-desk.testnet',
-      oracle: { 'monad-testnet': null, monad: null, base: null, 'base-sepolia': null },
+      oracle: ORACLES,
     } as unknown as DeskPolicy;
     const fine = { gasBalance: async () => 10n ** 18n, agent: async () => ({ balance: 10n ** 24n, allowance: null }) };
     const agreed = await checkHealth(
@@ -425,7 +426,7 @@ describe('api', () => {
         policy: async () => ({
           ...testnetPolicy,
           agent: 'someone.testnet',
-          oracle: { ...testnetPolicy.oracle, 'monad-testnet': '0x00000000000000000000000000000000000000ab' },
+          oracle: { ...ORACLES, 'monad-testnet': '0x00000000000000000000000000000000000000ab' },
         }),
       }),
     );
