@@ -9,8 +9,8 @@ export interface VaultReading {
   totalAssets: bigint;
   /** Withdrawable liquidity as a percent of total assets; null when it can't be read. */
   liquidityPct: number | null;
-  apyBps: number;
-  apyBpsPrev: number;
+  apyBps: number | null;
+  apyBpsPrev: number | null;
   utilBps: number;
 }
 
@@ -36,8 +36,8 @@ export function buildDoc(order: DeskOrder, reading: VaultReading, flows: { netOu
     `pps=${reading.pps}`,
     `assets=${reading.totalAssets}`,
     `liquidity=${reading.liquidityPct === null ? 'na' : reading.liquidityPct.toFixed(2)}`,
-    `apy_bps=${Math.round(reading.apyBps)}`,
-    `apy_bps_prev=${Math.round(reading.apyBpsPrev)}`,
+    `apy_bps=${reading.apyBps === null ? 'na' : Math.round(reading.apyBps)}`,
+    `apy_bps_prev=${reading.apyBpsPrev === null ? 'na' : Math.round(reading.apyBpsPrev)}`,
     `util_bps=${Math.round(reading.utilBps)}`,
     `net_out_pct_1h=${flows.netOutPct1h.toFixed(2)}`,
     `name=${clean(reading.name)}`,

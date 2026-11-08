@@ -7,13 +7,13 @@ const RESOLVE_BATCH = 20;
 
 /** Sends one transaction and waits for its receipt. */
 export interface Sender {
-  send(tx: { to: Address; data: Hex; kind: 'sample' | 'resolve' }): Promise<{ status: 'success' | 'reverted'; hash: Hex; logs: Log[] }>;
+  send(tx: { to: Address; data: Hex; kind: 'sample' | 'resolve'; verdictId: number }): Promise<{ status: 'success' | 'reverted'; hash: Hex; logs: Log[]; resolvedAt?: number }>;
 }
 
 export interface ResolverDeps {
   /** The chain's oracle. */
   oracle: Address;
-  readResolution(id: bigint): Promise<{ resolved: boolean; adverse: boolean; reasons: number }>;
+  readResolution(id: bigint): Promise<{ resolved: boolean; adverse: boolean; reasons: number; resolvedAt?: number }>;
   sender: Sender;
   /** Uniform in [0, 1); picks when the second sample is taken. Unpredictable in production. */
   random?: () => number;
@@ -46,7 +46,7 @@ export async function resolveDue(env: { DB: D1Database }, chain: DeskChain, now:
     for (const { id, posted_at: postedAt, sampled } of results) {
       try {
         const receipt = await deps.sender.send({
-          to: deps.oracle, kind: 'sample',
+          to: deps.oracle, kind: 'sample', verdictId: id,
           data: encodeFunctionData({ abi: oracleAbi, functionName: 'sample', args: [BigInt(id)] }),
         });
         if (receipt.status !== 'success') throw new Error(`sample reverted (${receipt.hash})`);
@@ -69,8 +69,8 @@ export async function resolveDue(env: { DB: D1Database }, chain: DeskChain, now:
 
   const { results } = await env.DB.prepare(`SELECT id, sampled FROM posts WHERE chain = ? AND resolved = 0 AND posted_at + ? <= ? ORDER BY posted_at, id LIMIT ?`)
     .bind(chain, closesAfter, now, RESOLVE_BATCH).all<{ id: number; sampled: number }>();
-  const save = (id: number, adverse: boolean, reasons: number) => env.DB.prepare('UPDATE posts SET resolved = 1, adverse = ?, reasons = ? WHERE chain = ? AND id = ?')
-    .bind(adverse ? 1 : 0, reasons, chain, id).run();
+  const save = (id: number, adverse: boolean, reasons: number, resolvedAt?: number) => env.DB.prepare('UPDATE posts SET resolved = 1, adverse = ?, reasons = ?, resolved_at = ? WHERE chain = ? AND id = ?')
+    .bind(adverse ? 1 : 0, reasons, resolvedAt ?? null, chain, id).run();
   for (const { id, sampled } of results) {
     if (SAMPLE_WINDOW_S[chain] > 0 && sampled === 0) {
       // The grading window passed without our sample (executor out of gas, RPC down): the contract falls back to one
@@ -81,18 +81,18 @@ export async function resolveDue(env: { DB: D1Database }, chain: DeskChain, now:
     try {
       const onchain = await deps.readResolution(BigInt(id));
       if (onchain.resolved) {
-        await save(id, onchain.adverse, onchain.reasons);
+        await save(id, onchain.adverse, onchain.reasons, onchain.resolvedAt);
         tally.synced++;
         continue;
       }
       const receipt = await deps.sender.send({
-        to: deps.oracle, kind: 'resolve',
+        to: deps.oracle, kind: 'resolve', verdictId: id,
         data: encodeFunctionData({ abi: oracleAbi, functionName: 'resolve', args: [BigInt(id)] }),
       });
       if (receipt.status !== 'success') throw new Error(`resolve reverted (${receipt.hash})`);
       const event = parseEventLogs({ abi: oracleAbi, eventName: 'VerdictResolved', logs: receipt.logs }).find((e) => e.args.id === BigInt(id));
       if (!event) throw new Error(`no VerdictResolved for ${id} in ${receipt.hash}`);
-      await save(id, event.args.adverse, event.args.reasons);
+      await save(id, event.args.adverse, event.args.reasons, receipt.resolvedAt);
       tally.sent++;
       console.log(JSON.stringify({ msg: 'verdict_resolved', chain, verdictId: id, adverse: event.args.adverse, reasons: event.args.reasons, txHash: receipt.hash }));
     } catch (err) {

@@ -7,8 +7,8 @@ export const NEAR_AI = {
   signingAlgo: 'ecdsa',
   headers: { 'Content-Type': 'application/json', 'x-no-aliasing': 'true', 'Accept-Encoding': 'identity' },
   timeoutMs: 20_000,
-  /** USD micros per million tokens. Unconfirmed: costs read 0 until these are set. */
-  price: { inputPerMTok: 0, outputPerMTok: 0 },
+  /** Published USD micros per million tokens: https://cloud-api.near.ai/v1/models */
+  price: { inputPerMTok: 80_000, outputPerMTok: 500_000 },
 } as const;
 
 export class JudgeError extends Error {
@@ -19,8 +19,20 @@ export class JudgeError extends Error {
 }
 
 export interface JudgeOpts {
+  /** Persists the attempt before returning or throwing; account credits are not inferred from token usage. */
+  record?(call: JudgeCall): Promise<number | void>;
   apiKey?: string;
   fetch?: typeof fetch;
+}
+
+export interface JudgeCall {
+  costUsdMicros: number;
+  tokensIn: number | null;
+  tokensOut: number | null;
+  signingAddress: string;
+  stage: 'completion' | 'signature' | null;
+  failure: string | null;
+  model: string;
 }
 
 export interface Judgement {
@@ -29,6 +41,7 @@ export interface Judgement {
   signature: string;
   signingAddress: string;
   costUsdMicros: number;
+  recordingId?: number;
 }
 
 /**
@@ -41,6 +54,7 @@ export async function judge(doc: string, prompt: DeskPrompt, opts: JudgeOpts): P
   const doFetch = opts.fetch ?? fetch;
   const headers = { ...NEAR_AI.headers, Authorization: `Bearer ${opts.apiKey}` };
   const stage = { now: 'completion' as JudgeError['stage'] };
+  const call: JudgeCall = { costUsdMicros: 0, tokensIn: null, tokensOut: null, signingAddress: '', stage: null, failure: null, model: prompt.model };
   const ctrl = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -56,6 +70,10 @@ export async function judge(doc: string, prompt: DeskPrompt, opts: JudgeOpts): P
     if (!res.ok) throw new JudgeError('completion', `HTTP ${res.status}`);
     let parsed: { id?: unknown; usage?: { prompt_tokens?: number; completion_tokens?: number } };
     try { parsed = JSON.parse(response); } catch { throw new JudgeError('completion', 'response is not JSON'); }
+    call.tokensIn = parsed.usage?.prompt_tokens ?? null;
+    call.tokensOut = parsed.usage?.completion_tokens ?? null;
+    call.costUsdMicros = Math.round(((call.tokensIn ?? 0) * NEAR_AI.price.inputPerMTok
+      + (call.tokensOut ?? 0) * NEAR_AI.price.outputPerMTok) / 1e6);
     if (typeof parsed.id !== 'string' || !parsed.id) throw new JudgeError('completion', 'response has no id');
 
     stage.now = 'signature';
@@ -66,20 +84,27 @@ export async function judge(doc: string, prompt: DeskPrompt, opts: JudgeOpts): P
     if (typeof sig.signature !== 'string' || typeof sig.signing_address !== 'string') {
       throw new JudgeError('signature', 'missing signature or signing_address');
     }
-    const usage = parsed.usage ?? {};
-    const costUsdMicros = Math.round(((usage.prompt_tokens ?? 0) * NEAR_AI.price.inputPerMTok
-      + (usage.completion_tokens ?? 0) * NEAR_AI.price.outputPerMTok) / 1e6);
-    return { request, response, signature: sig.signature, signingAddress: sig.signing_address, costUsdMicros };
+    call.signingAddress = sig.signing_address;
+    return { request, response, signature: sig.signature, signingAddress: sig.signing_address, costUsdMicros: call.costUsdMicros };
   };
 
+  let result: Judgement;
   try {
-    return await Promise.race([
+    result = await Promise.race([
       run().catch((e: unknown) => {
         throw e instanceof JudgeError ? e : new JudgeError(stage.now, e instanceof Error ? e.message : String(e));
       }),
       timeout,
     ]);
+  } catch (e) {
+    call.stage = stage.now;
+    call.failure = e instanceof JudgeError ? e.message : `${stage.now}: call failed`;
+    await opts.record?.(call);
+    throw e;
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
+  const id = await opts.record?.(call);
+  if (typeof id === 'number') result.recordingId = id;
+  return result;
 }

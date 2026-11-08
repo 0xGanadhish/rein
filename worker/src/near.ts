@@ -59,10 +59,15 @@ export function nearDesk(env: Env): DeskClient {
 }
 
 /** The agent account's balance and what is left of its function-call key's allowance (null: unlimited). */
-export async function agentStatus(env: Env): Promise<{ balance: bigint; allowance: bigint | null }> {
+export async function agentStatus(env: Env): Promise<{
+  balance: bigint; allowance: bigint | null; receiver: string | null; methods: string[]; fullAccess: boolean;
+}> {
   const provider = new JsonRpcProvider({ url: NEAR_RPC[env.NEAR_NETWORK] });
   const publicKey = KeyPair.fromString(env.AGENT_KEY as KeyPairString).getPublicKey().toString();
   const [account, key] = await Promise.all([provider.viewAccount(env.AGENT_ACCOUNT), provider.viewAccessKey(env.AGENT_ACCOUNT, publicKey)]);
   const allowance = key.permission === 'FullAccess' ? null : key.permission.FunctionCall.allowance;
-  return { balance: BigInt(account.amount), allowance: allowance == null ? null : BigInt(allowance) };
+  return { balance: BigInt(account.amount), allowance: allowance == null ? null : BigInt(allowance),
+    receiver: key.permission === 'FullAccess' ? null : key.permission.FunctionCall.receiver_id,
+    methods: key.permission === 'FullAccess' ? [] : key.permission.FunctionCall.method_names,
+    fullAccess: key.permission === 'FullAccess' };
 }
