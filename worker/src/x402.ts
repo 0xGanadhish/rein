@@ -210,6 +210,20 @@ export async function runPaidJudgement(
       const message = e instanceof Error ? e.message : String(e);
       const refused = /Smart contract panicked:\s*([^\n]+)/.exec(message)?.[1];
       if (!refused) return pending(p, null); // Transport ambiguity is not a refusal; retry the identical reference.
+      if (a.attempt === 1) {
+        // The desk opened no order, so the replacement judgement wasn't spent: the credit stays.
+        const body = { error: refused.slice(0, 200), paymentRef: p.id, creditAvailable: true };
+        await db.batch([
+          db.prepare('DELETE FROM x402_attempts WHERE payment_id = ? AND attempt = 1 AND order_id IS NULL').bind(p.id),
+          db
+            .prepare(
+              `UPDATE x402_payments SET state = 'credit', credit_used = 0, result_json = ?, result_status = 422
+            WHERE id = ? AND state = 'running' AND credit_used = 1`,
+            )
+            .bind(JSON.stringify(body), p.id),
+        ]);
+        return savedResponse((await readPayment(db, p.id))!);
+      }
       await fail(db, p, a, refused.slice(0, 200), 422);
       return savedResponse((await readPayment(db, p.id))!);
     }

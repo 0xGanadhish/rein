@@ -59,6 +59,8 @@ class Fakes {
   nextId = 40;
   outcome: 'signed' | 'delivered' | 'rejected' | 'post_failed' | 'stuck' = 'delivered';
   refusal: string | null = null;
+  /** The desk refuses the order itself after the read-only admission check passed. */
+  submitRefusal: string | null = null;
   admissionRace = false;
   valid = true;
   providerCalls: string[] = [];
@@ -161,7 +163,8 @@ class Fakes {
         submit_x402_request: async (chain: DeskChain, vault: string, ref: string, amount: string) => {
           if (!this.settlements) throw new Error('order opened before settlement');
           if (this.refs.has(ref)) return this.refs.get(ref)!;
-          if (this.refusal) throw new Error(`Smart contract panicked: ${this.refusal}`);
+          const refused = this.refusal ?? this.submitRefusal;
+          if (refused) throw new Error(`Smart contract panicked: ${refused}`);
           const id = this.nextId++;
           this.refs.set(ref, id);
           this.orders.set(id, {
@@ -442,6 +445,23 @@ describe('payments', () => {
     f.orders.clear();
     await env.DB.prepare('DELETE FROM broadcast_attempts').run();
     expect(await (await judge(f, payment('deposit', true))).json()).toEqual(result);
+    expect(f.settlements).toBe(1);
+  });
+
+  it('x402_refused_redemption_keeps_credit', async () => {
+    const f = new Fakes();
+    f.outcome = 'post_failed';
+    expect((await purchase(f)).status).toBe(502);
+    f.submitRefusal = 'spacing';
+    const refused = await judge(f, payment('deposit'), true);
+    expect(refused.status).toBe(422);
+    expect(await refused.json()).toMatchObject({ error: 'spacing', creditAvailable: true });
+    expect(await business()).toMatchObject({ unpaid_liabilities: { x402_credit_usdc: '1000000' } });
+    f.submitRefusal = null;
+    f.outcome = 'delivered';
+    const delivered = await judge(f, payment('deposit'), true);
+    expect(delivered.status).toBe(200);
+    expect(await delivered.json()).toMatchObject({ orderId: 41, verdict: { verdict: 'EXIT' } });
     expect(f.settlements).toBe(1);
   });
 
