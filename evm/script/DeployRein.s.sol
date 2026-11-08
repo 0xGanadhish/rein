@@ -15,8 +15,8 @@ import {MorphoV2Adapter} from "../src/adapters/MorphoV2Adapter.sol";
 /// - Monad (143) only: `EULER_EARN_VAULTS` and `MORPHO_V2_VAULTS`, comma-separated vault addresses (either may be
 ///   empty), and optional `ADAPTERS=<EulerEarnAdapter>,<MorphoV2Adapter>` to reuse deployed adapters instead of
 ///   deploying new ones.
-/// Monad testnet (10143) deploys its own mock USDC and three mirror vaults. Base (8453) registers the vaults in
-/// shared/addresses.base.json.
+/// Monad testnet (10143) and Base Sepolia (84532) each deploy their own mock USDC and three mirror vaults.
+/// Base (8453) registers the vaults in shared/addresses.base.json.
 contract DeployRein is Script {
     error UnsupportedChain(uint256 chainId);
     error NoVaults();
@@ -31,7 +31,9 @@ contract DeployRein is Script {
     function run() external {
         address attester = vm.envAddress("ATTESTER");
         uint256 chainId = block.chainid;
-        if (chainId != 10143 && chainId != 143 && chainId != 8453) revert UnsupportedChain(chainId);
+        if (chainId != 10143 && chainId != 143 && chainId != 8453 && chainId != 84532) {
+            revert UnsupportedChain(chainId);
+        }
 
         vm.startBroadcast();
         (, address deployer,) = vm.readCallers();
@@ -39,14 +41,14 @@ contract DeployRein is Script {
         console.log("deployer (oracle owner)", deployer);
         console.log("attester", attester);
 
-        if (chainId == 10143) _monadTestnet(deployer, attester);
+        if (chainId == 10143 || chainId == 84532) _testnet(deployer, attester);
         else if (chainId == 143) _monad(deployer, attester);
         else _base(deployer, attester);
         vm.stopBroadcast();
     }
 
     /// Demo feed: 1 h resolve window, no sampling, mirror vaults on a mock USDC.
-    function _monadTestnet(address deployer, address attester) internal {
+    function _testnet(address deployer, address attester) internal {
         TareRiskOracle oracle = _oracle(deployer, attester, 1 hours, 0);
         MockToken usdc = new MockToken("Mock USDC", "USDC", 6);
         console.log("MockToken", address(usdc));

@@ -1,4 +1,4 @@
-//! Turns verified readings into signed oracle posts through Chain Signatures, and pays the split.
+//! Turns verified readings into signed oracle posts through Chain Signatures, and settles delivered escrow.
 
 use near_sdk::json_types::U128;
 use near_sdk::{env, near, require, AccountId, Gas, GasWeight, NearToken, Promise, PromiseOrValue};
@@ -14,7 +14,7 @@ pub const PATH: &str = "rein-attester-v1";
 /// The signer's config asks for at least 15 Tgas; the rest of the call's gas is shared out too.
 const GAS_FOR_SIGN: Gas = Gas::from_tgas(50);
 const GAS_FOR_ON_SIGNED: Gas = Gas::from_tgas(60);
-const GAS_FOR_ON_USDC_PAID: Gas = Gas::from_tgas(5);
+const GAS_FOR_ON_PAID: Gas = Gas::from_tgas(5);
 
 #[near]
 impl Desk {
@@ -33,6 +33,10 @@ impl Desk {
         let now = now_s();
         let mut order = self.order_now(order_id, now);
         require!(order.status == OrderStatus::Open, "order is not open");
+        require!(
+            now < order.created_s.saturating_add(self.policy.deadline_s),
+            "order deadline passed"
+        );
         let (answer, state_hash) = self.accept(&order, &doc, &response, &signature, now);
         let reading = Reading {
             verdict: answer.verdict,
@@ -40,6 +44,9 @@ impl Desk {
             risk_bps: answer.risk_bps,
             state_hash,
             first_at: now,
+            valid_until: now.saturating_add(self.policy.deadline_s),
+            oracle: [0; 20],
+            gas_limit: 0,
             payload_hash: [0; 32],
             signed_tx: None,
             delivered_tx: None,
@@ -72,6 +79,10 @@ impl Desk {
             order.status == OrderStatus::ExitPending,
             "order is not exit_pending"
         );
+        require!(
+            now < order.created_s.saturating_add(self.policy.deadline_s),
+            "order deadline passed"
+        );
         let first = order
             .reading
             .as_deref()
@@ -94,6 +105,7 @@ impl Desk {
         r.confidence_bps = answer.confidence_bps;
         r.risk_bps = answer.risk_bps;
         r.state_hash = state_hash;
+        r.valid_until = now.saturating_add(self.policy.deadline_s);
         self.sign_post(prev, order, tx, true)
     }
 
@@ -101,13 +113,20 @@ impl Desk {
     /// The verdict stays; the post is not counted again.
     pub fn resign(&mut self, order_id: u64, tx: TxParams) -> Promise {
         self.assert_agent();
+        require!(!self.policy.kill, "kill switch on");
         let order = self.order(order_id);
         require!(order.status == OrderStatus::Signed, "order is not signed");
+        let valid_until = order
+            .reading
+            .as_deref()
+            .expect("signed has a reading")
+            .valid_until;
+        require!(now_s() <= valid_until, "post expired");
         self.sign_post(order.clone(), order, tx, false)
     }
 
-    /// Agent only. The post landed in EVM transaction `tx_hash` (0x, 32 bytes).
-    pub fn report_delivery(&mut self, order_id: u64, tx_hash: String) {
+    /// Agent only. Atomically records delivery and its actual receipt fee, then pays the split.
+    pub fn report_delivery(&mut self, order_id: u64, tx_hash: String, gas_wei: U128) {
         self.assert_agent();
         require!(
             tx_hash.len() == 66 && tx_hash.starts_with("0x"),
@@ -126,26 +145,26 @@ impl Desk {
         if order.source.is_paid() {
             self.totals.open_paid -= 1;
         }
+        *self.totals.gas_wei.get_mut(order.chain) += gas_wei.0;
+        self.pay_split(&order);
         self.orders.insert(order_id, order);
     }
 
-    /// Agent only. Adds EVM gas spent on an order's post to the chain's total.
-    pub fn record_gas(&mut self, order_id: u64, gas_wei: U128) {
-        self.assert_agent();
-        let order = self.order(order_id);
-        require!(
-            matches!(order.status, OrderStatus::Signed | OrderStatus::Delivered),
-            "order is not signed"
-        );
-        *self.totals.gas_wei.get_mut(order.chain) += gas_wei.0;
-    }
-
-    /// Anyone: sends `account` the USDC it is owed from a failed split transfer.
+    /// Anyone: sends `account` both currencies it is owed from failed transfers.
     pub fn claim_owed(&mut self, account: AccountId) -> Promise {
-        let amount = self.owed.remove(&account).unwrap_or(0);
-        require!(amount > 0, "nothing owed");
-        self.totals.owed -= amount;
-        self.pay_usdc(account, amount)
+        let usdc = self.owed.remove(&account).unwrap_or(0);
+        let near = self.owed_near.remove(&account).unwrap_or(0);
+        require!(usdc > 0 || near > 0, "nothing owed");
+        self.totals.owed -= usdc;
+        self.totals.owed_near -= near;
+        match (usdc > 0, near > 0) {
+            (true, true) => {
+                self.pay_usdc(account.clone(), usdc).detach();
+                self.pay_near(account, near)
+            }
+            (true, false) => self.pay_usdc(account, usdc),
+            _ => self.pay_near(account, near),
+        }
     }
 
     #[private]
@@ -168,16 +187,12 @@ impl Desk {
             self.orders.insert(prev.id, prev);
             return;
         };
-        let first = prev.status != OrderStatus::Signed;
         order.status = OrderStatus::Signed;
         order
             .reading
             .as_deref_mut()
             .expect("signing has a reading")
             .signed_tx = Some(signed);
-        if first {
-            self.pay_split(&order);
-        }
         self.orders.insert(order.id, order);
     }
 
@@ -187,7 +202,19 @@ impl Desk {
         if env::promise_result_checked(0, 64).is_err() {
             let owed = self.owed.get(&account).copied().unwrap_or(0);
             self.owed.insert(account, owed + amount.0);
-            self.totals.owed += amount.0;
+        } else {
+            self.totals.owed -= amount.0;
+        }
+    }
+
+    /// A NEAR transfer's outcome; a failed one stays owed to `account`.
+    #[private]
+    pub fn on_near_paid(&mut self, account: AccountId, amount: U128) {
+        if env::promise_result_checked(0, 64).is_err() {
+            let owed = self.owed_near.get(&account).copied().unwrap_or(0);
+            self.owed_near.insert(account, owed + amount.0);
+        } else {
+            self.totals.owed_near -= amount.0;
         }
     }
 }
@@ -257,6 +284,14 @@ impl Desk {
             "priority fee above max fee"
         );
         let posted_at = if count {
+            let reading = order.reading.as_deref_mut().expect("signing has a reading");
+            reading.oracle = p
+                .oracle
+                .get(order.chain)
+                .as_deref()
+                .and_then(|o| parse_vault(o).ok())
+                .unwrap_or_else(|| env::panic_str("no oracle for chain"));
+            reading.gas_limit = *p.gas_limit.get(order.chain);
             let now = now_s();
             let key = VaultKey {
                 chain: order.chain,
@@ -303,22 +338,17 @@ impl Desk {
 
     /// The order's post, unsigned, or signed with `sig`.
     fn post(&self, order: &Order, tx: &TxParams, sig: Option<&[u8; 65]>) -> Vec<u8> {
-        let p = &self.policy;
         let r = order.reading.as_deref().expect("post needs a reading");
-        let oracle = p
-            .oracle
-            .get(order.chain)
-            .as_deref()
-            .and_then(|o| parse_vault(o).ok())
-            .unwrap_or_else(|| env::panic_str("no oracle for chain"));
+        let oracle = r.oracle;
         let data = evm::post_calldata(
             &order.vault,
             r.verdict as u8,
             r.confidence_bps,
             r.risk_bps,
             &r.state_hash,
+            r.valid_until as u64,
         );
-        let (id, gas) = (evm::chain_id(order.chain), *p.gas_limit.get(order.chain));
+        let (id, gas) = (evm::chain_id(order.chain), r.gas_limit);
         let (prio, fee) = (tx.max_priority_fee_per_gas.0, tx.max_fee_per_gas.0);
         match sig {
             None => evm::unsigned_1559(id, tx.nonce, prio, fee, gas, &oracle, &data),
@@ -355,7 +385,7 @@ impl Desk {
         }
     }
 
-    /// Splits a NEAR-paid order's escrow between treasury and agent.
+    /// Splits a NEAR- or USDC-paid order's escrow between treasury and agent.
     fn pay_split(&mut self, order: &Order) {
         let p = &self.policy;
         let to_treasury = order.amount * p.split_treasury_bps as u128 / 10_000;
@@ -368,9 +398,7 @@ impl Desk {
                 t.agent_near += to_agent;
                 for (who, amount) in [(treasury, to_treasury), (agent, to_agent)] {
                     if amount > 0 {
-                        Promise::new(who)
-                            .transfer(NearToken::from_yoctonear(amount))
-                            .detach();
+                        self.pay_near(who, amount).detach();
                     }
                 }
             }
@@ -387,20 +415,33 @@ impl Desk {
         }
     }
 
-    fn pay_usdc(&self, to: AccountId, amount: u128) -> Promise {
+    pub(crate) fn pay_usdc(&mut self, to: AccountId, amount: u128) -> Promise {
         let token = self
             .policy
             .usdc_token
             .clone()
             .unwrap_or_else(|| env::panic_str("usdc_token unset"));
+        // Keep in-flight transfers owed too, so the token cannot change before their callbacks.
+        self.totals.owed += amount;
         ext_ft::ext(token)
             .with_attached_deposit(NearToken::from_yoctonear(1))
             .with_static_gas(GAS_FOR_FT_TRANSFER)
             .ft_transfer(to.clone(), U128(amount), None)
             .then(
                 Self::ext(env::current_account_id())
-                    .with_static_gas(GAS_FOR_ON_USDC_PAID)
+                    .with_static_gas(GAS_FOR_ON_PAID)
                     .on_usdc_paid(to, U128(amount)),
+            )
+    }
+
+    pub(crate) fn pay_near(&mut self, to: AccountId, amount: u128) -> Promise {
+        self.totals.owed_near += amount;
+        Promise::new(to.clone())
+            .transfer(NearToken::from_yoctonear(amount))
+            .then(
+                Self::ext(env::current_account_id())
+                    .with_static_gas(GAS_FOR_ON_PAID)
+                    .on_near_paid(to, U128(amount)),
             )
     }
 }

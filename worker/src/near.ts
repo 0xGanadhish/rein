@@ -5,28 +5,39 @@ import { KeyPair, type KeyPairString } from '@near-js/crypto';
 import type { DeskPolicy, DeskStats } from '../../shared/desk';
 import type { DeskClient, DeskOrder, DeskPrompt, DeskTx } from './deskTypes';
 import { NEAR_RPC, type Env } from './env';
+import { callWithNonceRetry } from './nearNonce';
 
 /** Calls that ask Chain Signatures for a signature need the most gas a transaction can carry. */
 const SIGN_GAS = 300_000_000_000_000n;
 const CALL_GAS = 30_000_000_000_000n;
+/** Escrow splits and refunds need gas for transfers and callbacks; a USDC split reserves 30 Tgas alone. */
+const SETTLEMENT_GAS = 100_000_000_000_000n;
 
 /** The desk contract, viewed through NEAR RPC and called as the agent account. */
 export function nearDesk(env: Env): DeskClient {
   const provider = new JsonRpcProvider({ url: NEAR_RPC[env.NEAR_NETWORK] });
   let agent: Account | undefined;
-  const signer = () => (agent ??= new Account(env.AGENT_ACCOUNT, provider, KeyPairSigner.fromSecretKey(env.AGENT_KEY as KeyPairString)));
+  const signer = () => {
+    if (!agent) {
+      // A transport retry could hide acceptance before returning InvalidNonce.
+      const mutationProvider = new JsonRpcProvider({ url: NEAR_RPC[env.NEAR_NETWORK] }, { retries: 1 });
+      agent = new Account(env.AGENT_ACCOUNT, mutationProvider, KeyPairSigner.fromSecretKey(env.AGENT_KEY as KeyPairString));
+    }
+    return agent;
+  };
 
   async function view<T>(methodName: string, args: Record<string, unknown> = {}): Promise<T> {
     return (await provider.callFunction(env.DESK_ACCOUNT, methodName, args)) as T;
   }
   async function call<T = void>(methodName: string, args: Record<string, unknown>, gas = CALL_GAS): Promise<T> {
-    return (await signer().callFunction({ contractId: env.DESK_ACCOUNT, methodName, args, gas })) as T;
+    return (await callWithNonceRetry(() => signer().callFunction({ contractId: env.DESK_ACCOUNT, methodName, args, gas }))) as T;
   }
   const reading = (order_id: number, doc: string, response: string, signature: string) => ({ order_id, doc, response, signature });
 
   return {
     open_orders: (limit) => view<DeskOrder[]>('open_orders', { limit }),
     list_orders: (from, limit) => view<DeskOrder[]>('list_orders', { from, limit }),
+    next_order_id: () => view<number>('next_order_id'),
     get_order: async (id) => (await view<DeskOrder | null>('get_order', { order_id: id })) ?? null,
     policy: () => view<DeskPolicy>('policy'),
     menu: (chain) => view<string[]>('menu', { chain }),
@@ -41,9 +52,9 @@ export function nearDesk(env: Env): DeskClient {
     fulfil: (order_id, doc, response, signature, tx: DeskTx) => call('fulfil', { ...reading(order_id, doc, response, signature), tx }, SIGN_GAS),
     confirm_exit: (order_id, doc, response, signature, tx: DeskTx) => call('confirm_exit', { ...reading(order_id, doc, response, signature), tx }, SIGN_GAS),
     resign: (order_id, tx) => call('resign', { order_id, tx }, SIGN_GAS),
-    report_delivery: (order_id, tx_hash) => call('report_delivery', { order_id, tx_hash }),
-    record_gas: (order_id, gas_wei) => call('record_gas', { order_id, gas_wei }),
-    reject: (order_id, reason) => call('reject', { order_id, reason }),
+    report_delivery: (order_id, tx_hash, gas_wei) => call('report_delivery', { order_id, tx_hash, gas_wei }, SETTLEMENT_GAS),
+    fail_post: (order_id, tx_hash, gas_wei, reason) => call('fail_post', { order_id, tx_hash, gas_wei, reason }, SETTLEMENT_GAS),
+    reject: (order_id, reason) => call('reject', { order_id, reason }, SETTLEMENT_GAS),
   };
 }
 

@@ -13,6 +13,7 @@ export interface Env {
   RPC_MONAD: string;
   RPC_MONAD_TESTNET: string;
   RPC_BASE: string;
+  RPC_BASE_SEPOLIA: string;
   /** Sends `sample` and `resolve` to the oracles. Posts are signed by the desk through Chain Signatures. */
   EXECUTOR_KEY: string;
   /** Verifies and settles x402 payments. */
@@ -27,7 +28,7 @@ export const NEAR_RPC: Record<NearNetwork, string> = {
 };
 
 export function rpcFor(env: Env, chain: DeskChain): string {
-  const url = { 'monad-testnet': env.RPC_MONAD_TESTNET, monad: env.RPC_MONAD, base: env.RPC_BASE }[chain];
+  const url = { 'monad-testnet': env.RPC_MONAD_TESTNET, monad: env.RPC_MONAD, base: env.RPC_BASE, 'base-sepolia': env.RPC_BASE_SEPOLIA }[chain];
   if (!url) throw new Error(`no RPC configured for ${chain}`);
   return url;
 }

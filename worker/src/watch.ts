@@ -38,7 +38,7 @@ export function realWatchDeps(env: Env, desk: DeskClient): WatchDeps {
   return {
     desk,
     // The testnet feed is made of MirrorVaults, which report their own APY and utilization.
-    read: (chain, vault) => readVault(env, chain, { address: vault, mirror: chain === 'monad-testnet' }),
+    read: (chain, vault) => readVault(env, chain, { address: vault, mirror: chain === 'monad-testnet' || chain === 'base-sepolia' }),
   };
 }
 

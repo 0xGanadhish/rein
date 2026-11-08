@@ -11,6 +11,11 @@ impl Desk {
         self.orders.get(&order_id).map(|o| self.view(o))
     }
 
+    /// Exclusive order ID bound, including IDs whose orders have been pruned.
+    pub fn next_order_id(&self) -> u64 {
+        self.next_id
+    }
+
     /// Orders with ids in `[from, from + limit)`; pruned ids are skipped.
     pub fn list_orders(&self, from: u64, limit: u32) -> Vec<OrderView> {
         let end = from.saturating_add(limit as u64).min(self.next_id);
@@ -55,6 +60,7 @@ impl Desk {
                 monad_testnet: U128(t.gas_wei.monad_testnet),
                 monad: U128(t.gas_wei.monad),
                 base: U128(t.gas_wei.base),
+                base_sepolia: U128(t.gas_wei.base_sepolia),
             },
             paid_treasury: Amounts {
                 near: U128(t.treasury_near),
@@ -65,6 +71,7 @@ impl Desk {
                 usdc: U128(t.agent_usdc),
             },
             owed: U128(t.owed),
+            owed_near: U128(t.owed_near),
             watch_orders: t.watch_orders,
         }
     }

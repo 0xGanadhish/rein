@@ -2,17 +2,11 @@
 import type { DeskChain, DeskOrder as SharedDeskOrder, DeskPolicy, DeskStats } from '../../shared/desk';
 import type { NearNetwork } from './env';
 
-export const CHAIN_IDS: Record<DeskChain, number> = { 'monad-testnet': 10143, monad: 143, base: 8453 };
+export const CHAIN_IDS: Record<DeskChain, number> = { 'monad-testnet': 10143, monad: 143, base: 8453, 'base-sepolia': 84532 };
 /** The EVM chains a desk on each NEAR network posts to. */
-export const NETWORK_CHAINS: Record<NearNetwork, DeskChain[]> = { testnet: ['monad-testnet'], mainnet: ['monad', 'base'] };
+export const NETWORK_CHAINS: Record<NearNetwork, DeskChain[]> = { testnet: ['monad-testnet', 'base-sepolia'], mainnet: ['monad', 'base'] };
 
-export interface DeskOrder extends SharedDeskOrder {
-  /**
-   * When the order entered `exit_pending`, if the contract exposes it. Without it the Worker tries `confirm_exit`
-   * on every tick and leaves the 30 s to 5 min window to the contract.
-   */
-  exit_pending_s?: number;
-}
+export type DeskOrder = SharedDeskOrder;
 
 export interface DeskPrompt {
   model: string;
@@ -30,6 +24,8 @@ export interface DeskTx {
 export interface DeskClient {
   open_orders(limit: number): Promise<DeskOrder[]>;
   list_orders(from: number, limit: number): Promise<DeskOrder[]>;
+  /** Exclusive ID bound; unlike list_orders, unaffected by pruned orders. */
+  next_order_id(): Promise<number>;
   get_order(id: number): Promise<DeskOrder | null>;
   policy(): Promise<DeskPolicy>;
   /** Vaults on the menu for `chain`, 0x-lowercase. */
@@ -48,8 +44,8 @@ export interface DeskClient {
   fulfil(order_id: number, doc: string, response: string, signature: string, tx: DeskTx): Promise<void>;
   confirm_exit(order_id: number, doc: string, response: string, signature: string, tx: DeskTx): Promise<void>;
   resign(order_id: number, tx: DeskTx): Promise<void>;
-  report_delivery(order_id: number, tx_hash: string): Promise<void>;
-  /** U128 as a decimal string. */
-  record_gas(order_id: number, gas_wei: string): Promise<void>;
+  /** Actual receipt fee in wei, as a decimal string, recorded atomically with delivery. */
+  report_delivery(order_id: number, tx_hash: string, gas_wei: string): Promise<void>;
+  fail_post(order_id: number, tx_hash: string | null, gas_wei: string, reason: string): Promise<void>;
   reject(order_id: number, reason: string): Promise<void>;
 }
