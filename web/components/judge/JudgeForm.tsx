@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import type { DeskChain } from '../../../shared/desk';
 import { useNearWallet } from '@/components/near/NearWallet';
+import { menuNote, paymentCall } from '@/lib/menu';
 import { orderIdFrom } from '@/lib/orders';
 import { amount, duration } from '@/lib/format';
 import s from './judge.module.css';
@@ -17,6 +18,7 @@ export interface MenuVault {
   tvl: string | null;
   withdrawable: number | null;
   last: string | null;
+  nextAt: number | null;
 }
 
 interface Policy {
@@ -68,13 +70,7 @@ export function JudgeForm({ menu, initial, policy, sample, api }: {
     if (!account) { await connect(); return; }
     setState({ k: 'signing' });
     try {
-      const args = { chain: sel.chain, vault: sel.vault.toLowerCase() };
-      const outcome = rail === 'near'
-        ? await call({ receiverId: desk, methodName: 'request_judgement', args, deposit: policy.priceNear })
-        : await call({
-          receiverId: policy.usdcToken!, methodName: 'ft_transfer_call', deposit: '1',
-          args: { receiver_id: desk, amount: policy.priceUsdc, msg: JSON.stringify(args) },
-        });
+      const outcome = await call(paymentCall(rail === 'near' ? 'near' : 'usdc', sel, policy, desk));
       const id = orderIdFrom(outcome);
       router.push(id !== null ? `/orders/${id}` : '/orders');
     } catch (e) {
@@ -109,7 +105,7 @@ export function JudgeForm({ menu, initial, policy, sample, api }: {
           {list.map((v) => (
             <button key={v.vault} type="button" role="radio" aria-checked={v === sel} className={s.opt} onClick={() => setPicked(v.vault)}>
               <span className={s.dot} />
-              <span className={s.optName}><span>{v.name}</span><small>{v.short}{v.last && ` · last call ${v.last}`}</small></span>
+              <span className={s.optName}><span>{v.name}</span><small>{v.short}{menuNote(v) && ` · ${menuNote(v)}`}</small></span>
               {v.withdrawable === null ? <span className={s.optMono}>–</span> : (
                 <span className={s.meter}><span className={s.track}><span className={s.fill} data-low={v.withdrawable < 15 || undefined} style={{ width: `${v.withdrawable}%` }} /></span><span className={s.optMono}>{v.withdrawable.toFixed(1)}%</span></span>
               )}

@@ -186,7 +186,7 @@ describe('api', () => {
     const body = await res.json<{
       network: string;
       score: { n: number; brier: number; early: boolean; bands: { band: string; n: number; hitRate: number }[] };
-      recent: { id: number; verdict: string; repeat: boolean }[];
+      recent: { id: number; verdict: string; repeat: boolean; signer: string | null; doc: string | null }[];
       business: unknown;
     }>();
     expect(body.network).toBe('testnet');
@@ -201,6 +201,12 @@ describe('api', () => {
       [3, 'HOLD', false],
       [2, 'EXIT', true],
       [1, 'EXIT', false],
+    ]);
+    expect(body.recent.map((r) => [r.id, r.signer, r.doc])).toEqual([
+      [4, null, null],
+      [3, null, null],
+      [2, '0xs', null],
+      [1, '0xs', null],
     ]);
     expect(body.business).toMatchObject({
       desk: { ...STATS, as_of: T },
@@ -433,11 +439,20 @@ describe('api', () => {
         `INSERT INTO judge_calls (order_id, at, signing_address, cost_usd_micros, stage, failure) VALUES
           (5, ?, '0xsigner', 37, NULL, NULL), (5, ?, '', 37, 'signature', 'HTTP 500')`,
       ).bind(T, T + 1),
+      env.DB.prepare(
+        `INSERT INTO broadcast_attempts (network, chain, order_id, nonce, hash, raw_tx, attempted_at, receipt_status) VALUES
+          ('testnet', 'monad-testnet', 5, 0, '0xreverted', '0x', ?1, 'reverted'), ('testnet', 'monad-testnet', 5, 0, '0xlanded', '0x', ?1, 'success')`,
+      ).bind(T),
     ]);
     const body = await (
       await get('/v1/orders/5')
-    ).json<{ posts: { doc: string | null }[]; judge_calls: { at: number; signing_address: string }[] }>();
+    ).json<{
+      posts: { doc: string | null }[];
+      judge_calls: { at: number; signing_address: string }[];
+      post_tx: string | null;
+    }>();
     expect(body.posts[0].doc).toBe(doc);
+    expect(body.post_tx).toBe('0xlanded');
     expect(body.judge_calls).toEqual([{ at: T, signing_address: '0xsigner' }]);
   });
 });

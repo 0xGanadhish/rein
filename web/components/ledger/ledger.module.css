@@ -115,3 +115,6 @@
 .panel[data-tone='night'] .bar[data-thin] .barValue, .panel[data-tone='night'] .bar[data-empty] .barValue { color: var(--night-ink); }
 .panel[data-tone='night'] .zone, .panel[data-tone='night'] .swatchZone { background: rgba(147, 160, 255, 0.22); border-color: var(--cobalt-light); }
 .panel[data-tone='night'] .ceiling { border-color: var(--cobalt-light); }
+.doc { margin-top: 4px; font-size: 10.5px; color: var(--mute); }
+.doc summary { cursor: pointer; }
+.doc code { display: block; margin-top: 4px; max-width: 36ch; white-space: pre-wrap; word-break: break-all; }

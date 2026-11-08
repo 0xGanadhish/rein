@@ -10,6 +10,13 @@ describe('orders', () => {
     expect(orderIdFrom({ receipts_outcome: [{ outcome: { logs: ['order 0 opened'] } }] })).toBe(0);
   });
 
+  it('refund_button_appears_after_deadline', () => {
+    expect(refundable(order, policy, 1_599)).toBe(false);
+    expect(refundable(order, policy, 1_600)).toBe(true);
+    expect(refundable({ ...order, status: 'exit_pending' }, policy, 1_600)).toBe(true);
+    expect(refundable({ ...order, source: 'x402' }, policy, 1_600)).toBe(false);
+  });
+
   it('refund_shows_under_kill_switch', () => {
     expect(refundable(order, policy, 1_100)).toBe(false);
     expect(refundable(order, { ...policy, kill: true }, 1_100)).toBe(true);

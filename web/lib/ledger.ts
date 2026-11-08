@@ -24,6 +24,10 @@ export interface LedgerPost {
   reasons: number | null;
   /** Repeats the post before it on the same vault, so it isn't scored. */
   repeat: boolean;
+  /** The reading the model judged; null when the Worker didn't keep it. */
+  doc: string | null;
+  /** The model's signing address for this call's answer; null when it isn't known. */
+  signer: string | null;
 }
 
 /** The Worker's `GET /v1/ledger` body. */

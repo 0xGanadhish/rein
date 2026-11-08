@@ -36,6 +36,8 @@ export interface OrderDetail extends DeskOrder {
   judge_calls: { at: number; signing_address: string }[];
   /** The desk has the order but the Worker hasn't mirrored it yet, so posts and judge calls aren't known. */
   indexing?: boolean;
+  /** The EVM transaction that landed the post; null until its receipt is known. */
+  post_tx?: string | null;
 }
 
 const fixturesDir = () => process.env.FIXTURES_DIR ?? join(process.cwd(), 'fixtures');

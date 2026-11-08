@@ -73,6 +73,9 @@
 .primary:hover { transform: translateY(-2px); }
 .ghost { border: 1px solid var(--night-line); background: transparent; color: var(--night-ink); font-weight: 550; }
 .ghost:hover { background: #1a1b17; border-color: #4a4b44; }
+.links { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 14px; }
+.links a { color: var(--night-ink); text-underline-offset: 3px; }
+.links a:hover { color: var(--night-mute); }
 .grade { margin-top: 28px; background: var(--night-2); border: 1px solid var(--night-line); border-radius: 12px; padding: 18px 20px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; align-items: center; }
 .gradeTag { font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 999px; border: 1px dashed var(--night-mute); color: var(--night-mute); }
 .gradeTag[data-state='hit'] { border: 1px solid var(--night-ink); background: var(--night-ink); color: var(--night); }

@@ -45,6 +45,8 @@ interface PostRow {
   reasons: number | null;
   sampled: number;
   resolved_at: number | null;
+  doc: string | null;
+  signer: string | null;
 }
 
 const json = (body: unknown, status = 200) =>
@@ -81,8 +83,12 @@ async function business(env: Env) {
 async function ledger(env: Env, network: NearNetwork) {
   const chains = NETWORK_CHAINS[network];
   const { results } = await env.DB.prepare(
-    `SELECT chain, id, vault, verdict, confidence_bps, risk_bps, posted_at, order_id, input_check, resolved, adverse, reasons, sampled, resolved_at
-      FROM posts WHERE chain IN (${chains.map(() => '?').join(', ')}) ORDER BY posted_at, chain, id`,
+    `SELECT p.chain, p.id, p.vault, p.verdict, p.confidence_bps, p.risk_bps, p.posted_at, p.order_id, p.input_check,
+        p.resolved, p.adverse, p.reasons, p.sampled, p.resolved_at, d.doc,
+        (SELECT j.signing_address FROM judge_calls j WHERE j.order_id = p.order_id AND j.failure IS NULL
+          ORDER BY j.at DESC LIMIT 1) AS signer
+      FROM posts p LEFT JOIN docs d ON d.hash = p.state_hash
+      WHERE p.chain IN (${chains.map(() => '?').join(', ')}) ORDER BY p.posted_at, p.chain, p.id`,
   )
     .bind(...chains)
     .all<PostRow>();
@@ -125,6 +131,8 @@ async function ledger(env: Env, network: NearNetwork) {
         resolved: r.resolved,
         adverse: r.adverse,
         reasons: r.reasons,
+        doc: r.doc,
+        signer: r.signer,
         repeat: !isNew.has(r),
         ...gradeQuality(r, now),
       })),
@@ -206,12 +214,12 @@ app.get('/v1/orders', async (c) => {
     .all();
   return json({ orders: results });
 });
-/** An order's receipt: each post with the doc the model read, and the judge calls that returned a signed answer. */
+/** An order's receipt: each post with the doc the model read, the judge calls that returned a signed answer, and the post's transaction. */
 app.get('/v1/orders/:id{[0-9]+}', async (c) => {
   const id = Number(c.req.param('id'));
   const row = await c.env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
   if (!row) return json({ error: 'not found' }, 404);
-  const [{ results: posts }, { results: judgeCalls }] = await Promise.all([
+  const [{ results: posts }, { results: judgeCalls }, landed] = await Promise.all([
     c.env.DB.prepare(
       `SELECT p.chain, p.id, p.verdict, p.confidence_bps, p.risk_bps, p.state_hash, p.posted_at, p.input_check,
         p.sampled, p.resolved, p.adverse, p.reasons, d.doc FROM posts p LEFT JOIN docs d ON d.hash = p.state_hash
@@ -222,11 +230,18 @@ app.get('/v1/orders/:id{[0-9]+}', async (c) => {
     c.env.DB.prepare('SELECT at, signing_address FROM judge_calls WHERE order_id = ? AND failure IS NULL ORDER BY at')
       .bind(id)
       .all(),
+    c.env.DB.prepare(
+      "SELECT hash FROM broadcast_attempts WHERE order_id = ? AND chain = ? AND receipt_status = 'success' LIMIT 1",
+    )
+      .bind(id, row.chain)
+      .first<{ hash: string }>(),
   ]);
   return json({
     ...row,
     posts: posts.map((p) => ({ ...p, verdict: VERDICTS[p.verdict] ?? p.verdict })),
     judge_calls: judgeCalls,
+    // The EVM transaction that landed the post, once its receipt is known.
+    post_tx: landed?.hash ?? null,
   });
 });
 app.get('/v1/quote/status', async (c) => quoteStatus(new URL(c.req.url), await c.env.deps.payments()));

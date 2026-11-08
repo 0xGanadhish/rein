@@ -59,13 +59,14 @@ export function Calls({ posts }: { posts: LedgerPost[] }) {
               <th scope="col">CALL</th>
               <th scope="col" className={styles.right}>CONF</th>
               <th scope="col" className={styles.right}>RISK</th>
+              <th scope="col">SIGNED READING</th>
               <th scope="col">INPUT</th>
               <th scope="col">OUTCOME</th>
             </tr>
           </thead>
           <tbody>
             {shown.map((p) => (
-              <tr key={`${p.chain}:${p.id}`} data-repeat={p.repeat || undefined}>
+              <tr key={`${p.chain}:${p.id}`} data-post={p.id} data-repeat={p.repeat || undefined} data-mismatch={p.input_check === 'mismatch' || undefined}>
                 <td className={styles.cellMono}>
                   {utcStamp(p.posted_at)}
                   <span className={styles.sub}>{p.chain} · #{p.id}{p.order_id !== null && ` · order ${p.order_id}`}</span>
@@ -77,8 +78,19 @@ export function Calls({ posts }: { posts: LedgerPost[] }) {
                 <td><span className="chip" data-verdict={p.verdict}>{p.verdict}</span></td>
                 <td className={`${styles.cellMono} ${styles.right}`}>{bpsPct(p.confidence_bps)}</td>
                 <td className={`${styles.cellMono} ${styles.right}`}>{bpsPct(p.risk_bps)}</td>
+                <td className={styles.cellMono}>
+                  {p.signer ? <span title={p.signer}>signer {shortAddress(p.signer)}</span> : <span className={styles.unknown}>signer unknown</span>}
+                  {p.doc && (
+                    <details className={styles.doc}>
+                      <summary>What the model read</summary>
+                      <code>{p.doc}</code>
+                    </details>
+                  )}
+                </td>
                 <td className={`${styles.cellMono} ${p.input_check === 'mismatch' ? styles.mismatch : p.input_check === 'unknown' ? styles.unknown : ''}`}>
-                  {p.input_check}
+                  {p.input_check === 'mismatch'
+                    ? <span title="The doc the model read doesn't match the vault state the oracle recorded with the post.">⚠ Input mismatch</span>
+                    : p.input_check}
                 </td>
                 <td><Outcome post={p} /></td>
               </tr>

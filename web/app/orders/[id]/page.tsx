@@ -9,6 +9,7 @@ import s from '@/components/orders/receipt.module.css';
 import { publicConfig } from '@/lib/config';
 import { readDesk, readOrder, type OrderDetail } from '@/lib/desk';
 import { refundable } from '@/lib/orders';
+import { CHAIN_LABEL as CHAIN, STATUS_LABEL as LABEL, isExitOrder, proofLinks, statusTrack } from '@/lib/receipt';
 import { hotFields, parseDoc } from '@/lib/doc';
 import { amount, bpsPct, reasonLabels, utcStamp } from '@/lib/format';
 import { shortAddress, vaultName } from '@/lib/vaults';
@@ -18,10 +19,6 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 const FLOW: DeskOrderStatus[] = ['open', 'exit_pending', 'signing', 'signed', 'delivered'];
-const LABEL: Record<DeskOrderStatus, string> = {
-  open: 'Open', exit_pending: 'EXIT pending', signing: 'Signing', signed: 'Signed', delivered: 'Delivered', rejected: 'Rejected', refunded: 'Refunded', post_failed: 'Post failed',
-};
-const CHAIN: Record<string, string> = { base: 'Base', monad: 'Monad', 'monad-testnet': 'Monad testnet', 'base-sepolia': 'Base Sepolia' };
 
 const Check = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5 4.8 9 10 3" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -60,8 +57,8 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   const status = order.status;
   const failed = status === 'rejected' || status === 'refunded' || status === 'post_failed';
   const reached = FLOW.indexOf(status);
-  const isExit = verdict === 'EXIT' || status === 'exit_pending' || order.judge_calls.length > 1;
-  const flow = FLOW.filter((st) => st !== 'exit_pending' || isExit);
+  const isExit = isExitOrder(order);
+  const links = proofLinks(order, cfg.network, cfg.desk);
   const judged = order.judge_calls[0];
   const confirmed = order.judge_calls[1];
   const fields = post?.doc ? parseDoc(post.doc) : [];
@@ -134,15 +131,11 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
         )}
 
         <ol aria-label="Order status" className={s.status}>
-          {flow.map((st) => {
-            const done = !failed && reached >= FLOW.indexOf(st);
-            return (
-              <li key={st} data-done={done || undefined} data-signal={(st === 'exit_pending' && done) || undefined} data-now={st === status || undefined}>
-                <span className={s.bar} /><span>{LABEL[st]}</span>
-              </li>
-            );
-          })}
-          {failed && <li data-done data-signal data-now><span className={s.bar} /><span>{LABEL[status]}</span></li>}
+          {statusTrack(order).map((st) => (
+            <li key={st.status} data-done={st.done || undefined} data-signal={((st.status === 'exit_pending' || failed) && st.done) || undefined} data-now={st.now || undefined}>
+              <span className={s.bar} /><span>{st.label}</span>
+            </li>
+          ))}
         </ol>
 
         <div className={s.grid}>
@@ -207,6 +200,11 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
               <Link href="/ledger" className={s.ghost}>See it on the Ledger</Link>
               {canRefund && <RefundButton orderId={order.id} className={s.ghost} />}
             </div>
+            {links.length > 0 && (
+              <ul aria-label="Proof links" className={s.links}>
+                {links.map((l) => <li key={l.href}><a href={l.href} target="_blank" rel="noreferrer">{l.label} ↗</a></li>)}
+              </ul>
+            )}
 
             {post && (
               <div className={s.grade}>

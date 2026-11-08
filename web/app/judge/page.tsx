@@ -5,6 +5,7 @@ import s from '@/components/judge/judge.module.css';
 import { publicConfig } from '@/lib/config';
 import { NETWORK_CHAINS, readDesk } from '@/lib/desk';
 import { readLedger } from '@/lib/ledger';
+import { buildMenu } from '@/lib/menu';
 import { BASE_MENU, SNAPSHOT, vaultName, shortAddress, usdShort } from '@/lib/vaults';
 
 export const metadata: Metadata = { title: 'Judge a vault' };
@@ -12,21 +13,18 @@ export const metadata: Metadata = { title: 'Judge a vault' };
 export default async function JudgePage({ searchParams }: { searchParams: Promise<{ vault?: string }> }) {
   const cfg = publicConfig();
   const [desk, ledger, { vault: asked }] = await Promise.all([readDesk(), readLedger(cfg.network), searchParams]);
-  const last = new Map<string, string>();
-  for (const p of ledger.ok ? ledger.ledger.recent : []) {
-    const k = `${p.chain}:${p.vault.toLowerCase()}`;
-    if (!last.has(k)) last.set(k, p.verdict);
-  }
   const chains = NETWORK_CHAINS[cfg.network];
-  const menu: MenuVault[] = (desk
+  const entries = desk
     ? chains.flatMap((chain) => (desk.menu[chain] ?? []).map((vault) => ({ chain, vault })))
-    : cfg.network === 'mainnet' ? BASE_MENU.map((vault) => ({ chain: 'base' as const, vault })) : []
-  ).map(({ chain, vault }) => {
+    : cfg.network === 'mainnet' ? BASE_MENU.map((vault) => ({ chain: 'base' as const, vault })) : [];
+  const menu: MenuVault[] = buildMenu({
+    entries, recent: ledger.ok ? ledger.ledger.recent : [], spacingS: desk?.policy.spacing_s ?? 600, nowS: Math.floor(Date.now() / 1000),
+  }).map(({ chain, vault, last, nextAt }) => {
     const snap = chain === 'base' ? SNAPSHOT[vault.toLowerCase()] : undefined;
     return {
       chain, vault, name: vaultName(chain, vault), short: shortAddress(vault),
       tvlUsd: snap?.tvlUsd ?? null, tvl: snap ? usdShort(snap.tvlUsd) : null, withdrawable: snap?.withdrawablePct ?? null,
-      last: last.get(`${chain}:${vault.toLowerCase()}`) ?? null,
+      last, nextAt,
     };
   }).sort((a, b) => (b.tvlUsd ?? -1) - (a.tvlUsd ?? -1) || a.name.localeCompare(b.name));
 
