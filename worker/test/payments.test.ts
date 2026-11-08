@@ -1,6 +1,6 @@
 import { applyD1Migrations } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
-import { encodeFunctionData, parseAbi, serializeTransaction, type Hex } from 'viem';
+import { encodeFunctionData, parseAbi, serializeTransaction } from 'viem';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { DeskChain, DeskPolicy } from '../../shared/desk';
 import { handle } from '../src/api';
@@ -116,7 +116,7 @@ describe('payments', () => {
     const fakes = new Fakes();
     const res = await judge(fakes);
     expect(res.status).toBe(402);
-    const body = await res.json<Record<string, any>>();
+    const body = await res.json<Record<string, unknown>>();
     expect(body.x402Version).toBe(1);
     expect(body.accepts).toEqual([expect.objectContaining({
       scheme: 'exact', network: 'near:testnet', maxAmountRequired: '1000000', asset: USDC, payTo: env.AGENT_ACCOUNT,
@@ -129,7 +129,7 @@ describe('payments', () => {
     fakes.valid = false;
     const bad = await judge(fakes, payment('n0'));
     expect(bad.status).toBe(402);
-    expect((await bad.json<Record<string, any>>()).error).toBe('insufficient_funds');
+    expect((await bad.json<Record<string, unknown>>()).error).toBe('insufficient_funds');
     expect(fakes.named('submit_x402_request')).toEqual([]);
   });
 
@@ -146,7 +146,7 @@ describe('payments', () => {
     expect([chain, vault, amount]).toEqual(['monad-testnet', VAULT, '1000000']);
     expect(ref).toMatch(/^[0-9a-f]{64}$/);
     // Verify and settle carry the buyer's payload against the same requirements.
-    const [verify, settle] = fakes.named('fetch').map((c) => c[2] as Record<string, any>);
+    const [verify, settle] = fakes.named('fetch').map((c) => c[2] as Record<string, unknown>);
     expect(verify.paymentPayload).toEqual({ x402Version: 1, scheme: 'exact', network: 'near:testnet', payload: { nonce: 'n1' } });
     expect(settle).toEqual(verify);
   });
@@ -182,7 +182,7 @@ describe('payments', () => {
     fakes.refusal = 'spacing';
     const res = await judge(fakes, payment('n4'));
     expect(res.status).toBe(422);
-    expect((await res.json<Record<string, any>>()).reason).toContain('spacing');
+    expect((await res.json<Record<string, unknown>>()).reason).toContain('spacing');
     expect(fakes.named('tick')).toEqual([]);
     expect(fakes.named('fetch').map((c) => c[1])).toEqual([PINGPAY.base + PINGPAY.verifyPath]);
   });

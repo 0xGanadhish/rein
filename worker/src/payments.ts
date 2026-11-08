@@ -218,7 +218,7 @@ export async function x402Judge(request: Request, env: Env, deps: PaymentDeps): 
   await env.DB.prepare(`UPDATE meta SET json = json_set(json, '$.orderId', ?) WHERE key = ?`).bind(orderId, `x402:${paymentRef}`).run();
 
   const deadline = deps.now() + SIGN_WAIT_MS;
-  let signedTx: string | null = null;
+  let signedTx: string | null;
   for (;;) {
     try {
       await deps.tick();

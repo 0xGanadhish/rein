@@ -100,15 +100,20 @@ describe('api', () => {
 
     const res = await get('/v1/ledger?network=testnet');
     expect(res.status).toBe(200);
-    const body = await res.json<Record<string, any>>();
+    const body = await res.json<{
+      network: string;
+      score: { n: number; brier: number; early: boolean; bands: { band: string; n: number; hitRate: number }[] };
+      recent: { id: number; verdict: string; repeat: boolean }[];
+      business: unknown;
+    }>();
     expect(body.network).toBe('testnet');
     expect(body).toMatchObject({ posts: 4, calls: 3, input_checks: { match: 2, mismatch: 1, unknown: 1 } });
     // Two resolved calls, the repeat not counted: (0.8 - 1)² and (0.1 - 0)².
     expect(body.score.n).toBe(2);
     expect(body.score.brier).toBeCloseTo((0.04 + 0.01) / 2, 10);
     expect(body.score.early).toBe(true);
-    expect(body.score.bands.find((b: any) => b.band === '95-100')).toEqual({ band: '95-100', n: 1, hitRate: 1 });
-    expect(body.recent.map((r: any) => [r.id, r.verdict, r.repeat])).toEqual([[4, 'MOVE', false], [3, 'HOLD', false], [2, 'EXIT', true], [1, 'EXIT', false]]);
+    expect(body.score.bands.find((b) => b.band === '95-100')).toEqual({ band: '95-100', n: 1, hitRate: 1 });
+    expect(body.recent.map((r) => [r.id, r.verdict, r.repeat])).toEqual([[4, 'MOVE', false], [3, 'HOLD', false], [2, 'EXIT', true], [1, 'EXIT', false]]);
     expect(body.business).toMatchObject({
       desk: { ...STATS, as_of: T },
       judge_calls: 2,
@@ -188,7 +193,7 @@ describe('api', () => {
     expect(await dump()).toEqual(after);
     expect(calls).toEqual(['resolve']);
 
-    const o = await (await get('/v1/orders/5')).json<Record<string, any>>();
+    const o = await (await get('/v1/orders/5')).json<Record<string, unknown>>();
     expect(o).toMatchObject({ id: 5, status: 'delivered', posts: [{ chain: 'monad-testnet', id: 1, verdict: 'HOLD', input_check: 'match', resolved: 1, adverse: 0 }] });
     expect((await get('/v1/orders/6')).status).toBe(404);
     expect((await get('/v1/kick')).status).toBe(405);
@@ -223,6 +228,6 @@ describe('api', () => {
 
     const res = await get('/v1/health', { health: () => checkHealth('mainnet', deps()) });
     expect(res.status).toBe(503);
-    expect((await res.json<Record<string, any>>()).flags).toEqual(['low_gas:base', 'low_near', 'low_allowance']);
+    expect((await res.json<Record<string, unknown>>()).flags).toEqual(['low_gas:base', 'low_near', 'low_allowance']);
   });
 });

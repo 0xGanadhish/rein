@@ -4,7 +4,22 @@
   "private": true,
   "license": "MIT",
   "packageManager": "pnpm@10.34.6",
+  "scripts": {
+    "lint": "eslint worker shared scripts --max-warnings=0",
+    "format": "prettier --write worker shared scripts near evm package.json eslint.config.mjs .prettierrc.json",
+    "format:check": "prettier --check worker shared scripts near evm package.json eslint.config.mjs .prettierrc.json",
+    "fmt:rust": "cargo fmt --manifest-path near/Cargo.toml --all",
+    "fmt:rust:check": "cargo fmt --manifest-path near/Cargo.toml --all --check",
+    "fmt:sol": "forge fmt --root evm",
+    "fmt:sol:check": "forge fmt --root evm --check"
+  },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.13.0",
+    "eslint-config-prettier": "10.1.8",
+    "prettier": "3.9.10",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.0",
     "viem": "2.57.16",
     "vitest": "5.1.0"
   }

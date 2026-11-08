@@ -44,7 +44,7 @@ function setup() {
     receipt: async (hash: Hex) => receipts.get(hash) ?? null,
     nonce: async (_address: string, blockTag?: string) => blockTag === 'latest' ? 5 : 7,
     fees: async () => ({ maxFeePerGas: 2n, maxPriorityFeePerGas: 1n }),
-    sendRaw: async (tx: Hex) => { sends++; throw new Error('nonce too low'); },
+    sendRaw: async () => { sends++; throw new Error('nonce too low'); },
   } as unknown as ChainClient;
   const deps: OrderDeps = { desk, chain: () => chain, now: () => now, alert: async () => {},
     read: async () => { throw new Error('signed recovery must not read the vault'); },
