@@ -4,15 +4,16 @@ import { Header } from '@/components/Header';
 import { Calls } from '@/components/ledger/Calls';
 import { Books, Calibration, Kpis } from '@/components/ledger/Summary';
 import styles from '@/components/ledger/ledger.module.css';
+import { readDesk } from '@/lib/desk';
 import { isNetwork, NETWORKS, readLedger, type Network } from '@/lib/ledger';
 
 export const metadata: Metadata = { title: 'Ledger' };
 
-const NETWORK_LABEL: Record<Network, string> = { mainnet: 'Mainnet · Base, Monad', testnet: 'Testnet · Monad testnet' };
+const NETWORK_LABEL: Record<Network, string> = { mainnet: 'Mainnet · Base, Monad', testnet: 'Testnet · Monad testnet, Base Sepolia' };
 
 export default async function LedgerPage({ searchParams }: { searchParams: Promise<{ network?: string }> }) {
   const asked = (await searchParams).network;
-  const result = await readLedger(isNetwork(asked) ? asked : undefined);
+  const [result, desk] = await Promise.all([readLedger(isNetwork(asked) ? asked : undefined), readDesk()]);
   const network = result.ok ? result.ledger.network : isNetwork(asked) ? asked : undefined;
 
   return (
@@ -41,7 +42,7 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
             <Kpis ledger={result.ledger} />
             <div className={styles.panels}>
               <Calibration score={result.ledger.score} />
-              <Books business={result.ledger.business} />
+              <Books business={result.ledger.business} kill={desk?.policy.kill ?? null} />
             </div>
             <Calls posts={result.ledger.recent} />
           </>

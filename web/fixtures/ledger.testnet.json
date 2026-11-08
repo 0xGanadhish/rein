@@ -46,27 +46,65 @@
       "gas_wei": {
         "monad-testnet": "0",
         "monad": "0",
-        "base": "0"
+        "base": "0",
+        "base-sepolia": "0"
       },
       "paid_treasury": {
-        "near": "0",
-        "usdc": "0"
+        "near": "6720000000000000000000000",
+        "usdc": "14000000"
       },
       "paid_agent": {
-        "near": "0",
-        "usdc": "0"
+        "near": "2880000000000000000000000",
+        "usdc": "6000000"
       },
       "owed": "0",
       "watch_orders": 7,
-      "as_of": 1793802691
+      "as_of": 1793802691,
+      "owed_near": "0"
     },
     "judge_calls": 26,
-    "judge_cost_usd_micros": 0,
+    "judge_cost_usd_micros": 962,
     "orders": [],
     "watch": {
       "asked": 16,
       "opened": 7
-    }
+    },
+    "settled_revenue": {
+      "near": "9600000000000000000000000",
+      "usdc": "20000000",
+      "x402_usdc": "0",
+      "source": "desk_split_totals"
+    },
+    "refunds": {
+      "authorized_orders": 3,
+      "mirrored_amounts": {
+        "near": "0",
+        "usdc": "0"
+      },
+      "paid_amounts": null
+    },
+    "unpaid_liabilities": {
+      "usdc": "0",
+      "near": "0"
+    },
+    "gas_per_chain": {
+      "monad-testnet": {
+        "cost_wei": "244800000000000000",
+        "cost_is_lower_bound": true
+      }
+    },
+    "inference": {
+      "known_cost_usd_micros": 962,
+      "calls_with_unknown_usage": 0
+    },
+    "margin": {
+      "usdc_less_inference_micros": "19999038",
+      "near_yocto": "9600000000000000000000000",
+      "includes_native_gas": false
+    },
+    "positive_margin": null,
+    "margin_unavailable_reason": "Native gas has no USD valuation; NEAR transaction fees are not measured.",
+    "x402_unsettled_usdc": "15000000"
   },
   "recent": [
     {

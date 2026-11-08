@@ -108,8 +108,14 @@ export function Calibration({ score, tone }: { score: LedgerScore; tone?: 'night
   );
 }
 
-export function Books({ business }: { business: Ledger['business'] }) {
+const NATIVE: Record<string, string> = { monad: 'MON', 'monad-testnet': 'MON', base: 'ETH', 'base-sepolia': 'ETH' };
+const usd = (micros: number) => `$${(micros / 1e6).toFixed(4)}`;
+
+/** The desk's money: what customers paid, what counts as revenue (at delivery), what went back, and what's still owed. */
+export function Books({ business, kill }: { business: Ledger['business']; kill: boolean | null }) {
   const d = business.desk;
+  const owed = business.unpaid_liabilities;
+  const gas = Object.entries(business.gas_per_chain);
   return (
     <section className={styles.panel} aria-labelledby="books">
       <div className={styles.panelHead}>
@@ -118,16 +124,45 @@ export function Books({ business }: { business: Ledger['business'] }) {
       </div>
       {d ? (
         <dl className={styles.books}>
-          <div><dt>Paid in NEAR</dt><dd>{units(d.sales_near, 24)} NEAR</dd></div>
-          <div><dt>Paid in USDC</dt><dd>{units(d.sales_usdc, 6)} USDC</dd></div>
-          <div><dt>Paid over x402</dt><dd>{units(d.sales_x402_usdc, 6)} USDC</dd></div>
-          <div><dt>Refunded or rejected</dt><dd>{d.refunds}</dd></div>
+          <div>
+            <dt>Paid by customers</dt>
+            <dd>{units(d.sales_near, 24)} NEAR · {units(d.sales_usdc, 6)} USDC<small>Includes orders later refunded</small></dd>
+          </div>
+          <div>
+            <dt>Revenue at delivery</dt>
+            <dd>{units(business.settled_revenue.near, 24)} NEAR · {units(business.settled_revenue.usdc, 6)} USDC</dd>
+          </div>
+          <div>
+            <dt>Split, treasury / agent</dt>
+            <dd>{units(d.paid_treasury.usdc, 6)} / {units(d.paid_agent.usdc, 6)} USDC<small>{units(d.paid_treasury.near, 24)} / {units(d.paid_agent.near, 24)} NEAR</small></dd>
+          </div>
+          <div><dt>Refunds authorized</dt><dd>{business.refunds.authorized_orders}</dd></div>
+          {owed && (
+            <div>
+              <dt>Owed, not yet transferred</dt>
+              <dd>{units(owed.usdc, 6)} USDC · {units(owed.near, 24)} NEAR<small>Failed refunds and splits, claimable with claim_owed</small></dd>
+            </div>
+          )}
+          <div><dt>x402, not yet settled</dt><dd>{units(business.x402_unsettled_usdc, 6)} USDC</dd></div>
           <div><dt>Paid orders still open</dt><dd>{d.open_paid}</dd></div>
           <div>
             <dt>Watch orders</dt>
             <dd>{d.watch_orders}<small>{business.watch.asked} asked for</small></dd>
           </div>
           <div><dt>Model calls</dt><dd>{business.judge_calls}</dd></div>
+          <div>
+            <dt>Model cost</dt>
+            <dd>{usd(business.inference.known_cost_usd_micros)}{business.inference.calls_with_unknown_usage > 0 && <small>{business.inference.calls_with_unknown_usage} calls with no usage reported</small>}</dd>
+          </div>
+          <div>
+            <dt>Gas, at least</dt>
+            <dd>{gas.length ? gas.map(([chain, g]) => `${chain} ${units(g.cost_wei, 18)} ${NATIVE[chain] ?? ''}`).join(' · ') : 'none yet'}</dd>
+          </div>
+          <div>
+            <dt>Margin before gas</dt>
+            <dd>{units(business.margin.usdc_less_inference_micros, 6)} USDC<small>{business.margin_unavailable_reason}</small></dd>
+          </div>
+          {kill !== null && <div><dt>Kill switch</dt><dd>{kill ? 'On' : 'Off'}</dd></div>}
         </dl>
       ) : (
         <p className={styles.note}>The Worker hasn’t mirrored the desk’s stats yet.</p>

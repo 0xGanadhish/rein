@@ -12,11 +12,12 @@ export const pct = (x: number | null, digits = 1) => (x === null ? '–' : `${(x
 
 /** A decimal string of base units as a whole-unit amount, at most `shown` decimals, with thousands separators. */
 export function units(raw: string, decimals: number, shown = 2): string {
-  const v = BigInt(raw || '0');
+  const signed = BigInt(raw || '0');
+  const v = signed < 0n ? -signed : signed;
   const scale = 10n ** BigInt(decimals);
   const whole = v / scale;
   const frac = (v % scale).toString().padStart(decimals, '0').slice(0, shown);
-  return `${whole.toLocaleString('en-US')}${shown > 0 ? `.${frac}` : ''}`;
+  return `${signed < 0n ? '-' : ''}${whole.toLocaleString('en-US')}${shown > 0 ? `.${frac}` : ''}`;
 }
 
 /** A base-unit amount without trailing zeros: "5", "2.5". */

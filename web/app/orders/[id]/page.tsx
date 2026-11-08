@@ -108,10 +108,14 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
     },
   ];
   if (failed) {
-    steps.push({ title: LABEL[status], done: true, signal: true,
-      body: <p>{status === 'refunded' ? 'The order missed its deadline, so the escrow went back to the payer.'
-        : status === 'post_failed' ? 'The signed post never landed onchain: it reverted or expired. The desk ended the order and refunded the escrow in full.'
-        : 'The desk refused this order; any escrow went back to the payer.'}</p> });
+    const why = status === 'refunded'
+      ? 'The order missed its deadline, the kill switch was on, or its signed post expired without landing.'
+      : status === 'post_failed' ? 'The signed post never landed onchain: it reverted or expired.'
+      : 'The desk refused this order.';
+    const money = order.source === 'x402' ? ' Nothing was settled: an x402 payment settles only on delivery.'
+      : order.source === 'watch' ? ''
+      : ' The desk sent the escrow back to the payer in full. If that transfer failed, the amount is held as owed and can be claimed with claim_owed.';
+    steps.push({ title: status === 'rejected' ? 'Rejected' : 'Refund authorized', done: true, signal: true, body: <p>{why}{money}</p> });
   }
 
   return (
