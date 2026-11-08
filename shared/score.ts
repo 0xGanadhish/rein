@@ -33,15 +33,21 @@ export function bandOf(confidenceBps: number): ConfidenceBand {
 }
 
 /** A hit is an EXIT followed by an adverse outcome, or a HOLD/MOVE followed by none. */
-export const isHit = (r: Pick<ScoreRow, 'verdict' | 'adverse'>): boolean => (r.verdict === 'EXIT' ? r.adverse === true : r.adverse === false);
+export const isHit = (r: Pick<ScoreRow, 'verdict' | 'adverse'>): boolean =>
+  r.verdict === 'EXIT' ? r.adverse === true : r.adverse === false;
 
 export function scoreLedger(rows: ScoreRow[]): LedgerScore {
   const resolved = rows.filter((r) => r.resolved && r.adverse !== null);
   const n = resolved.length;
-  const brier = n === 0 ? null : resolved.reduce((sum, r) => sum + (r.riskBps / 10000 - (r.adverse ? 1 : 0)) ** 2, 0) / n;
+  const brier =
+    n === 0 ? null : resolved.reduce((sum, r) => sum + (r.riskBps / 10000 - (r.adverse ? 1 : 0)) ** 2, 0) / n;
   const bands = BANDS.map((band) => {
     const inBand = resolved.filter((r) => bandOf(r.confidenceBps) === band);
-    return { band, n: inBand.length, hitRate: inBand.length === 0 ? null : inBand.filter(isHit).length / inBand.length };
+    return {
+      band,
+      n: inBand.length,
+      hitRate: inBand.length === 0 ? null : inBand.filter(isHit).length / inBand.length,
+    };
   });
   return { n, brier, early: n < EARLY_BELOW, bands };
 }

@@ -140,10 +140,7 @@ contract TareRiskOracle {
         uint16 riskBps,
         bytes32 stateHash,
         uint64 validUntil
-    )
-        external
-        returns (uint256 id)
-    {
+    ) external returns (uint256 id) {
         if (msg.sender != attester) revert NotAttester();
         if (!registered[vault]) revert VaultNotRegistered();
         if (confidenceBps > MAX_BPS || riskBps > MAX_BPS) revert BpsOutOfRange();

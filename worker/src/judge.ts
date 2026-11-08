@@ -12,7 +12,10 @@ export const NEAR_AI = {
 } as const;
 
 export class JudgeError extends Error {
-  constructor(readonly stage: 'completion' | 'signature', message: string) {
+  constructor(
+    readonly stage: 'completion' | 'signature',
+    message: string,
+  ) {
     super(`${stage}: ${message}`);
     this.name = 'JudgeError';
   }
@@ -54,7 +57,15 @@ export async function judge(doc: string, prompt: DeskPrompt, opts: JudgeOpts): P
   const doFetch = opts.fetch ?? fetch;
   const headers = { ...NEAR_AI.headers, Authorization: `Bearer ${opts.apiKey}` };
   const stage = { now: 'completion' as JudgeError['stage'] };
-  const call: JudgeCall = { costUsdMicros: 0, tokensIn: null, tokensOut: null, signingAddress: '', stage: null, failure: null, model: prompt.model };
+  const call: JudgeCall = {
+    costUsdMicros: 0,
+    tokensIn: null,
+    tokensOut: null,
+    signingAddress: '',
+    stage: null,
+    failure: null,
+    model: prompt.model,
+  };
   const ctrl = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -69,23 +80,36 @@ export async function judge(doc: string, prompt: DeskPrompt, opts: JudgeOpts): P
     const response = await res.text();
     if (!res.ok) throw new JudgeError('completion', `HTTP ${res.status}`);
     let parsed: { id?: unknown; usage?: { prompt_tokens?: number; completion_tokens?: number } };
-    try { parsed = JSON.parse(response); } catch { throw new JudgeError('completion', 'response is not JSON'); }
+    try {
+      parsed = JSON.parse(response);
+    } catch {
+      throw new JudgeError('completion', 'response is not JSON');
+    }
     call.tokensIn = parsed.usage?.prompt_tokens ?? null;
     call.tokensOut = parsed.usage?.completion_tokens ?? null;
-    call.costUsdMicros = Math.round(((call.tokensIn ?? 0) * NEAR_AI.price.inputPerMTok
-      + (call.tokensOut ?? 0) * NEAR_AI.price.outputPerMTok) / 1e6);
+    call.costUsdMicros = Math.round(
+      ((call.tokensIn ?? 0) * NEAR_AI.price.inputPerMTok + (call.tokensOut ?? 0) * NEAR_AI.price.outputPerMTok) / 1e6,
+    );
     if (typeof parsed.id !== 'string' || !parsed.id) throw new JudgeError('completion', 'response has no id');
 
     stage.now = 'signature';
-    const sigRes = await doFetch(`${NEAR_AI.signature}/${encodeURIComponent(parsed.id)}?signing_algo=${NEAR_AI.signingAlgo}`,
-      { method: 'GET', headers, signal: ctrl.signal });
+    const sigRes = await doFetch(
+      `${NEAR_AI.signature}/${encodeURIComponent(parsed.id)}?signing_algo=${NEAR_AI.signingAlgo}`,
+      { method: 'GET', headers, signal: ctrl.signal },
+    );
     if (!sigRes.ok) throw new JudgeError('signature', `HTTP ${sigRes.status}`);
     const sig = await sigRes.json<{ signature?: unknown; signing_address?: unknown }>();
     if (typeof sig.signature !== 'string' || typeof sig.signing_address !== 'string') {
       throw new JudgeError('signature', 'missing signature or signing_address');
     }
     call.signingAddress = sig.signing_address;
-    return { request, response, signature: sig.signature, signingAddress: sig.signing_address, costUsdMicros: call.costUsdMicros };
+    return {
+      request,
+      response,
+      signature: sig.signature,
+      signingAddress: sig.signing_address,
+      costUsdMicros: call.costUsdMicros,
+    };
   };
 
   let result: Judgement;

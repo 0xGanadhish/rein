@@ -15,12 +15,24 @@ const DERIVED = '0x000000000000000000000000000000000000dead';
 const T0 = 1_793_774_225;
 
 function raw(nonce: number): Hex {
-  return serializeTransaction({ type: 'eip1559', chainId: 8453, nonce, gas: 1_000_000n, maxFeePerGas: 2n,
-    maxPriorityFeePerGas: 1n, to: DERIVED, data: '0x' },
-  { r: `0x${'01'.repeat(32)}`, s: `0x${'02'.repeat(32)}`, yParity: 0 });
+  return serializeTransaction(
+    {
+      type: 'eip1559',
+      chainId: 8453,
+      nonce,
+      gas: 1_000_000n,
+      maxFeePerGas: 2n,
+      maxPriorityFeePerGas: 1n,
+      to: DERIVED,
+      data: '0x',
+    },
+    { r: `0x${'01'.repeat(32)}`, s: `0x${'02'.repeat(32)}`, yParity: 0 },
+  );
 }
 
-beforeAll(async () => { await applyD1Migrations(env.DB, env.TEST_MIGRATIONS); });
+beforeAll(async () => {
+  await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
+});
 beforeEach(async () => {
   await env.DB.prepare('DELETE FROM broadcast_attempts').run();
   await env.DB.prepare('DELETE FROM pending_nonces').run();
@@ -44,19 +56,41 @@ class FakeDesk implements DeskClient {
 
   add(o: Partial<DeskOrder> = {}): DeskOrder {
     const order: DeskOrder = {
-      id: 7, source: 'near', payer: 'alice.testnet', chain: 'base',
-      vault: '0x00000000000000000000000000000000000000aa', amount: '1000000', created_s: T0 - 60, status: 'open', exit_pending_s: null, valid_until: null, ...o,
+      id: 7,
+      source: 'near',
+      payer: 'alice.testnet',
+      chain: 'base',
+      vault: '0x00000000000000000000000000000000000000aa',
+      amount: '1000000',
+      created_s: T0 - 60,
+      status: 'open',
+      exit_pending_s: null,
+      valid_until: null,
+      ...o,
     };
     this.orders.set(order.id, order);
     return { ...order };
   }
-  private set(id: number, patch: Partial<DeskOrder>) { this.orders.set(id, { ...this.orders.get(id)!, ...patch }); }
-  private sign(id: number) { this.signedTx.set(id, raw(++this.signedCount)); this.set(id, { status: 'signed' }); }
-  named(name: string) { return this.calls.filter((c) => c[0] === name); }
+  private set(id: number, patch: Partial<DeskOrder>) {
+    this.orders.set(id, { ...this.orders.get(id)!, ...patch });
+  }
+  private sign(id: number) {
+    this.signedTx.set(id, raw(++this.signedCount));
+    this.set(id, { status: 'signed' });
+  }
+  named(name: string) {
+    return this.calls.filter((c) => c[0] === name);
+  }
 
-  async open_orders() { return [...this.orders.values()].filter((o) => o.status === 'open'); }
-  async list_orders() { return [...this.orders.values()]; }
-  async next_order_id() { return Math.max(0, ...this.orders.keys()) + 1; }
+  async open_orders() {
+    return [...this.orders.values()].filter((o) => o.status === 'open');
+  }
+  async list_orders() {
+    return [...this.orders.values()];
+  }
+  async next_order_id() {
+    return Math.max(0, ...this.orders.keys()) + 1;
+  }
   async get_order(id: number) {
     const o = this.orders.get(id);
     if (!o) return null;
@@ -64,16 +98,37 @@ class FakeDesk implements DeskClient {
       ? { ...o, status: 'open' as const, exit_pending_s: null }
       : { ...o };
   }
-  async policy() { return { deadline_s: 1800, exit_confirm_min_s: this.exitMin, exit_confirm_max_s: this.exitMax } as DeskPolicy; }
-  async menu() { return []; }
-  async stats() { return {} as DeskStats; }
-  async submit_watch_request(): Promise<number> { throw new Error('not used'); }
-  async submit_x402_request(): Promise<number> { throw new Error('not used'); }
-  async prompt(): Promise<DeskPrompt> { return { model: 'm', prefix: 'P[', suffix: ']S' }; }
-  async signers() { return ['0xsigner']; }
-  async get_signed_tx(id: number) { return this.signedTx.get(id) ?? null; }
-  async derived_address() { return DERIVED; }
-  async check_reading(...a: [number, string, string, string]) { this.calls.push(['check_reading', ...a]); return this.checks.shift() ?? 'ok'; }
+  async policy() {
+    return { deadline_s: 1800, exit_confirm_min_s: this.exitMin, exit_confirm_max_s: this.exitMax } as DeskPolicy;
+  }
+  async menu() {
+    return [];
+  }
+  async stats() {
+    return {} as DeskStats;
+  }
+  async submit_watch_request(): Promise<number> {
+    throw new Error('not used');
+  }
+  async submit_x402_request(): Promise<number> {
+    throw new Error('not used');
+  }
+  async prompt(): Promise<DeskPrompt> {
+    return { model: 'm', prefix: 'P[', suffix: ']S' };
+  }
+  async signers() {
+    return ['0xsigner'];
+  }
+  async get_signed_tx(id: number) {
+    return this.signedTx.get(id) ?? null;
+  }
+  async derived_address() {
+    return DERIVED;
+  }
+  async check_reading(...a: [number, string, string, string]) {
+    this.calls.push(['check_reading', ...a]);
+    return this.checks.shift() ?? 'ok';
+  }
   async fulfil(id: number, doc: string, response: string, signature: string, tx: DeskTx) {
     this.calls.push(['fulfil', id, doc, response, signature, tx]);
     if (this.fulfilError) throw this.fulfilError;
@@ -84,7 +139,10 @@ class FakeDesk implements DeskClient {
     this.calls.push(['confirm_exit', id, doc, response, signature, tx]);
     this.sign(id);
   }
-  async resign(id: number, tx: DeskTx) { this.calls.push(['resign', id, tx]); this.sign(id); }
+  async resign(id: number, tx: DeskTx) {
+    this.calls.push(['resign', id, tx]);
+    this.sign(id);
+  }
   async report_delivery(id: number, hash: string, gas: string) {
     if (this.orders.get(id)?.status !== 'signed') throw new Error('order is not signed');
     this.calls.push(['report_delivery', id, hash, gas]);
@@ -99,7 +157,10 @@ class FakeDesk implements DeskClient {
     this.set(id, { status: 'post_failed' });
     if (this.failureLost) throw new Error('response lost');
   }
-  async reject(id: number, reason: string) { this.calls.push(['reject', id, reason]); this.set(id, { status: 'rejected' }); }
+  async reject(id: number, reason: string) {
+    this.calls.push(['reject', id, reason]);
+    this.set(id, { status: 'rejected' });
+  }
 }
 
 class FakeChain implements ChainClient {
@@ -109,11 +170,23 @@ class FakeChain implements ChainClient {
   sendErrors: Error[] = [];
   receipts = new Map<string, Receipt>();
   posted = false;
-  async statePosted() { return this.posted; }
-  async balance(a: string) { this.calls.push(['balance', a]); return this.balanceWei; }
-  async nonce() { return 5; }
-  async fees() { return { maxFeePerGas: 2_000_000_000n, maxPriorityFeePerGas: 1_000_000n }; }
-  async simulate(c: Parameters<ChainClient['simulate']>[0]) { this.calls.push(['simulate', c]); return this.simulation; }
+  async statePosted() {
+    return this.posted;
+  }
+  async balance(a: string) {
+    this.calls.push(['balance', a]);
+    return this.balanceWei;
+  }
+  async nonce() {
+    return 5;
+  }
+  async fees() {
+    return { maxFeePerGas: 2_000_000_000n, maxPriorityFeePerGas: 1_000_000n };
+  }
+  async simulate(c: Parameters<ChainClient['simulate']>[0]) {
+    this.calls.push(['simulate', c]);
+    return this.simulation;
+  }
   async sendRaw(raw: `0x${string}`) {
     this.calls.push(['sendRaw', raw]);
     const e = this.sendErrors.shift();
@@ -122,10 +195,13 @@ class FakeChain implements ChainClient {
     this.receipts.set(hash, { status: 'success', gasUsed: 50_000n, effectiveGasPrice: 1_500_000_000n });
     return hash;
   }
-  async receipt(hash: `0x${string}`) { return this.receipts.get(hash) ?? null; }
+  async receipt(hash: `0x${string}`) {
+    return this.receipts.get(hash) ?? null;
+  }
 }
 
-const answer = (verdict: string) => `{"id":"c1","choices":[{"message":{"content":"{\\"verdict\\":\\"${verdict}\\"}"}}]}`;
+const answer = (verdict: string) =>
+  `{"id":"c1","choices":[{"message":{"content":"{\\"verdict\\":\\"${verdict}\\"}"}}]}`;
 
 function setup(opts: { verdict?: string; readings?: VaultReading[] } = {}) {
   const clock = { now: T0 };
@@ -135,26 +211,59 @@ function setup(opts: { verdict?: string; readings?: VaultReading[] } = {}) {
   const judgeCalls: string[] = [];
   const reads: string[] = [];
   let judgeImpl = async (doc: string) => ({
-    request: `P[${doc}]S`, response: answer(opts.verdict ?? 'HOLD'), signature: '0xsig', signingAddress: '0xsigner', costUsdMicros: 3,
+    request: `P[${doc}]S`,
+    response: answer(opts.verdict ?? 'HOLD'),
+    signature: '0xsig',
+    signingAddress: '0xsigner',
+    costUsdMicros: 3,
   });
   let readImpl = async (): Promise<VaultReading> => {
     const r = opts.readings?.[reads.length - 1];
-    return r ?? { block: BigInt(100 + reads.length), name: 'V', pps: 1_000_000n, totalAssets: 5n, liquidityPct: 50, apyBps: 500, apyBpsPrev: 500, utilBps: 5000 };
+    return (
+      r ?? {
+        block: BigInt(100 + reads.length),
+        name: 'V',
+        pps: 1_000_000n,
+        totalAssets: 5n,
+        liquidityPct: 50,
+        apyBps: 500,
+        apyBpsPrev: 500,
+        utilBps: 5000,
+      }
+    );
   };
   const deps: OrderDeps = {
     desk,
     journal: new BroadcastJournal(env.DB, 'mainnet'),
-    read: async (c, v) => { reads.push(`${c}:${v}`); return readImpl(); },
+    read: async (c, v) => {
+      reads.push(`${c}:${v}`);
+      return readImpl();
+    },
     flows: async () => ({ netOutPct1h: 0.5 }),
-    judge: (async (doc: string) => { judgeCalls.push(doc); return judgeImpl(doc); }) as typeof realJudge,
+    judge: (async (doc: string) => {
+      judgeCalls.push(doc);
+      return judgeImpl(doc);
+    }) as typeof realJudge,
     chain: () => chain,
     now: () => clock.now,
-    alert: async (m) => { alerts.push(m); },
+    alert: async (m) => {
+      alerts.push(m);
+    },
   };
   return {
-    clock, desk, chain, alerts, judgeCalls, reads, deps,
-    setJudge(f: typeof judgeImpl) { judgeImpl = f; },
-    setRead(f: typeof readImpl) { readImpl = f; },
+    clock,
+    desk,
+    chain,
+    alerts,
+    judgeCalls,
+    reads,
+    deps,
+    setJudge(f: typeof judgeImpl) {
+      judgeImpl = f;
+    },
+    setRead(f: typeof readImpl) {
+      readImpl = f;
+    },
   };
 }
 
@@ -181,11 +290,11 @@ describe('processOrder', () => {
     expect(s.chain.calls.some((c) => c[0] === 'sendRaw')).toBe(false);
 
     s.clock.now = T0 + 10;
-    expect(await processOrder(await s.desk.get_order(7) as DeskOrder, s.deps)).toBe('pending');
+    expect(await processOrder((await s.desk.get_order(7)) as DeskOrder, s.deps)).toBe('pending');
     expect(s.desk.named('confirm_exit')).toHaveLength(0);
 
     s.clock.now = T0 + 46;
-    expect(await processOrder(await s.desk.get_order(7) as DeskOrder, s.deps)).toBe('delivered');
+    expect(await processOrder((await s.desk.get_order(7)) as DeskOrder, s.deps)).toBe('delivered');
     expect(s.reads).toHaveLength(2);
     const [confirm] = s.desk.named('confirm_exit');
     const firstDoc = s.desk.named('fulfil')[0][2] as string;
@@ -197,7 +306,9 @@ describe('processOrder', () => {
 
   it('vault_read_failure_rejects_with_reason', async () => {
     const s = setup();
-    s.setRead(async () => { throw new Error('execution reverted'); });
+    s.setRead(async () => {
+      throw new Error('execution reverted');
+    });
     expect(await processOrder(s.desk.add(), s.deps)).toBe('rejected');
     expect(s.desk.named('reject')).toEqual([['reject', 7, 'vault read failed: execution reverted']]);
     expect(s.judgeCalls).toHaveLength(0);
@@ -205,7 +316,9 @@ describe('processOrder', () => {
 
   it('judge_unavailable_rejects', async () => {
     const s = setup();
-    s.setJudge(async () => { throw new JudgeError('completion', 'HTTP 503'); });
+    s.setJudge(async () => {
+      throw new JudgeError('completion', 'HTTP 503');
+    });
     expect(await processOrder(s.desk.add(), s.deps)).toBe('rejected');
     expect(s.desk.named('reject')).toEqual([['reject', 7, 'judge unavailable']]);
     expect(s.desk.named('fulfil')).toHaveLength(0);
@@ -213,7 +326,9 @@ describe('processOrder', () => {
 
   it('signature_unavailable_rejects', async () => {
     const s = setup();
-    s.setJudge(async () => { throw new JudgeError('signature', 'HTTP 404'); });
+    s.setJudge(async () => {
+      throw new JudgeError('signature', 'HTTP 404');
+    });
     expect(await processOrder(s.desk.add(), s.deps)).toBe('rejected');
     expect(s.desk.named('reject')).toEqual([['reject', 7, 'signature unavailable']]);
   });
@@ -268,7 +383,10 @@ describe('processOrder', () => {
 
   it('broadcast_nonce_too_low_calls_resign_once', async () => {
     const s = setup();
-    s.chain.sendErrors = [new Error('nonce too low: next nonce 6, tx nonce 5'), new Error('nonce too low: next nonce 6, tx nonce 5')];
+    s.chain.sendErrors = [
+      new Error('nonce too low: next nonce 6, tx nonce 5'),
+      new Error('nonce too low: next nonce 6, tx nonce 5'),
+    ];
     expect(await processOrder(s.desk.add(), s.deps)).toBe('pending');
     expect(s.desk.named('resign')).toHaveLength(1);
     expect(s.desk.named('fulfil')).toHaveLength(1);
@@ -276,7 +394,9 @@ describe('processOrder', () => {
     const t = setup();
     t.chain.sendErrors = [new Error('nonce too low')];
     expect(await processOrder(t.desk.add(), t.deps)).toBe('delivered');
-    expect(t.desk.named('resign')).toEqual([['resign', 7, { nonce: 5, max_fee_per_gas: '2000000000', max_priority_fee_per_gas: '1000000' }]]);
+    expect(t.desk.named('resign')).toEqual([
+      ['resign', 7, { nonce: 5, max_fee_per_gas: '2000000000', max_priority_fee_per_gas: '1000000' }],
+    ]);
     expect(t.desk.named('report_delivery')).toEqual([['report_delivery', 7, keccak256(raw(2)), '75000000000000']]);
   });
 
@@ -310,9 +430,16 @@ describe('processOrder', () => {
     const s = setup();
     const order = s.desk.add({ status: 'signed' });
     s.desk.signedTx.set(7, raw(9));
-    s.chain.receipts.set(keccak256(raw(9)), { status: 'success', gasUsed: 50_000n, effectiveGasPrice: 1_500_000_000n, l1Fee: 123n });
+    s.chain.receipts.set(keccak256(raw(9)), {
+      status: 'success',
+      gasUsed: 50_000n,
+      effectiveGasPrice: 1_500_000_000n,
+      l1Fee: 123n,
+    });
     expect(await processOrder(order, s.deps)).toBe('delivered');
-    expect(s.desk.named('report_delivery')).toEqual([['report_delivery', 7, keccak256(raw(9)), String(50_000n * 1_500_000_000n + 123n)]]);
+    expect(s.desk.named('report_delivery')).toEqual([
+      ['report_delivery', 7, keccak256(raw(9)), String(50_000n * 1_500_000_000n + 123n)],
+    ]);
   });
 
   it('delivery_counts_reverted_prior_attempt_fee', async () => {
@@ -331,7 +458,12 @@ describe('processOrder', () => {
     await recovered.deps.journal.record(replacement, raw(20), T0 - 1, recovered.desk);
     recovered.desk.signedTx.set(8, raw(21));
     recovered.chain.receipts.set(keccak256(raw(20)), { status: 'success', gasUsed: 5n, effectiveGasPrice: 3n });
-    recovered.chain.receipts.set(keccak256(raw(21)), { status: 'reverted', gasUsed: 2n, effectiveGasPrice: 3n, l1Fee: 1n });
+    recovered.chain.receipts.set(keccak256(raw(21)), {
+      status: 'reverted',
+      gasUsed: 2n,
+      effectiveGasPrice: 3n,
+      l1Fee: 1n,
+    });
     expect(await processOrder(replacement, recovered.deps)).toBe('delivered');
     expect(recovered.desk.gas).toBe(22n);
   });
@@ -379,7 +511,9 @@ describe('processOrder', () => {
       expect(s.desk.named('confirm_exit')).toEqual([]);
     }
     const s = setup();
-    expect(await processOrder(s.desk.add({ status: 'exit_pending', exit_pending_s: T0 - 45 }), s.deps)).toBe('delivered');
+    expect(await processOrder(s.desk.add({ status: 'exit_pending', exit_pending_s: T0 - 45 }), s.deps)).toBe(
+      'delivered',
+    );
     expect(s.desk.named('confirm_exit')).toHaveLength(1);
     const lapsed = setup();
     const stale = lapsed.desk.add({ status: 'exit_pending', exit_pending_s: T0 - 241 });
@@ -409,7 +543,7 @@ describe('processOrder', () => {
     expect(s.desk.named('fail_post')).toEqual([]);
     s.clock.now += 60;
     let checks = 0;
-    s.chain.receipt = async () => ++checks === 1 ? null : { status: 'success', gasUsed: 2n, effectiveGasPrice: 3n };
+    s.chain.receipt = async () => (++checks === 1 ? null : { status: 'success', gasUsed: 2n, effectiveGasPrice: 3n });
     expect(await processOrder(order, s.deps)).toBe('delivered');
     expect(s.desk.named('fail_post')).toEqual([]);
     expect(s.desk.gas).toBe(6n);
@@ -417,14 +551,22 @@ describe('processOrder', () => {
 });
 
 describe('withLock', () => {
-
   it('lock_prevents_second_runner', async () => {
     let release!: () => void;
-    const held = new Promise<void>((r) => { release = r; });
-    const first = withLock(env.DB, 'chain:base', 60, async () => { await held; return 'first'; });
+    const held = new Promise<void>((r) => {
+      release = r;
+    });
+    const first = withLock(env.DB, 'chain:base', 60, async () => {
+      await held;
+      return 'first';
+    });
     await new Promise((r) => setTimeout(r, 50));
     let ranSecond = false;
-    expect(await withLock(env.DB, 'chain:base', 60, async () => { ranSecond = true; })).toEqual({ ran: false });
+    expect(
+      await withLock(env.DB, 'chain:base', 60, async () => {
+        ranSecond = true;
+      }),
+    ).toEqual({ ran: false });
     expect(ranSecond).toBe(false);
     expect(await withLock(env.DB, 'chain:monad', 60, async () => 'other')).toEqual({ ran: true, value: 'other' });
     release();
@@ -436,7 +578,11 @@ describe('withLock', () => {
     vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
     const started = Promise.withResolvers<void>();
     const held = Promise.withResolvers<void>();
-    const first = withLock(env.DB, 'renewal:base', 2, async () => { started.resolve(); await held.promise; return 'first'; });
+    const first = withLock(env.DB, 'renewal:base', 2, async () => {
+      started.resolve();
+      await held.promise;
+      return 'first';
+    });
     await started.promise;
     try {
       await vi.advanceTimersByTimeAsync(2_200);
@@ -452,18 +598,39 @@ describe('withLock', () => {
 
 describe('postArgs', () => {
   const order: DeskOrder = {
-    id: 7, source: 'near', payer: 'alice.testnet', chain: 'base',
-    vault: '0x00000000000000000000000000000000000000aa', amount: '1000000', created_s: T0, status: 'open', exit_pending_s: null, valid_until: null,
+    id: 7,
+    source: 'near',
+    payer: 'alice.testnet',
+    chain: 'base',
+    vault: '0x00000000000000000000000000000000000000aa',
+    amount: '1000000',
+    created_s: T0,
+    status: 'open',
+    exit_pending_s: null,
+    valid_until: null,
   };
   const answer = (content: string) => JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content } }] });
 
   it('post_args_map_action_and_withdrawal_risk', () => {
     const doc = 'rein-v1|order=7';
-    for (const [action, verdict] of [['hold', 0], ['exit', 1], ['rotate', 2]] as const) {
+    for (const [action, verdict] of [
+      ['hold', 0],
+      ['exit', 1],
+      ['rotate', 2],
+    ] as const) {
       const content = `{"action":"${action}","confidence_bps":8100,"withdrawal_risk_bps":2500}`;
-      expect(postArgs(order, doc, answer(content), T0 + 1800)).toEqual([order.vault, verdict, 8100, 2500, keccak256(new TextEncoder().encode(doc)), BigInt(T0 + 1800)]);
+      expect(postArgs(order, doc, answer(content), T0 + 1800)).toEqual([
+        order.vault,
+        verdict,
+        8100,
+        2500,
+        keccak256(new TextEncoder().encode(doc)),
+        BigInt(T0 + 1800),
+      ]);
     }
-    expect(() => postArgs(order, doc, answer('{"verdict":"HOLD","confidence_bps":1,"risk_bps":1}'), T0 + 1800)).toThrow();
+    expect(() =>
+      postArgs(order, doc, answer('{"verdict":"HOLD","confidence_bps":1,"risk_bps":1}'), T0 + 1800),
+    ).toThrow();
   });
 });
 

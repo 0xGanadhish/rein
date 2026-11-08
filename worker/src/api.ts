@@ -46,16 +46,25 @@ interface PostRow {
 }
 
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body, (_k, v) => (typeof v === 'bigint' ? String(v) : v)), { status, headers: { 'content-type': 'application/json' } });
+  new Response(
+    JSON.stringify(body, (_k, v) => (typeof v === 'bigint' ? String(v) : v)),
+    { status, headers: { 'content-type': 'application/json' } },
+  );
 
 /** Sales and refunds from the desk, plus what judging cost and how orders and watch requests went. */
 async function business(env: Env) {
   const db = env.DB;
   const [stats, cost, orders, watch] = await Promise.all([
     db.prepare(`SELECT json, at FROM meta WHERE key = 'desk_stats'`).first<{ json: string; at: number }>(),
-    db.prepare('SELECT COUNT(*) AS calls, COALESCE(SUM(cost_usd_micros), 0) AS micros FROM judge_calls').first<{ calls: number; micros: number }>(),
-    db.prepare('SELECT source, status, COUNT(*) AS n FROM orders GROUP BY source, status ORDER BY source, status').all<{ source: string; status: string; n: number }>(),
-    db.prepare('SELECT COUNT(*) AS asked, COUNT(order_id) AS opened FROM watch_requests').first<{ asked: number; opened: number }>(),
+    db
+      .prepare('SELECT COUNT(*) AS calls, COALESCE(SUM(cost_usd_micros), 0) AS micros FROM judge_calls')
+      .first<{ calls: number; micros: number }>(),
+    db
+      .prepare('SELECT source, status, COUNT(*) AS n FROM orders GROUP BY source, status ORDER BY source, status')
+      .all<{ source: string; status: string; n: number }>(),
+    db
+      .prepare('SELECT COUNT(*) AS asked, COUNT(order_id) AS opened FROM watch_requests')
+      .first<{ asked: number; opened: number }>(),
   ]);
   return {
     desk: stats ? { ...JSON.parse(stats.json), as_of: stats.at } : null,
@@ -63,14 +72,18 @@ async function business(env: Env) {
     judge_cost_usd_micros: cost?.micros ?? 0,
     orders: orders.results,
     watch: { asked: watch?.asked ?? 0, opened: watch?.opened ?? 0 },
-    ...await economics(db, stats ? JSON.parse(stats.json) as DeskStats : null),
+    ...(await economics(db, stats ? (JSON.parse(stats.json) as DeskStats) : null)),
   };
 }
 
 async function ledger(env: Env, network: NearNetwork) {
   const chains = NETWORK_CHAINS[network];
-  const { results } = await env.DB.prepare(`SELECT chain, id, vault, verdict, confidence_bps, risk_bps, posted_at, order_id, input_check, resolved, adverse, reasons, sampled, resolved_at
-      FROM posts WHERE chain IN (${chains.map(() => '?').join(', ')}) ORDER BY posted_at, chain, id`).bind(...chains).all<PostRow>();
+  const { results } = await env.DB.prepare(
+    `SELECT chain, id, vault, verdict, confidence_bps, risk_bps, posted_at, order_id, input_check, resolved, adverse, reasons, sampled, resolved_at
+      FROM posts WHERE chain IN (${chains.map(() => '?').join(', ')}) ORDER BY posted_at, chain, id`,
+  )
+    .bind(...chains)
+    .all<PostRow>();
   const rows = results.map((r) => ({
     ...r,
     verdict: VERDICTS[r.verdict] ?? 'HOLD',
@@ -94,38 +107,60 @@ async function ledger(env: Env, network: NearNetwork) {
       unknown: rows.filter((r) => r.input_check === 'unknown').length,
     },
     business: await business(env),
-    recent: rows.slice(-LEDGER_POSTS).reverse().map((r) => ({
-      chain: r.chain, id: r.id, vault: r.vault, verdict: r.verdict, confidence_bps: r.confidence_bps, risk_bps: r.risk_bps,
-      posted_at: r.posted_at, order_id: r.order_id, input_check: r.input_check, resolved: r.resolved, adverse: r.adverse,
-      reasons: r.reasons, repeat: !isNew.has(r),
-      ...gradeQuality(r, now),
-    })),
+    recent: rows
+      .slice(-LEDGER_POSTS)
+      .reverse()
+      .map((r) => ({
+        chain: r.chain,
+        id: r.id,
+        vault: r.vault,
+        verdict: r.verdict,
+        confidence_bps: r.confidence_bps,
+        risk_bps: r.risk_bps,
+        posted_at: r.posted_at,
+        order_id: r.order_id,
+        input_check: r.input_check,
+        resolved: r.resolved,
+        adverse: r.adverse,
+        reasons: r.reasons,
+        repeat: !isNew.has(r),
+        ...gradeQuality(r, now),
+      })),
   };
 }
 
-function gradeQuality(row: Omit<PostRow, 'resolved' | 'adverse' | 'verdict'> & { resolved: boolean | number }, now: number) {
+function gradeQuality(
+  row: Omit<PostRow, 'resolved' | 'adverse' | 'verdict'> & { resolved: boolean | number },
+  now: number,
+) {
   const chain = row.chain as DeskChain;
   const due = row.posted_at + RESOLVE_WINDOW_S[chain] + SAMPLE_WINDOW_S[chain];
   const quality: string[] = [];
   if (!row.resolved && now >= due) quality.push('unresolved');
   if (row.resolved_at !== null && row.resolved_at > due + CRON_INTERVAL_S) quality.push('late');
   if (SAMPLE_WINDOW_S[chain] > 0 && now >= due && row.sampled < 2) quality.push('degraded');
-  return { grading_quality: quality, grade_due_s: due, resolved_at: row.resolved_at,
-    grading_time_unknown: !!row.resolved && row.resolved_at === null };
+  return {
+    grading_quality: quality,
+    grade_due_s: due,
+    resolved_at: row.resolved_at,
+    grading_time_unknown: !!row.resolved && row.resolved_at === null,
+  };
 }
 
 type ApiEnv = { Bindings: Env & { deps: ApiDeps } };
 
 const requireKickToken: MiddlewareHandler<ApiEnv> = async (c, next) => {
-  if (!await kickAuthorized(c.req.raw, c.env.KICK_TOKEN)) return json({ error: 'unauthorized' }, 401);
+  if (!(await kickAuthorized(c.req.raw, c.env.KICK_TOKEN))) return json({ error: 'unauthorized' }, 401);
   await next();
 };
 
 const limitQuote: MiddlewareHandler<ApiEnv> = async (c, next) => {
   const { success } = await c.env.QUOTE_RATE_LIMITER.limit({ key: c.req.header('CF-Connecting-IP') ?? 'unknown' });
   if (!success) {
-    return new Response(JSON.stringify({ error: 'rate limited' }),
-      { status: 429, headers: { 'content-type': 'application/json', 'Retry-After': '60' } });
+    return new Response(JSON.stringify({ error: 'rate limited' }), {
+      status: 429,
+      headers: { 'content-type': 'application/json', 'Retry-After': '60' },
+    });
   }
   await next();
 };
@@ -163,8 +198,12 @@ app.get('/v1/orders/:id{[0-9]+}', async (c) => {
   const id = Number(c.req.param('id'));
   const row = await c.env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
   if (!row) return json({ error: 'not found' }, 404);
-  const { results: posts } = await c.env.DB.prepare(`SELECT chain, id, verdict, confidence_bps, risk_bps, state_hash, posted_at, input_check,
-      sampled, resolved, adverse, reasons FROM posts WHERE order_id = ? ORDER BY chain, id`).bind(id).all<{ verdict: number }>();
+  const { results: posts } = await c.env.DB.prepare(
+    `SELECT chain, id, verdict, confidence_bps, risk_bps, state_hash, posted_at, input_check,
+      sampled, resolved, adverse, reasons FROM posts WHERE order_id = ? ORDER BY chain, id`,
+  )
+    .bind(id)
+    .all<{ verdict: number }>();
   return json({ ...row, posts: posts.map((p) => ({ ...p, verdict: VERDICTS[p.verdict] ?? p.verdict })) });
 });
 app.get('/v1/quote/status', async (c) => quoteStatus(new URL(c.req.url), await c.env.deps.payments()));
@@ -173,7 +212,7 @@ app.get('/v1/health', async (c) => {
   const h = await c.env.deps.health();
   return json(h, h.ok ? 200 : 503);
 });
-app.all('*', (c) => c.req.method === 'GET' ? c.notFound() : methodNotAllowed('GET'));
+app.all('*', (c) => (c.req.method === 'GET' ? c.notFound() : methodNotAllowed('GET')));
 
 /** The Worker's HTTP API. */
 export async function handle(request: Request, env: Env, deps: ApiDeps): Promise<Response> {
