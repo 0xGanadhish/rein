@@ -21,11 +21,10 @@ AGENT_ACCOUNT = "agent.rein-desk.testnet"
 # Allowance the agent's function-call key was added with, in yoctoNEAR (0.25 NEAR, near-cli's default). Match the real key.
 AGENT_KEY_ALLOWANCE = "250000000000000000000000"
 
-# Placeholder ID. Create the database and paste its ID here before deploying.
 [[d1_databases]]
 binding = "DB"
 database_name = "rein"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "1698ac99-3fd8-45cf-bfef-efc88452acf6"
 migrations_dir = "migrations"
 
 # Secrets, set with `wrangler secret put`: AGENT_KEY, NEAR_AI_API_KEY, EXECUTOR_KEY,
