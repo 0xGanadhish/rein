@@ -23,13 +23,15 @@ export default defineConfig([
     'evm/lib/',
     'evm/broadcast/',
     'graphify-out/',
-    'web/',
+    'web/next-env.d.ts',
+    'web/test-results/',
+    'web/playwright-report/',
     '.worktrees/',
     '.git/',
     '.env*',
   ]),
   {
-    files: ['worker/**/*.ts', 'shared/**/*.ts', 'scripts/**/*.ts'],
+    files: ['worker/**/*.ts', 'shared/**/*.ts', 'scripts/**/*.ts', 'web/**/*.{ts,tsx}'],
     extends: [js.configs.recommended, tseslint.configs.recommended, prettier],
   },
 ]);

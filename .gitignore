@@ -14,5 +14,10 @@ node_modules/
 evm/out/
 evm/cache/
 near/target/
+web/.next/
+*.tsbuildinfo
+next-env.d.ts
 
 .DS_Store
+web/test-results/
+web/playwright-report/
