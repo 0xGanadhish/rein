@@ -3,7 +3,7 @@
  * Worker, waits for delivery, and prints the proof: the NEAR order, the doc the model read, its answer, the TEE signer
  * and signature, the oracle post on Monad testnet, and the Ledger. Exits non-zero if it isn't delivered in 120 s.
  *
- *   pnpm demo [chain]        (default monad-testnet; needs REIN_API_URL and KICK_TOKEN)
+ *   pnpm demo [chain] [vault]   (default monad-testnet and a random open menu vault; needs REIN_API_URL and KICK_TOKEN)
  *   Optional: DEMO_BUYER (default rein-buyer.testnet, created from the faucet if missing), NEAR_CLI (default `near`).
  * The buyer signs with your keychain; this script never reads a key.
  */
@@ -91,7 +91,9 @@ const vaults = await view<string[]>('menu', { chain });
 if (vaults.length === 0) fail(`the desk has no ${chain} vaults on its menu`);
 let orderId: number | null = null;
 let orderTx = '';
-for (const vault of [...vaults].sort(() => Math.random() - 0.5)) {
+const only = process.argv[3]?.toLowerCase();
+if (only && !vaults.includes(only)) fail(`${only} is not on the ${chain} menu`);
+for (const vault of only ? [only] : [...vaults].sort(() => Math.random() - 0.5)) {
   const deposit = `${policy.price_near} yoctoNEAR`;
   console.log(`ordering a judgement of ${vault} on ${chain} for ${deposit} as ${buyer}`);
   const r = nearCli([
