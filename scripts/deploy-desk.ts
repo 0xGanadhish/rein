@@ -21,7 +21,7 @@ import { JUDGE_PROMPT } from '../shared/judgePrompt.ts';
 
 const network = process.argv.includes('mainnet') ? 'mainnet' : 'testnet';
 const yes = process.argv.includes('--yes');
-const RPC = { testnet: 'https://rpc.testnet.near.org', mainnet: 'https://rpc.mainnet.near.org' }[network];
+const RPC = { testnet: 'https://rpc.testnet.fastnear.com', mainnet: 'https://rpc.mainnet.fastnear.com' }[network];
 const WASM = new URL('../near/target/near/desk/desk.opt.wasm', import.meta.url);
 const WASM_LIMIT = 300_000;
 const ATTESTER_PATH = 'rein-attester-v1';

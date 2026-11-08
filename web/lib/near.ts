@@ -1,8 +1,8 @@
 import type { Network } from './ledger';
 
 export const NEAR_RPC: Record<Network, string> = {
-  testnet: 'https://rpc.testnet.near.org',
-  mainnet: 'https://rpc.mainnet.near.org',
+  testnet: 'https://rpc.testnet.fastnear.com',
+  mainnet: 'https://rpc.mainnet.fastnear.com',
 };
 
 /** A NEAR contract view call over JSON-RPC, at final finality. Works in the browser and on the server. */

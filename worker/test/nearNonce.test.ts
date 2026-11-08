@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { NEAR_RPC } from '../src/env';
 import { callWithNonceRetry } from '../src/nearNonce';
 
 afterEach(() => {
@@ -75,5 +76,14 @@ describe('NEAR mutation nonce recovery', () => {
       }),
     ).rejects.toBe(tooLarge);
     expect(tooLargeAttempts).toBe(1);
+  });
+});
+
+describe('NEAR RPC endpoints', () => {
+  // rpc.{testnet,mainnet}.near.org answer Worker traffic with -429 "THIS ENDPOINT IS DEPRECATED", which left every
+  // kick unable to read the desk and orders waiting for the next cron tick.
+  it('near_rpc_avoids_deprecated_public_endpoints', () => {
+    for (const url of Object.values(NEAR_RPC))
+      expect(new URL(url).hostname).not.toMatch(/^rpc\.(testnet|mainnet)\.near\.org$/);
   });
 });

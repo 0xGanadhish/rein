@@ -28,8 +28,8 @@ export interface Env {
 }
 
 export const NEAR_RPC: Record<NearNetwork, string> = {
-  testnet: 'https://rpc.testnet.near.org',
-  mainnet: 'https://rpc.mainnet.near.org',
+  testnet: 'https://rpc.testnet.fastnear.com',
+  mainnet: 'https://rpc.mainnet.fastnear.com',
 };
 
 export function rpcFor(env: Env, chain: DeskChain): string {

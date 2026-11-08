@@ -14,7 +14,7 @@ import { DEPLOYMENTS } from '../shared/deployments.ts';
 const TIMEOUT_MS = 120_000;
 /** Keeps watching past the target so a slow delivery still prints its proof (and still exits non-zero). */
 const GIVE_UP_MS = 300_000;
-const RPC = 'https://rpc.testnet.near.org';
+const RPC = 'https://rpc.testnet.fastnear.com';
 const NEARBLOCKS_API = 'https://api-testnet.nearblocks.io/v3';
 const NEARBLOCKS = 'https://testnet.nearblocks.io';
 const TX_EXPLORER: Partial<Record<DeskChain, string>> = {
