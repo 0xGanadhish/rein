@@ -154,7 +154,8 @@ export function Books({ business, kill }: { business: Ledger['business']; kill: 
           <div>
             <dt>Revenue at delivery</dt>
             <dd>
-              {units(business.settled_revenue.near, 24)} NEAR · {units(business.settled_revenue.usdc, 6)} USDC
+              {units(business.settled_revenue.near, 24)} NEAR · {units(business.settled_revenue.usdc, 6)} USDC · x402{' '}
+              {units(business.settled_revenue.x402_usdc, 6)} USDC
             </dd>
           </div>
           <div>
@@ -170,7 +171,7 @@ export function Books({ business, kill }: { business: Ledger['business']; kill: 
             <dt>Refunds authorized</dt>
             <dd>{business.refunds.authorized_orders}</dd>
           </div>
-          {owed && (
+          {owed.usdc !== null && owed.near !== null && (
             <div>
               <dt>Owed, not yet transferred</dt>
               <dd>
@@ -182,6 +183,13 @@ export function Books({ business, kill }: { business: Ledger['business']; kill: 
           <div>
             <dt>x402, not yet settled</dt>
             <dd>{units(business.x402_unsettled_usdc, 6)} USDC</dd>
+          </div>
+          <div>
+            <dt>x402 credits, not yet redeemed</dt>
+            <dd>
+              {units(owed.x402_credit_usdc, 6)} USDC
+              <small>Each buys one free judgement after a failed post; no money moves back</small>
+            </dd>
           </div>
           <div>
             <dt>Paid orders still open</dt>

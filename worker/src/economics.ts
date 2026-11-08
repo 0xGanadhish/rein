@@ -15,7 +15,7 @@ function add(to: DeskAmounts, source: string, amount: string) {
 
 /** No exchange-rate guesses: native fees and model USD cost remain separate from revenue. */
 export async function economics(db: D1Database, stats: DeskStats | null) {
-  const [orders, calls, attempts, executor] = await Promise.all([
+  const [orders, calls, attempts, executor, x402] = await Promise.all([
     db.prepare('SELECT id, source, status, amount, chain FROM orders ORDER BY id DESC').all<MoneyOrder>(),
     db.prepare('SELECT order_id, cost_usd_micros, credits_usd_micros, tokens_in, tokens_out FROM judge_calls').all<{
       order_id: number;
@@ -33,11 +33,52 @@ export async function economics(db: D1Database, stats: DeskStats | null) {
       ON p.chain = f.chain AND p.id = f.verdict_id`,
       )
       .all<{ chain: string; gas_wei: string; order_id: number | null }>(),
+    db
+      .prepare(
+        `SELECT p.id, p.amount, p.state, p.settlement_status, a.order_id, a.amount AS order_amount, a.status AS attempt_status
+      FROM x402_payments p LEFT JOIN x402_attempts a ON a.payment_id = p.id`,
+      )
+      .all<{
+        id: string;
+        amount: string;
+        state: string;
+        settlement_status: string;
+        order_id: number | null;
+        order_amount: string | null;
+        attempt_status: string | null;
+      }>(),
   ]);
   const delivered = zero(),
     opened = zero(),
     refunds = zero();
   let refundOrders = 0;
+  let x402Revenue = 0n,
+    x402Credits = 0n,
+    x402Pending = 0n,
+    x402Accounted = 0n;
+  const paymentsSeen = new Set<string>();
+  const x402Orders = new Map<number, { settled: boolean; revenue: string }>();
+  for (const payment of x402.results) {
+    const paid = payment.settlement_status === 'settled';
+    if (payment.order_id !== null) {
+      x402Orders.set(payment.order_id, {
+        settled: paid,
+        revenue: paid && payment.attempt_status === 'delivered' ? payment.amount : '0',
+      });
+      if (paid) x402Accounted += BigInt(payment.order_amount!);
+    }
+    if (paymentsSeen.has(payment.id)) continue;
+    paymentsSeen.add(payment.id);
+    if (!paid) continue;
+    if (payment.state === 'delivered') x402Revenue += BigInt(payment.amount);
+    else if (payment.state === 'credit') x402Credits += BigInt(payment.amount);
+    else if (payment.state === 'ready' || payment.state === 'running') x402Pending += BigInt(payment.amount);
+  }
+  const reportedX402 = BigInt(
+    stats?.sales_x402_usdc ??
+      String(orders.results.filter((o) => o.source === 'x402').reduce((sum, o) => sum + BigInt(o.amount), 0n)),
+  );
+  const x402Unsettled = reportedX402 > x402Accounted ? reportedX402 - x402Accounted : 0n;
   const gas: Record<string, bigint> = {},
     failedGas: Record<string, bigint> = {},
     executorGas: Record<string, bigint> = {};
@@ -77,6 +118,7 @@ export async function economics(db: D1Database, stats: DeskStats | null) {
   const perOrder = orders.results.slice(0, PER_ORDER_MARGIN_LIMIT).map((o) => {
     const revenue = zero();
     if (o.status === 'delivered') add(revenue, o.source, o.amount);
+    if (o.source === 'x402' && o.status === 'delivered') revenue.usdc = x402Orders.get(o.id)?.revenue ?? '0';
     const inference = costByOrder.get(o.id) ?? 0;
     return {
       order_id: o.id,
@@ -93,7 +135,7 @@ export async function economics(db: D1Database, stats: DeskStats | null) {
       },
       positive_margin: null,
       margin_unavailable_reason: 'Native gas has no USD valuation; NEAR transaction fees are not measured.',
-      x402_settled: o.source === 'x402' ? false : null,
+      x402_settled: o.source === 'x402' ? (x402Orders.get(o.id)?.settled ?? false) : null,
     };
   });
   // Split totals, unlike gross sales, accrue only on delivery. They include transfers still owed.
@@ -133,14 +175,23 @@ export async function economics(db: D1Database, stats: DeskStats | null) {
     };
   }
   return {
-    settled_revenue: { ...settled, x402_usdc: '0', source: stats ? 'desk_split_totals' : 'mirrored_deliveries' },
+    settled_revenue: {
+      ...settled,
+      x402_usdc: String(x402Revenue),
+      source: stats ? 'desk_split_totals_and_x402_journal' : 'mirrored_deliveries_and_x402_journal',
+    },
     opened_orders: {
       n: orders.results.length,
       amounts: opened,
       desk_gross: stats ? { near: stats.sales_near, usdc: stats.sales_usdc } : null,
     },
     refunds: { authorized_orders: stats?.refunds ?? refundOrders, mirrored_amounts: refunds, paid_amounts: null },
-    unpaid_liabilities: stats ? { usdc: stats.owed, near: stats.owed_near } : null,
+    unpaid_liabilities: {
+      usdc: stats?.owed ?? null,
+      near: stats?.owed_near ?? null,
+      x402_credit_usdc: String(x402Credits),
+      x402_pending_usdc: String(x402Pending),
+    },
     gas_per_chain: chainGas,
     inference: {
       underlying_cost_usd_micros: unknownUsage === 0 ? cost : null,
@@ -150,7 +201,7 @@ export async function economics(db: D1Database, stats: DeskStats | null) {
       calls_with_unknown_usage: unknownUsage,
     },
     margin: {
-      usdc_less_inference_micros: String(BigInt(settled.usdc) - BigInt(cost)),
+      usdc_less_inference_micros: String(BigInt(settled.usdc) + x402Revenue - BigInt(cost)),
       near_yocto: settled.near,
       includes_native_gas: false,
     },
@@ -159,7 +210,7 @@ export async function economics(db: D1Database, stats: DeskStats | null) {
     self_funding: false,
     self_funding_reason:
       'NEAR and USDC receipts do not replenish EVM native gas; no automatic conversion is configured.',
-    x402_unsettled_usdc: stats?.sales_x402_usdc ?? '0',
+    x402_unsettled_usdc: String(x402Unsettled),
     per_order_margin: perOrder,
     per_order_margin_truncated: orders.results.length > PER_ORDER_MARGIN_LIMIT,
   };

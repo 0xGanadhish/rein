@@ -46,8 +46,16 @@ export interface Ledger {
     /** Revenue counts at delivery, from the desk's split totals; it includes transfers still owed. */
     settled_revenue: { near: string; usdc: string; x402_usdc: string; source: string };
     refunds: { authorized_orders: number; mirrored_amounts: { near: string; usdc: string }; paid_amounts: null };
-    /** Failed transfers, refunds and splits together, claimable with claim_owed; null before the desk is read. */
-    unpaid_liabilities: { usdc: string; near: string } | null;
+    /**
+     * Failed transfers, refunds and splits together, claimable with claim_owed (null before the desk is read), and
+     * x402 payments still owed a judgement: unredeemed credits and purchases still being judged.
+     */
+    unpaid_liabilities: {
+      usdc: string | null;
+      near: string | null;
+      x402_credit_usdc: string;
+      x402_pending_usdc: string;
+    };
     /** Native gas per chain, in wei; a lower bound. */
     gas_per_chain: Record<string, { cost_wei: string; cost_is_lower_bound: boolean }>;
     inference: { known_cost_usd_micros: number; calls_with_unknown_usage: number };

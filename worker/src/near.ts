@@ -52,6 +52,7 @@ export function nearDesk(env: Env): DeskClient {
     get_order: async (id) => (await view<DeskOrder | null>('get_order', { order_id: id })) ?? null,
     policy: () => view<DeskPolicy>('policy'),
     menu: (chain) => view<string[]>('menu', { chain }),
+    check_x402_request: (chain, vault) => view<string>('check_x402_request', { chain, vault }),
     stats: () => view<DeskStats>('stats'),
     submit_watch_request: (chain, vault) => call<number>('submit_watch_request', { chain, vault }),
     submit_x402_request: (chain, vault, payment_ref, amount) =>

@@ -12,7 +12,7 @@ import { BroadcastJournal } from './journal';
 import { withLock } from './lock';
 import { mirror, realMirrorDeps, type MirrorDeps } from './mirror';
 import { orderReady, processOrder, type ChainClient, type OrderDeps, type OrderOutcome } from './order';
-import { rememberSignedTx } from './payments';
+import { reconcileX402 } from './x402';
 import { readVault } from './vendor/vaultReader';
 import { netOutPct1h, realWatchDeps, watchOnce, type WatchDeps } from './watch';
 
@@ -187,8 +187,7 @@ export interface CronDeps {
 async function realCronDeps(env: Env): Promise<CronDeps> {
   // Loaded on first use: @near-js pulls in CommonJS crypto that the Vitest workerd runner can't load.
   const { nearDesk } = await import('./near');
-  // One desk per request, shared by the order loop and the x402 route, so a signed tx read by one is seen by both.
-  const desk = rememberSignedTx(nearDesk(env));
+  const desk = nearDesk(env);
   return {
     order: realDeps(env, desk),
     mirror: realMirrorDeps(env, desk),
@@ -237,6 +236,7 @@ export async function runAll(env: Env, network: NearNetwork, now: number, deps: 
     return run.ran ? run.value : 'busy';
   });
   const orders = await step('orders', () => tick(env, network, deps.order));
+  await step('x402', () => reconcileX402(env.DB, network, deps.order.desk));
   const watched = await step('watch', async () => {
     const run = await withLock(env.DB, `watch:${network}`, LOCK_TTL_S, () => watchOnce(env, network, now, deps.watch));
     return run.ran ? run.value : 'busy';

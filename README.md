@@ -76,9 +76,9 @@ that during an extended outage, and relies on RPC receipt/state visibility rathe
 
 ### Ledger, inputs and operational health
 
-Apply migrations through `worker/migrations/0004_ledger_health.sql` before deploying this Worker.
-Startup does not apply migrations. The schema adds call outcomes/token usage, receipt fees, grading times,
-quote limits and persistent incidents. A subsequent migration must use the next free number.
+Apply migrations through `worker/migrations/0006_x402.sql` before deploying this Worker.
+Startup does not apply migrations. The schema includes call outcomes/token usage, receipt fees, grading
+times, persistent incidents, and the x402 operation/result journal.
 
 **Model cost:** NEAR AI's public [models endpoint](https://cloud-api.near.ai/v1/models) lists
 `z-ai/glm-5.3-flash` at **$0.08 per million input tokens** and **$0.50 per million output tokens**.
@@ -90,11 +90,14 @@ not zero. Calls with missing usage are counted explicitly; the known-cost subtot
 `GET /v1/stats` and `/v1/ledger.business` retain their existing fields and add:
 
 - `settled_revenue`: NEAR/USDC split totals from the desk, credited only at delivery; this is earned revenue,
-  not proof that payout transfers succeeded. `x402_usdc` is zero until a settlement journal exists.
+  not proof that payout transfers succeeded. Separate `x402_usdc` counts each settled payment once,
+  only after its original or replacement judgement is delivered.
 - `opened_orders`: mirrored count/amounts and authoritative gross accepted escrow in `desk_gross`.
 - `refunds`: authorized order count and mirrored refund amounts, separate from `paid_amounts: null`.
   The desk exposes aggregate owed balances, not a refund-versus-split payout breakdown.
 - `unpaid_liabilities`: USDC and yoctoNEAR still owed, including in-flight and failed transfers.
+  `x402_credit_usdc` is the face value of unredeemed one-use judgement credits; it is not a cash refund.
+  `x402_pending_usdc` covers settled purchases whose judgement is still pending.
 - `gas_per_chain`: `desk_wei`, journal `observed_wei`, `executor_wei`, `reverted_wei`, `cost_wei`,
   and `cost_is_lower_bound`. Post fees overlap desk totals, so their maximum, not their sum, is used;
   executor sample/resolve fees are added separately. Historic/unobserved receipts can make this a lower bound.
@@ -105,7 +108,8 @@ not zero. Calls with missing usage are counted explicitly; the known-cost subtot
   NEAR transaction fees are unavailable. No native fee is silently valued at zero.
 - `self_funding: false` and `self_funding_reason`: USDC/NEAR receipts do not automatically replenish
   EVM native gas, even when a partial currency margin is positive.
-- `x402_unsettled_usdc`: the desk's reported x402 amount, excluded from earned revenue.
+- `x402_unsettled_usdc`: desk-reported x402 amounts without a confirmed payment-journal settlement,
+  excluded from earned revenue. A settled but undelivered purchase is deferred, not earned revenue.
 - `per_order_margin`: `order_id`, `chain`, `status`, delivery-only `revenue`, `judge_cost_usd_micros`,
   measured `gas_wei`, the currency-vector `margin` (`usdc_less_inference_micros`, `near_yocto`,
   `native_gas_wei`, `near_gas_yocto: null`), `positive_margin`, `margin_unavailable_reason`, and `x402_settled`.
@@ -179,12 +183,80 @@ same error shape; successful status responses still pass through.
   The Workers Rate Limiting binding allows 10 requests per 60 seconds, keyed on `CF-Connecting-IP`;
   missing headers share the `unknown` bucket. Limits are approximate and local to each Cloudflare
   location, not a strict global quota. Denials return 429 with `Retry-After: 60`.
-- `POST /v1/x402/judge`: payment verification stays in the x402 handler, without the kick/quote guards.
+- `POST /v1/x402/judge`: x402 v2 quote/deposit flow, described below. Quote creation uses the same rate-limit
+  binding with a separate `x402:<IP>` bucket; replay and credit redemption do not request a new quote.
 - `GET /v1/ledger`, `/v1/orders/:id` (numeric ID), `/v1/quote/status`, `/v1/stats`, and `/v1/health`:
   public reads without those guards. HEAD remains unsupported.
 
-Apply migrations through `worker/migrations/0005_drop_quote_limits.sql` before deploying; this removes
-the obsolete D1 limiter table. The binding is configured in `worker/wrangler.toml`, with observability enabled.
+Apply migrations through `worker/migrations/0006_x402.sql` before deploying. Migration `0005` removes
+the obsolete D1 limiter table; `0006` adds payment operations and judgement attempts.
+The binding is configured in `worker/wrangler.toml`, with observability enabled.
+
+### x402 judgement purchases
+
+This path is **mainnet only** (Monad or Base judgements). It implements PingPay's
+[x402 integration](https://pingpay.gitbook.io/docs/pingpay-api/agent-pay-facilitator/x402-integration)
+and the [near-intents proposal](https://github.com/x402-foundation/x402/pull/3370):
+`scheme: "exact"`, `extra.assetTransferMethod: "near-intents"`, `extra.paymentFlow: "upfront"`.
+The facilitator is `https://pay.pingpay.io/agentpay/x402`, authenticated by the Worker secret
+`PINGPAY_API_KEY` in `X-Api-Key`. Configure the PingPay organization's destination to match
+the desk policy's `treasury` and `usdc_token`; the Worker rejects offers with a different destination.
+No additional treasury variable is needed. In protocol terms, unquoted `payTo` is empty and quoted
+`payTo` is the 1Click deposit address; **the treasury is `extra.destination.recipient`, never the agent**.
+
+1. `POST /v1/x402/judge` with `{"chain":"monad","vault":"0x..."}` returns 402 with an unquoted
+   `accepts[]` and the same body encoded in `PAYMENT-REQUIRED`. Each purchase's `resource.url`
+   includes its chain and lowercase vault as query parameters.
+2. Retry with `PAYMENT-SIGNATURE` containing base64 x402 v2 JSON: `resource`, the chosen unquoted
+   `accepted` entry, and `payload: {"type":"quote","refundTo":"<origin-chain address>"}`.
+   Optional `slippageTolerance` is in basis points. Before quoting, the Worker calls the desk's
+   read-only `check_x402_request`: menu, active order, spacing, caps and kill switch use the same
+   admission code as order creation. Refused requests return 422 and burn no claim.
+3. `/verify` commits no funds. The second 402 carries quoted `payTo`, `amount`, `operationToken`,
+   `refundDeadline`, and a `depositMemo` where required. Persist these privately before depositing.
+   Send funds on the advertised origin network; this starts the swap automatically.
+4. Retry with the **original unquoted** `accepted` entry and `payload: {"type":"deposit",
+   "operationToken":"...","depositAddress":"...","txHash":"..."}`; include `depositMemo` if quoted.
+   The Worker calls `/settle` with its recorded terms, then starts the judgement only after success.
+   Pending operations return 202; retry the same payment, do not fund a new quote.
+   A rejected deposit proof does not burn the operation: correct the proof and retry with the same token.
+   Terminal swap-failure/refund receipts are stored and replayed unchanged.
+5. Delivery returns 200 with `orderId`, `signedTx`, and `verdict`. If an external broadcaster supplied
+   the transaction, `signedTx` can be null and the verdict comes from the oracle mirror.
+   `PAYMENT-RESPONSE` carries the settlement receipt. D1 stores the result, and subsequent presentations
+   of the same operation return it without another settlement or judgement, even after a restart.
+   Cron reconciles completed judgements independently of the HTTP connection. Pending operations do not
+   crowd completed ones out of its bounded batch; mirrored outcomes also survive desk order pruning.
+
+**Upfront means paid before judgement, not a hold captured on delivery.** A failed onchain post,
+rejected/refunded desk order, or policy refusal after successful settlement returns an application error
+with `creditAvailable: true`. No money moves back. The quote-time admission check is not a reservation:
+another order or a policy change can win the race while payment completes.
+
+Redeem a credit by sending the same deposit payment with `{"chain":"monad","vault":"0x...",
+"redeemCredit":true}`. The credit buys **one replacement judgement of the original chain/vault**,
+without another PingPay settlement. Ordinary retries replay the saved failure rather than spending
+the credit. A refusal at the redemption preflight leaves it available; once the replacement attempt
+starts, the credit is consumed. Failure of that attempt returns `creditAvailable: false` and does not
+mint another credit. Concurrent redemptions cannot create additional attempts.
+
+Deploy a desk with `check_x402_request` and idempotent `submit_x402_request` before enabling this Worker.
+The latter retains attempt references after order pruning, so an accepted NEAR call whose response was
+lost cannot create another order. Its receipt storage uses a separate prefix without changing the
+serialized desk-state layout. The Worker stores the provider instrument identity (origin network,
+deposit address and memo), quote terms, settlement receipt, attempt IDs and result in D1. Treat the
+operation token as a bearer credential; it is not included in application results or settlement receipts.
+
+The CLI helper never deposits funds:
+
+```sh
+node --experimental-strip-types scripts/x402-buyer.ts <worker-url> monad <vault> [payment-signature]
+node --experimental-strip-types scripts/x402-buyer.ts <worker-url> monad <vault> <payment-signature> --redeem-credit
+```
+
+Live confirmation is still required for the organization's treasury routing, actual receipts, quote/token
+expiry, and swap-failure refunds/fees. A successful swap is not reversed when a Rein judgement fails.
+
 
 ## Local verification
 

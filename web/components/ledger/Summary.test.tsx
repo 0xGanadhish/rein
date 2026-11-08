@@ -24,9 +24,14 @@ const business: Ledger['business'] = {
   judge_cost_usd_micros: 148,
   orders: [],
   watch: { asked: 0, opened: 0 },
-  settled_revenue: { near: '1000000000000000000000000', usdc: '3000000', x402_usdc: '0', source: 'desk_split_totals' },
+  settled_revenue: {
+    near: '1000000000000000000000000',
+    usdc: '3000000',
+    x402_usdc: '500000',
+    source: 'desk_split_totals_and_x402_journal',
+  },
   refunds: { authorized_orders: 2, mirrored_amounts: { near: '0', usdc: '2000000' }, paid_amounts: null },
-  unpaid_liabilities: { usdc: '1000000', near: '0' },
+  unpaid_liabilities: { usdc: '1000000', near: '0', x402_credit_usdc: '250000', x402_pending_usdc: '0' },
   gas_per_chain: { monad: { cost_wei: '61200000000000000', cost_is_lower_bound: true } },
   inference: { known_cost_usd_micros: 148, calls_with_unknown_usage: 0 },
   margin: {
@@ -45,15 +50,21 @@ describe('Books', () => {
   it('business_panel_shows_sales_refunds_inference_gas_margin_split_kill_switch', () => {
     const t = text(renderToStaticMarkup(<Books business={business} kill />));
     expect(t).toContain('Paid by customers 3.00 NEAR · 5.00 USDC');
-    expect(t).toContain('Revenue at delivery 1.00 NEAR · 3.00 USDC');
+    expect(t).toContain('Revenue at delivery 1.00 NEAR · 3.00 USDC · x402 0.50 USDC');
     expect(t).toContain('Split, treasury / agent 2.10 / 0.90 USDC');
     expect(t).toContain('Refunds authorized 2');
     expect(t).toContain('Owed, not yet transferred 1.00 USDC · 0.00 NEAR');
     expect(t).toContain('x402, not yet settled 1.00 USDC');
+    expect(t).toContain('x402 credits, not yet redeemed 0.25 USDC');
     expect(t).toContain('Model cost $0.0001');
     expect(t).toContain('Gas, at least monad 0.06 MON');
     expect(t).toContain('Margin before gas 2.99 USDC');
     expect(t).toContain('Native gas has no USD valuation');
     expect(t).toContain('Kill switch On');
+  });
+
+  it('owed_row_hidden_until_the_desk_is_read', () => {
+    const unread = { ...business, unpaid_liabilities: { ...business.unpaid_liabilities, usdc: null, near: null } };
+    expect(text(renderToStaticMarkup(<Books business={unread} kill />))).not.toContain('Owed, not yet transferred');
   });
 });

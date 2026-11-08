@@ -1,13 +1,9 @@
-import { decodeFunctionData, parseAbi, parseTransaction, type Hex } from 'viem';
-import type { DeskChain } from '../../shared/desk';
-import { CHAIN_IDS, type DeskClient } from './deskTypes';
-import type { Env, NearNetwork } from './env';
+import type { DeskChain, DeskPolicy } from '../../shared/desk';
+import { CHAIN_IDS, NETWORK_CHAINS, type DeskClient } from './deskTypes';
+import type { Env } from './env';
+import { withLock } from './lock';
+import { paymentResponse, readPayment, runPaidJudgement } from './x402';
 
-/**
- * Wire shapes of the two payment services, kept here so they are easy to adjust.
- * 1Click: the NEAR Intents 1Click API, `/v0/quote` and `/v0/status`.
- * PingPay: the standard x402 v1 facilitator shapes (`/verify`, `/settle`, `X-PAYMENT`) are assumed.
- */
 export const ONECLICK = {
   base: 'https://1click.chaindefuser.com/v0',
   /** Native USDC on NEAR, as a NEAR Intents asset id. */
@@ -17,76 +13,73 @@ export const ONECLICK = {
 };
 
 export const PINGPAY = {
-  base: 'https://api.pingpay.io/x402',
+  base: 'https://pay.pingpay.io/agentpay/x402',
   verifyPath: '/verify',
   settlePath: '/settle',
-  x402Version: 1,
+  x402Version: 2,
   scheme: 'exact',
-  network: { testnet: 'near:testnet', mainnet: 'near:mainnet' } as Record<NearNetwork, string>,
-  paymentHeader: 'X-PAYMENT',
-  responseHeader: 'X-PAYMENT-RESPONSE',
-  maxTimeoutSeconds: 300,
+  paymentHeader: 'PAYMENT-SIGNATURE',
+  responseHeader: 'PAYMENT-RESPONSE',
 };
 
 export interface PaymentRequirements {
   scheme: string;
   network: string;
-  maxAmountRequired: string;
-  resource: string;
-  description: string;
-  mimeType: string;
+  amount: string;
+  asset: string;
   payTo: string;
   maxTimeoutSeconds: number;
-  asset: string;
+  extra: {
+    assetTransferMethod: string;
+    paymentFlow: string;
+    destination: { network: string; asset: string; amount: string; recipient: string };
+    operationToken?: string;
+    refundDeadline?: string;
+    depositMemo?: string;
+    [key: string]: unknown;
+  };
 }
-
+interface PaymentPayload {
+  x402Version: number;
+  resource: { url: string };
+  accepted: PaymentRequirements;
+  payload: {
+    type: 'quote' | 'deposit';
+    refundTo?: string;
+    slippageTolerance?: number;
+    operationToken?: string;
+    depositAddress?: string;
+    depositMemo?: string;
+    txHash?: string;
+  };
+}
 interface VerifyResponse {
   isValid: boolean;
   invalidReason?: string;
-  payer?: string;
+  extra?: {
+    depositAddress: string;
+    amountIn: string;
+    refundDeadline: string;
+    operationToken: string;
+    depositMemo?: string;
+  };
 }
 interface SettleResponse {
   success: boolean;
+  transaction: string;
+  network: string;
   errorReason?: string;
-  transaction?: string;
-  network?: string;
-  payer?: string;
+  amount?: string;
+  extra?: { status?: string; [key: string]: unknown };
 }
 
-/** How long a paid request waits for its order to be signed. */
-export const SIGN_WAIT_MS = 150_000;
-const POLL_MS = 5_000;
-const VERDICTS = ['HOLD', 'EXIT', 'MOVE'] as const;
-const postAbi = parseAbi([
-  'function post(address vault, uint8 verdict, uint16 confidenceBps, uint16 riskBps, bytes32 stateHash, uint64 validUntil) returns (uint256 id)',
-]);
-
 export interface PaymentDeps {
-  /** Reaches 1Click and PingPay. */
   fetch: typeof fetch;
-  desk: Pick<DeskClient, 'policy' | 'submit_x402_request' | 'get_order' | 'get_signed_tx'>;
-  /** One pass of the order loop. */
+  desk: Pick<DeskClient, 'policy' | 'check_x402_request' | 'submit_x402_request' | 'get_order'>;
   tick(): Promise<unknown>;
   sleep(ms: number): Promise<void>;
   /** Milliseconds. */
   now(): number;
-}
-
-/**
- * The desk, but `get_signed_tx` keeps answering with the last signed tx it saw for an order. Delivery clears the tx on
- * the desk, and the order loop reads it before broadcasting, so a paid request that waited through a whole tick can
- * still return it. Give the order loop and the x402 route the same wrapped desk.
- */
-export function rememberSignedTx<D extends Pick<DeskClient, 'get_signed_tx'>>(desk: D): D {
-  const seen = new Map<number, string>();
-  return {
-    ...desk,
-    async get_signed_tx(order_id: number) {
-      const tx = await desk.get_signed_tx(order_id);
-      if (tx) seen.set(order_id, tx);
-      return tx ?? seen.get(order_id) ?? null;
-    },
-  };
 }
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
@@ -157,131 +150,240 @@ async function pingpay<T>(
   env: Env,
   deps: PaymentDeps,
   path: string,
-  payload: unknown,
+  payload: PaymentPayload,
   requirements: PaymentRequirements,
 ): Promise<T> {
   const res = await deps.fetch(`${PINGPAY.base}${path}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${env.PINGPAY_API_KEY}` },
-    body: JSON.stringify({
-      x402Version: PINGPAY.x402Version,
-      paymentPayload: payload,
-      paymentRequirements: requirements,
-    }),
+    headers: { 'content-type': 'application/json', 'X-Api-Key': env.PINGPAY_API_KEY },
+    body: JSON.stringify({ x402Version: 2, paymentPayload: payload, paymentRequirements: requirements }),
   });
-  if (!res.ok) throw new Error(`pingpay ${path} ${res.status}`);
+  if (res.status >= 500) throw new Error(`PingPay ${path} unavailable`);
   return res.json<T>();
 }
 
-function decodePayment(header: string): unknown {
+function decodePayment(header: string): PaymentPayload | null {
   try {
-    return JSON.parse(atob(header));
+    const p = JSON.parse(atob(header)) as PaymentPayload;
+    if (
+      p?.x402Version !== 2 ||
+      typeof p.resource?.url !== 'string' ||
+      p.accepted?.scheme !== 'exact' ||
+      typeof p.accepted.network !== 'string' ||
+      typeof p.accepted.asset !== 'string' ||
+      p.accepted.extra?.assetTransferMethod !== 'near-intents' ||
+      p.accepted.extra.paymentFlow !== 'upfront'
+    )
+      return null;
+    if (p.payload?.type === 'quote' && typeof p.payload.refundTo === 'string' && p.payload.refundTo) return p;
+    if (
+      p.payload?.type === 'deposit' &&
+      typeof p.payload.operationToken === 'string' &&
+      p.payload.operationToken &&
+      typeof p.payload.depositAddress === 'string' &&
+      p.payload.depositAddress &&
+      typeof p.payload.txHash === 'string' &&
+      p.payload.txHash &&
+      (p.payload.depositMemo === undefined || typeof p.payload.depositMemo === 'string')
+    )
+      return p;
+    return null;
   } catch {
     return null;
   }
 }
 
-async function sha256Hex(s: string): Promise<string> {
-  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
+async function offers(env: Env, deps: PaymentDeps, policy: DeskPolicy): Promise<PaymentRequirements[]> {
+  const res = await deps.fetch(`${PINGPAY.base}/offers?amountOut=${encodeURIComponent(policy.price_usdc)}`, {
+    headers: { 'X-Api-Key': env.PINGPAY_API_KEY },
+  });
+  if (!res.ok) throw new Error('PingPay offers unavailable');
+  const { accepts } = await res.json<{ accepts: PaymentRequirements[] }>();
+  if (!Array.isArray(accepts)) throw new Error('PingPay offers missing');
+  // The API key's organization controls routing. Fail closed rather than pay another recipient.
+  const matching = accepts.filter(
+    (r) =>
+      r.scheme === 'exact' &&
+      typeof r.network === 'string' &&
+      typeof r.asset === 'string' &&
+      r.payTo === '' &&
+      r.amount === '' &&
+      Number.isFinite(r.maxTimeoutSeconds) &&
+      r.maxTimeoutSeconds > 0 &&
+      r.extra?.assetTransferMethod === 'near-intents' &&
+      r.extra.paymentFlow === 'upfront' &&
+      r.extra.destination?.recipient === policy.treasury &&
+      r.extra.destination.network === 'near:mainnet' &&
+      r.extra.destination.amount === policy.price_usdc &&
+      r.extra.destination.asset.replace(/^nep141:/, '') === policy.usdc_token,
+  );
+  if (!matching.length) throw new Error('PingPay offers do not match treasury and USDC policy');
+  return matching;
 }
 
-/** The verdict a signed post carries. */
-function verdictOf(signedTx: string) {
-  try {
-    const { args } = decodeFunctionData({ abi: postAbi, data: parseTransaction(signedTx as Hex).data! });
-    const [, verdict, confidenceBps, riskBps] = args;
-    return { verdict: VERDICTS[verdict] ?? verdict, confidenceBps, riskBps };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * `POST /v1/x402/judge {chain, vault}`. Without payment: 402 and the requirements. With payment: verify it, record the
- * order on the desk, run the order loop until the post is signed, then settle. A payment is taken only for a signed post.
- */
+/** x402 v2 upfront payment; only delivery earns revenue. Failed paid attempts become a one-use credit. */
 export async function x402Judge(request: Request, env: Env, deps: PaymentDeps): Promise<Response> {
   const b = await body(request);
   const chain = b?.chain;
   const vault = typeof b?.vault === 'string' ? b.vault.toLowerCase() : null;
   if (!isChain(chain)) return json({ error: 'chain must be monad-testnet, monad, base or base-sepolia' }, 400);
   if (!vault || !/^0x[0-9a-f]{40}$/.test(vault)) return json({ error: 'vault must be a 0x address' }, 400);
+  if (env.NEAR_NETWORK !== 'mainnet' || !NETWORK_CHAINS.mainnet.includes(chain))
+    return json({ error: 'PingPay x402 is mainnet only' }, 503);
+  const resource = { url: `${new URL(request.url).origin}/v1/x402/judge?chain=${chain}&vault=${vault}` };
+  const required = (error: string, accepts: PaymentRequirements[] = []) => {
+    const response = { x402Version: 2, error, resource, accepts };
+    return json(response, 402, { 'PAYMENT-REQUIRED': btoa(JSON.stringify(response)) });
+  };
+  const header = request.headers.get(PINGPAY.paymentHeader);
+  const payload = header ? decodePayment(header) : null;
+  if (header && !payload) return required('PAYMENT-SIGNATURE must contain a valid x402 v2 payload');
+  if (payload && payload.resource.url !== resource.url) return required('payment resource does not match judgement');
 
+  if (payload?.payload.type === 'deposit') {
+    const instrument = payload.payload;
+    // EVM address casing is not a different payment. The provider's original spelling remains in the record.
+    const address = payload.accepted.network.startsWith('eip155:')
+      ? instrument.depositAddress!.toLowerCase()
+      : instrument.depositAddress!;
+    const id = JSON.stringify([env.NEAR_NETWORK, payload.accepted.network, address, instrument.depositMemo ?? '']);
+    const payment = await readPayment(env.DB, id);
+    if (!payment || payment.resource_url !== resource.url || payment.chain !== chain || payment.vault !== vault)
+      return required('payment operation not found for this judgement');
+    const terms = JSON.parse(payment.requirements_json) as PaymentRequirements;
+    if (payload.accepted.asset !== terms.asset) return required('payment asset does not match operation');
+    const encoder = new TextEncoder();
+    const [presented, stored] = await Promise.all(
+      [instrument.operationToken!, payment.operation_token].map((token) =>
+        crypto.subtle.digest('SHA-256', encoder.encode(token)),
+      ),
+    );
+    if (!crypto.subtle.timingSafeEqual(presented, stored)) return required('payment operation token invalid');
+    const locked = await withLock(env.DB, `x402:${id}`, 60, async () => {
+      let current = (await readPayment(env.DB, id))!;
+      if (current.settlement_status === 'failed')
+        return paymentResponse(current, JSON.parse(current.settlement_json!), 402);
+      if (current.settlement_status !== 'settled') {
+        let settled: SettleResponse;
+        try {
+          settled = await pingpay<SettleResponse>(env, deps, '/settle', payload, terms);
+        } catch {
+          return paymentResponse(current, { status: 'pending', paymentRef: id }, 202);
+        }
+        if (
+          typeof settled.success !== 'boolean' ||
+          typeof settled.transaction !== 'string' ||
+          typeof settled.network !== 'string'
+        )
+          return json({ error: 'invalid PingPay settlement receipt' }, 502);
+        if (
+          settled.success &&
+          (settled.network !== 'near:mainnet' ||
+            !settled.transaction ||
+            (settled.amount !== undefined && settled.amount !== current.amount))
+        )
+          return json({ error: 'PingPay settlement receipt does not match purchase' }, 502);
+        const pending =
+          settled.errorReason === 'settlement_pending' ||
+          (!settled.success && settled.extra?.status === 'INCOMPLETE_DEPOSIT');
+        const terminal =
+          settled.extra?.status === 'REFUNDED' ||
+          settled.extra?.status === 'FAILED' ||
+          settled.errorReason === 'exact_near_intents_payment_failed' ||
+          settled.errorReason === 'exact_near_intents_insufficient_deposit';
+        await env.DB.prepare('UPDATE x402_payments SET settlement_status = ?, settlement_json = ? WHERE id = ?')
+          .bind(
+            settled.success ? 'settled' : terminal ? 'failed' : pending ? 'pending' : 'quoted',
+            JSON.stringify(settled),
+            id,
+          )
+          .run();
+        current = (await readPayment(env.DB, id))!;
+        if (!settled.success) return paymentResponse(current, settled, pending ? 202 : 402);
+      }
+      return runPaidJudgement(env.DB, current, deps, b?.redeemCredit === true);
+    });
+    return locked.ran ? locked.value : json({ status: 'pending', paymentRef: id }, 202);
+  }
+
+  // Quote-time refusals have no operation/claim to burn. The same request is reusable once admission opens.
+  const admission = await deps.desk.check_x402_request(chain, vault);
+  if (admission !== 'ok') return json({ error: admission }, 422);
   const policy = await deps.desk.policy();
   if (!policy.usdc_token) return json({ error: 'USDC payments are off' }, 503);
-  const requirements: PaymentRequirements = {
-    scheme: PINGPAY.scheme,
-    network: PINGPAY.network[env.NEAR_NETWORK],
-    maxAmountRequired: policy.price_usdc,
-    resource: new URL(request.url).origin + '/v1/x402/judge',
-    description: `Rein verdict on ${vault} (${chain})`,
-    mimeType: 'application/json',
-    payTo: env.AGENT_ACCOUNT,
-    maxTimeoutSeconds: PINGPAY.maxTimeoutSeconds,
-    asset: policy.usdc_token,
-  };
-  const required = (error: string) => json({ x402Version: PINGPAY.x402Version, error, accepts: [requirements] }, 402);
-
-  const header = request.headers.get(PINGPAY.paymentHeader);
-  if (!header) return required(`${PINGPAY.paymentHeader} header is required`);
-  const payload = decodePayment(header);
-  if (!payload) return required('payment header is not base64 JSON');
-
-  const verified = await pingpay<VerifyResponse>(env, deps, PINGPAY.verifyPath, payload, requirements);
-  if (!verified.isValid) return required(verified.invalidReason ?? 'payment invalid');
-
-  // A payment opens one order at most, whatever happens to it.
-  const paymentRef = await sha256Hex(header);
-  const claim = await env.DB.prepare(`INSERT OR IGNORE INTO meta (key, json, at) VALUES (?, ?, ?)`)
+  let accepts: PaymentRequirements[];
+  try {
+    accepts = await offers(env, deps, policy);
+  } catch (e) {
+    return json({ error: message(e) }, 502);
+  }
+  if (!payload) return required('payment required', accepts);
+  const requirements = accepts.find(
+    (r) => r.network === payload.accepted.network && r.asset === payload.accepted.asset,
+  );
+  if (!requirements) return required('payment origin not offered', accepts);
+  const { success } = await env.QUOTE_RATE_LIMITER.limit({
+    key: `x402:${request.headers.get('CF-Connecting-IP') ?? 'unknown'}`,
+  });
+  if (!success) return json({ error: 'rate limited' }, 429, { 'Retry-After': '60' });
+  let verified: VerifyResponse;
+  try {
+    verified = await pingpay<VerifyResponse>(env, deps, '/verify', payload, requirements);
+  } catch {
+    return json({ error: 'PingPay quote unavailable' }, 502);
+  }
+  if (!verified.isValid) return required(verified.invalidReason ?? 'payment quote invalid', accepts);
+  const q = verified.extra;
+  if (
+    !q ||
+    typeof q.depositAddress !== 'string' ||
+    !q.depositAddress ||
+    typeof q.operationToken !== 'string' ||
+    !q.operationToken ||
+    typeof q.amountIn !== 'string' ||
+    !/^[1-9]\d*$/.test(q.amountIn) ||
+    typeof q.refundDeadline !== 'string' ||
+    !Number.isFinite(Date.parse(q.refundDeadline)) ||
+    (q.depositMemo !== undefined && typeof q.depositMemo !== 'string')
+  )
+    return json({ error: 'invalid PingPay quote' }, 502);
+  const address = requirements.network.startsWith('eip155:') ? q.depositAddress.toLowerCase() : q.depositAddress;
+  const id = JSON.stringify([env.NEAR_NETWORK, requirements.network, address, q.depositMemo ?? '']);
+  await env.DB.prepare(
+    `INSERT OR IGNORE INTO x402_payments
+    (id, network, origin_network, deposit_address, deposit_memo, operation_token, resource_url, chain, vault, amount,
+      requirements_json, refund_deadline, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
     .bind(
-      `x402:${paymentRef}`,
-      JSON.stringify({ chain, vault, payer: verified.payer ?? null }),
+      id,
+      env.NEAR_NETWORK,
+      requirements.network,
+      q.depositAddress,
+      q.depositMemo ?? '',
+      q.operationToken,
+      resource.url,
+      chain,
+      vault,
+      policy.price_usdc,
+      JSON.stringify(requirements),
+      q.refundDeadline,
       Math.floor(deps.now() / 1000),
     )
     .run();
-  if (claim.meta.changes === 0) return json({ error: 'payment already used', paymentRef }, 409);
-
-  let orderId: number;
-  try {
-    orderId = await deps.desk.submit_x402_request(chain, vault, paymentRef, requirements.maxAmountRequired);
-  } catch (e) {
-    return json({ error: 'refused', reason: message(e) }, 422);
-  }
-  await env.DB.prepare(`UPDATE meta SET json = json_set(json, '$.orderId', ?) WHERE key = ?`)
-    .bind(orderId, `x402:${paymentRef}`)
-    .run();
-
-  const deadline = deps.now() + SIGN_WAIT_MS;
-  let signedTx: string | null;
-  for (;;) {
-    try {
-      await deps.tick();
-    } catch (e) {
-      console.error(JSON.stringify({ msg: 'x402_tick_failed', orderId, error: message(e) }));
-    }
-    const order = await deps.desk.get_order(orderId);
-    if (order && (order.status === 'signed' || order.status === 'delivered')) {
-      signedTx = await deps.desk.get_signed_tx(orderId);
-      if (signedTx) break;
-    }
-    if (order && (order.status === 'rejected' || order.status === 'refunded' || order.status === 'post_failed'))
-      return json({ orderId, reason: order.status }, 502);
-    if (deps.now() >= deadline) return json({ orderId, reason: 'not signed in time' }, 502);
-    await deps.sleep(POLL_MS);
-  }
-
-  let settled: SettleResponse;
-  try {
-    settled = await pingpay<SettleResponse>(env, deps, PINGPAY.settlePath, payload, requirements);
-  } catch (e) {
-    settled = { success: false, errorReason: message(e) };
-  }
-  if (!settled.success) {
-    console.error(JSON.stringify({ msg: 'x402_settle_failed', orderId, paymentRef, error: settled.errorReason }));
-    return json({ orderId, reason: `settle failed: ${settled.errorReason ?? 'unknown'}` }, 502);
-  }
-  return json({ orderId, signedTx, verdict: verdictOf(signedTx) }, 200, {
-    [PINGPAY.responseHeader]: btoa(JSON.stringify(settled)),
-  });
+  const recorded = (await readPayment(env.DB, id))!;
+  if (recorded.operation_token !== q.operationToken || recorded.resource_url !== resource.url)
+    return json({ error: 'PingPay quote instrument already issued' }, 502);
+  return required('deposit required', [
+    {
+      ...requirements,
+      payTo: q.depositAddress,
+      amount: q.amountIn,
+      extra: {
+        ...requirements.extra,
+        operationToken: q.operationToken,
+        refundDeadline: q.refundDeadline,
+        ...(q.depositMemo === undefined ? {} : { depositMemo: q.depositMemo }),
+      },
+    },
+  ]);
 }

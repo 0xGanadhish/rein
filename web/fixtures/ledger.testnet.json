@@ -73,7 +73,7 @@
       "near": "9600000000000000000000000",
       "usdc": "20000000",
       "x402_usdc": "0",
-      "source": "desk_split_totals"
+      "source": "desk_split_totals_and_x402_journal"
     },
     "refunds": {
       "authorized_orders": 3,
@@ -85,7 +85,9 @@
     },
     "unpaid_liabilities": {
       "usdc": "0",
-      "near": "0"
+      "near": "0",
+      "x402_credit_usdc": "0",
+      "x402_pending_usdc": "0"
     },
     "gas_per_chain": {
       "monad-testnet": {
