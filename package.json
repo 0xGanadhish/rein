@@ -11,7 +11,8 @@
     "fmt:rust": "cargo fmt --manifest-path near/Cargo.toml --all",
     "fmt:rust:check": "cargo fmt --manifest-path near/Cargo.toml --all --check",
     "fmt:sol": "forge fmt --root evm",
-    "fmt:sol:check": "forge fmt --root evm --check"
+    "fmt:sol:check": "forge fmt --root evm --check",
+    "demo:replay": "node --experimental-strip-types --env-file-if-exists=.env scripts/demo-replay.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
