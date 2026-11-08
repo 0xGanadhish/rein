@@ -18,9 +18,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 const FLOW: DeskOrderStatus[] = ['open', 'exit_pending', 'signing', 'signed', 'delivered'];
 const LABEL: Record<DeskOrderStatus, string> = {
-  open: 'Open', exit_pending: 'EXIT pending', signing: 'Signing', signed: 'Signed', delivered: 'Delivered', rejected: 'Rejected', refunded: 'Refunded',
+  open: 'Open', exit_pending: 'EXIT pending', signing: 'Signing', signed: 'Signed', delivered: 'Delivered', rejected: 'Rejected', refunded: 'Refunded', post_failed: 'Post failed',
 };
-const CHAIN: Record<string, string> = { base: 'Base', monad: 'Monad', 'monad-testnet': 'Monad testnet' };
+const CHAIN: Record<string, string> = { base: 'Base', monad: 'Monad', 'monad-testnet': 'Monad testnet', 'base-sepolia': 'Base Sepolia' };
 
 const Check = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5 4.8 9 10 3" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -57,7 +57,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   // exit_pending means the first reading said EXIT and the desk is waiting to confirm it.
   const verdict = post?.verdict ?? (order.status === 'exit_pending' ? 'EXIT' : null);
   const status = order.status;
-  const failed = status === 'rejected' || status === 'refunded';
+  const failed = status === 'rejected' || status === 'refunded' || status === 'post_failed';
   const reached = FLOW.indexOf(status);
   const isExit = verdict === 'EXIT' || status === 'exit_pending' || order.judge_calls.length > 1;
   const flow = FLOW.filter((st) => st !== 'exit_pending' || isExit);
@@ -109,8 +109,10 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
     },
   ];
   if (failed) {
-    steps.push({ title: status === 'refunded' ? 'Refunded' : 'Rejected', done: true, signal: true,
-      body: <p>{status === 'refunded' ? 'The order missed its deadline, so the escrow went back to the payer.' : 'The desk refused this order; any escrow went back to the payer.'}</p> });
+    steps.push({ title: LABEL[status], done: true, signal: true,
+      body: <p>{status === 'refunded' ? 'The order missed its deadline, so the escrow went back to the payer.'
+        : status === 'post_failed' ? 'The signed post never landed onchain: it reverted or expired. The desk ended the order and refunded the escrow in full.'
+        : 'The desk refused this order; any escrow went back to the payer.'}</p> });
   }
 
   return (

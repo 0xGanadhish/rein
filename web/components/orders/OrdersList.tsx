@@ -10,7 +10,7 @@ import { shortAddress, vaultName } from '@/lib/vaults';
 import s from './orders.module.css';
 
 const STATUS: Record<DeskOrder['status'], string> = {
-  open: 'Open', exit_pending: 'EXIT pending', signing: 'Signing', signed: 'Signed', delivered: 'Delivered', rejected: 'Rejected', refunded: 'Refunded',
+  open: 'Open', exit_pending: 'EXIT pending', signing: 'Signing', signed: 'Signed', delivered: 'Delivered', rejected: 'Rejected', refunded: 'Refunded', post_failed: 'Post failed',
 };
 
 function paid(o: DeskOrder): string {

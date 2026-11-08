@@ -18,7 +18,7 @@
 .status { justify-self: start; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--cobalt); color: var(--cobalt); }
 .status[data-status='delivered'] { background: var(--ink); border-color: var(--ink); color: var(--bone); }
 .status[data-status='exit_pending'] { background: var(--signal); border-color: var(--signal); color: var(--ink); }
-.status[data-status='rejected'], .status[data-status='refunded'] { border-color: var(--signal-ink); color: var(--signal-ink); }
+.status[data-status='rejected'], .status[data-status='refunded'], .status[data-status='post_failed'] { border-color: var(--signal-ink); color: var(--signal-ink); }
 .go { font-family: var(--mono); color: var(--mute); }
 
 .empty { margin-top: 40px; padding: 48px 32px; border: 1px dashed var(--line); border-radius: 18px; background: var(--paper); display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }

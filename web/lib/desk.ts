@@ -7,7 +7,7 @@ import type { Network } from './ledger';
 import { view } from './near';
 
 /** The chains a desk on each NEAR network posts to (worker/src/deskTypes.ts). */
-export const NETWORK_CHAINS: Record<Network, DeskChain[]> = { testnet: ['monad-testnet'], mainnet: ['monad', 'base'] };
+export const NETWORK_CHAINS: Record<Network, DeskChain[]> = { testnet: ['monad-testnet', 'base-sepolia'], mainnet: ['monad', 'base'] };
 
 export interface DeskInfo {
   policy: DeskPolicy;

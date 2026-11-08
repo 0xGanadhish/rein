@@ -82,7 +82,7 @@ export default async function Landing() {
       <section id="top" className={`container ${s.hero}`}>
         <div className={`${s.eyebrow} ${s.heroMeta}`}>
           <span className={s.live}><span className={s.pulse} aria-hidden="true" />Desk open — watching {watched} vaults</span>
-          <span>Risk calls for yield vaults · NEAR → {chains.map((c) => (c === 'monad-testnet' ? 'Monad testnet' : c === 'base' ? 'Base' : 'Monad')).join(', ')}</span>
+          <span>Risk calls for yield vaults · NEAR → {chains.map((c) => (c === 'monad-testnet' ? 'Monad testnet' : c === 'base-sepolia' ? 'Base Sepolia' : c === 'base' ? 'Base' : 'Monad')).join(', ')}</span>
         </div>
         <h1 className={s.h1}>
           <span className={s.line}><span>Pull the reins</span></span>

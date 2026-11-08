@@ -28,7 +28,7 @@ interface Policy {
 }
 
 type Rail = 'near' | 'usdc' | 'x402';
-const CHAIN_LABEL: Record<DeskChain, string> = { base: 'Base', monad: 'Monad', 'monad-testnet': 'Monad testnet' };
+const CHAIN_LABEL: Record<DeskChain, string> = { base: 'Base', monad: 'Monad', 'monad-testnet': 'Monad testnet', 'base-sepolia': 'Base Sepolia' };
 
 export function JudgeForm({ menu, initial, policy, sample, api }: {
   menu: MenuVault[];
