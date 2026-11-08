@@ -4,6 +4,7 @@ export type NearNetwork = 'testnet' | 'mainnet';
 
 export interface Env {
   DB: D1Database;
+  QUOTE_RATE_LIMITER: RateLimit;
   NEAR_NETWORK: NearNetwork;
   DESK_ACCOUNT: string;
   AGENT_ACCOUNT: string;

@@ -41,6 +41,25 @@ describe('api', () => {
     }), configured, deps)).status).toBe(200);
   });
 
+  it('quote_rate_limit_returns_429_before_payment_dependencies', async () => {
+    let paymentsCalled = false;
+    let limitedKey: string | undefined;
+    const response = await handle(new Request('https://rein.test/v1/quote', {
+      method: 'POST', headers: { 'CF-Connecting-IP': '192.0.2.1' }, body: 'not JSON',
+    }), { ...env, QUOTE_RATE_LIMITER: { limit: async ({ key }) => {
+      limitedKey = key;
+      return { success: false };
+    } } }, {
+      kick: null!, health: null!, payments: async () => { paymentsCalled = true; throw new Error('must not initialize'); },
+    });
+    expect(response.status).toBe(429);
+    expect(response.headers.get('content-type')).toBe('application/json');
+    expect(response.headers.get('Retry-After')).toBe('60');
+    expect(await response.json()).toEqual({ error: 'rate limited' });
+    expect(limitedKey).toBe('192.0.2.1');
+    expect(paymentsCalled).toBe(false);
+  });
+
   it('health_flags_stuck_order_and_stale_cron', async () => {
     const deps = {
       derivedAddress: async () => '0xdead',
