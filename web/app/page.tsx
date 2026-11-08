@@ -71,6 +71,7 @@ export default async function Landing() {
             <a href="#guardian">Guardian</a>
             <a href="#menu">Vaults</a>
             <a href="#pay">Pricing</a>
+            <Link href="/how">How it works</Link>
           </div>
           <div className={s.actions}>
             <Link href="/ledger" className={`${s.btn} ${s.btnLine} ${s.hideSm}`}>Read the Ledger</Link>
@@ -347,6 +348,7 @@ export default async function Landing() {
           <div className={s.footLinks}>
             <Link href="/ledger">Ledger</Link>
             <Link href="/orders">My orders</Link>
+            <Link href="/how">How it works</Link>
             <a href="https://github.com/0xGanadhish/rein">GitHub</a>
           </div>
           <p className={s.disclaimer}>Rein publishes risk signals, not financial advice. Calls can be wrong; the Ledger shows how often.</p>
