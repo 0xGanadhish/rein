@@ -26,7 +26,7 @@ const Check = () => (
 
 function paidLine(o: OrderDetail): string {
   if (o.source === 'watch') return 'Opened by the desk’s own watch feed after the vault moved. Nobody paid; the desk judged it on its own.';
-  if (o.source === 'x402') return `${amount(o.amount, 6)} USDC paid over x402. There is no onchain escrow; payment settles on delivery.`;
+  if (o.source === 'x402') return `${amount(o.amount, 6)} USDC paid upfront over x402. There is no onchain escrow.`;
   const paid = o.source === 'near' ? `${amount(o.amount, 24)} NEAR via request_judgement` : `${amount(o.amount, 6)} USDC via ft_transfer_call`;
   return `${paid}${o.payer ? ` from ${o.payer}` : ''}. Held by the desk until delivery.`;
 }
@@ -109,7 +109,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
       ? 'The order missed its deadline, the kill switch was on, or its signed post expired without landing.'
       : status === 'post_failed' ? 'The signed post never landed onchain: it reverted or expired.'
       : 'The desk refused this order.';
-    const money = order.source === 'x402' ? ' Nothing was settled: an x402 payment settles only on delivery.'
+    const money = order.source === 'x402' ? ' The x402 payment became a credit for one free judgement; send the same payment again to redeem it.'
       : order.source === 'watch' ? ''
       : ' The desk sent the escrow back to the payer in full. If that transfer failed, the amount is held as owed and can be claimed with claim_owed.';
     steps.push({ title: status === 'rejected' ? 'Rejected' : 'Refund authorized', done: true, signal: true, body: <p>{why}{money}</p> });

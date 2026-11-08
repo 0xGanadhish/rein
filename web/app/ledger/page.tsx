@@ -3,9 +3,11 @@ import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { Calls } from '@/components/ledger/Calls';
 import { Books, Calibration, Kpis } from '@/components/ledger/Summary';
+import { TareComparison } from '@/components/ledger/Tare';
 import styles from '@/components/ledger/ledger.module.css';
 import { readDesk } from '@/lib/desk';
 import { isNetwork, NETWORKS, readLedger, type Network } from '@/lib/ledger';
+import { readTareScore } from '@/lib/tare';
 
 export const metadata: Metadata = { title: 'Ledger' };
 
@@ -15,6 +17,8 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
   const asked = (await searchParams).network;
   const [result, desk] = await Promise.all([readLedger(isNetwork(asked) ? asked : undefined), readDesk()]);
   const network = result.ok ? result.ledger.network : isNetwork(asked) ? asked : undefined;
+  // Tare runs on mainnet only, so it's compared with Rein's mainnet calls.
+  const tare = network === 'mainnet' ? await readTareScore() : null;
 
   return (
     <>
@@ -43,6 +47,7 @@ export default async function LedgerPage({ searchParams }: { searchParams: Promi
             <div className={styles.panels}>
               <Calibration score={result.ledger.score} />
               <Books business={result.ledger.business} kill={desk?.policy.kill ?? null} />
+              <TareComparison tare={tare} rein={result.ledger.score} />
             </div>
             <Calls posts={result.ledger.recent} />
           </>

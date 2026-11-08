@@ -118,3 +118,9 @@
 .doc { margin-top: 4px; font-size: 10.5px; color: var(--mute); }
 .doc summary { cursor: pointer; }
 .doc code { display: block; margin-top: 4px; max-width: 36ch; white-space: pre-wrap; word-break: break-all; }
+.compare { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
+.compare th, .compare td { padding: 10px 0; border-bottom: 1px solid var(--line); text-align: left; font-weight: 500; vertical-align: top; }
+.compare thead th { font-size: 11px; color: var(--mute); font-weight: 500; letter-spacing: 0.04em; }
+.compare td { font-family: var(--mono); }
+.compare small { display: block; font-size: 12px; color: var(--mute); font-weight: 400; }
+.compare .right { text-align: right; }

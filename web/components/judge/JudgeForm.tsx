@@ -136,8 +136,8 @@ export function JudgeForm({ menu, initial, policy, sample, api }: {
           <div className={s.sumMeta}>{sel ? `${CHAIN_LABEL[sel.chain]} · ${sel.short}` : '–'}</div>
           <dl className={s.sumList}>
             <div><dt>Price</dt><dd className={s.optMono}>{price}</dd></div>
-            <div><dt>Escrow</dt><dd>{rail === 'x402' ? 'None: pay on delivery' : 'Held by the desk contract'}</dd></div>
-            <div><dt>If it doesn’t land</dt><dd>{policy ? `Refund after ${duration(policy.deadlineS)}` : 'Refunded after the deadline'}</dd></div>
+            <div><dt>Escrow</dt><dd>{rail === 'x402' ? 'None: x402 pays upfront' : 'Held by the desk contract'}</dd></div>
+            <div><dt>If it doesn’t land</dt><dd>{rail === 'x402' ? 'A credit for one free judgement' : policy ? `Refund after ${duration(policy.deadlineS)}` : 'Refunded after the deadline'}</dd></div>
           </dl>
 
           {rail === 'x402' ? (
