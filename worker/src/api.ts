@@ -19,6 +19,8 @@ export interface ApiDeps {
 
 const VERDICTS: ScoreVerdict[] = ['HOLD', 'EXIT', 'MOVE'];
 const LEDGER_POSTS = 200;
+const ORDERS_PAGE = 20;
+const ORDERS_MAX = 50;
 
 async function kickAuthorized(request: Request, token: string | undefined): Promise<boolean> {
   if (!token) return false;
@@ -159,13 +161,26 @@ app.get('/v1/ledger', async (c) => {
   if (!Object.hasOwn(NETWORK_CHAINS, network)) return json({ error: 'network must be testnet or mainnet' }, 400);
   return json(await ledger(c.env, network));
 });
+/** A NEAR account's orders, newest first. */
+app.get('/v1/orders', async (c) => {
+  const payer = c.req.query('payer');
+  if (!payer) return json({ error: 'payer required' }, 400);
+  const limit = Math.min(Math.max(Number(c.req.query('limit')) || ORDERS_PAGE, 1), ORDERS_MAX);
+  const { results } = await c.env.DB.prepare('SELECT * FROM orders WHERE payer = ? ORDER BY id DESC LIMIT ?').bind(payer, limit).all();
+  return json({ orders: results });
+});
+/** An order's receipt: each post with the doc the model read, and the judge calls that returned a signed answer. */
 app.get('/v1/orders/:id{[0-9]+}', async (c) => {
   const id = Number(c.req.param('id'));
   const row = await c.env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first();
   if (!row) return json({ error: 'not found' }, 404);
-  const { results: posts } = await c.env.DB.prepare(`SELECT chain, id, verdict, confidence_bps, risk_bps, state_hash, posted_at, input_check,
-      sampled, resolved, adverse, reasons FROM posts WHERE order_id = ? ORDER BY chain, id`).bind(id).all<{ verdict: number }>();
-  return json({ ...row, posts: posts.map((p) => ({ ...p, verdict: VERDICTS[p.verdict] ?? p.verdict })) });
+  const [{ results: posts }, { results: judgeCalls }] = await Promise.all([
+    c.env.DB.prepare(`SELECT p.chain, p.id, p.verdict, p.confidence_bps, p.risk_bps, p.state_hash, p.posted_at, p.input_check,
+        p.sampled, p.resolved, p.adverse, p.reasons, d.doc FROM posts p LEFT JOIN docs d ON d.hash = p.state_hash
+        WHERE p.order_id = ? ORDER BY p.chain, p.id`).bind(id).all<{ verdict: number }>(),
+    c.env.DB.prepare('SELECT at, signing_address FROM judge_calls WHERE order_id = ? AND failure IS NULL ORDER BY at').bind(id).all(),
+  ]);
+  return json({ ...row, posts: posts.map((p) => ({ ...p, verdict: VERDICTS[p.verdict] ?? p.verdict })), judge_calls: judgeCalls });
 });
 app.get('/v1/quote/status', async (c) => quoteStatus(new URL(c.req.url), await c.env.deps.payments()));
 app.get('/v1/stats', async (c) => json(await business(c.env)));
