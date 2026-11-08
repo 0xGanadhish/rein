@@ -74,9 +74,46 @@ that during an extended outage, and relies on RPC receipt/state visibility rathe
 - NEAR mutations rebuild only after an explicit `InvalidNonce` rejection, at most five attempts. Mutation
   transport retries are disabled, so an ambiguous lost response is not silently replayed as a new transaction.
 
+### Guardian exit worker
+
+Automatic exits are **disabled by default** (`GUARDIANS = "{}"`). Deploy GuardianV2 on Rein's oracle,
+approve the menu vaults, and apply migrations through `worker/migrations/0007_exits.sql` before enabling them.
+Set the Worker's `GUARDIANS` JSON by EVM chain, for example
+`{"base":{"address":"<deployed Guardian address>","fromBlock":"<deployment block>"}}`.
+Use decimal strings for deployment blocks. The existing `EXECUTOR_KEY` signs exits as well as grading
+transactions; fund it with native gas on every enabled chain and configure that chain's RPC and oracle.
+No Cloudflare Queue binding or additional secret is needed.
+
+- Each newly mirrored EXIT durably queues its chain and verdict ID before the mirror cursor advances.
+  Guardian `Enabled` logs discover owners from the deployment block; current onchain rules, confidence,
+  freshness, enable time, verdict floor and latest verdict are checked before simulation and signing.
+  Disabled owners and unmet thresholds never send an exit. Guardian always pays the owner.
+- Each cron pass (also an authenticated kick) runs exits **after** grading, orders and watch work.
+  Per chain it scans at most 2,000 blocks, fans out at most four verdicts × 20 owners, and processes at most
+  four due jobs. Initial log indexing must catch up before verdict fan-out starts.
+- Signed bytes and their transaction hash are committed before broadcast. A lost response or restart
+  checks the same receipt or rebroadcasts identical bytes, never a replacement exit. Pending signed exits
+  reserve that chain's executor nonce; grading on that chain waits for settlement. An indefinitely
+  unmined transaction therefore requires operator attention rather than unsafe nonce replacement.
+- Receipt fees, including reverted attempts and reported L1 fees, are inserted once into `executor_fees`
+  with `kind = 'exit'`. Existing Ledger gas and margin fields retain their meaning.
+- A partial receipt atomically stores `remaining_shares` and a follow-up due **30 seconds later**.
+  The one-minute cron processes it on the next eligible tick, not necessarily at exactly 30 seconds.
+  Follow-ups reuse the same verdict and recheck authorization; stale or superseded verdicts stop them.
+  A full exit does not requeue. Each signed attempt remains in `exit_attempts`; `exits.assets` is the latest
+  receipt's assets, not a cumulative total.
+- Simulation cannot pin the verdict at mining: Guardian uses the latest verdict. If a newer verdict wins
+  that race, the Worker counts the transaction fee but does not report it as confirmation of the old verdict.
+
+Before turning on the web's `EXIT_WORKER_LIVE` flag, the matching deployed contracts, vault approvals,
+funded executor, configuration and migration must be live, log indexing must be caught up, and the running
+cron must have demonstrated an opted-in exit with funds reaching the owner and receipt/gas records in D1.
+Code availability alone is not automatic protection; partial exits can leave funds locked.
+
+
 ### Ledger, inputs and operational health
 
-Apply migrations through `worker/migrations/0006_x402.sql` before deploying this Worker.
+Apply migrations through `worker/migrations/0007_exits.sql` before deploying this Worker.
 Startup does not apply migrations. The schema includes call outcomes/token usage, receipt fees, grading
 times, persistent incidents, and the x402 operation/result journal.
 
@@ -100,7 +137,7 @@ not zero. Calls with missing usage are counted explicitly; the known-cost subtot
   `x402_pending_usdc` covers settled purchases whose judgement is still pending.
 - `gas_per_chain`: `desk_wei`, journal `observed_wei`, `executor_wei`, `reverted_wei`, `cost_wei`,
   and `cost_is_lower_bound`. Post fees overlap desk totals, so their maximum, not their sum, is used;
-  executor sample/resolve fees are added separately. Historic/unobserved receipts can make this a lower bound.
+  executor sample/resolve/exit fees are added separately. Historic/unobserved receipts can make this a lower bound.
 - `inference`: `underlying_cost_usd_micros`, `known_cost_usd_micros`, `credits_usd_micros`,
   `cash_cost_usd_micros`, and `calls_with_unknown_usage`.
 - `margin`: partial `usdc_less_inference_micros`, separate `near_yocto`, and `includes_native_gas: false`.
@@ -113,7 +150,7 @@ not zero. Calls with missing usage are counted explicitly; the known-cost subtot
 - `per_order_margin`: `order_id`, `chain`, `status`, delivery-only `revenue`, `judge_cost_usd_micros`,
   measured `gas_wei`, the currency-vector `margin` (`usdc_less_inference_micros`, `near_yocto`,
   `native_gas_wei`, `near_gas_yocto: null`), `positive_margin`, `margin_unavailable_reason`, and `x402_settled`.
-  Linked sample/resolve fees are included; unlinked executor fees remain in chain totals.
+  Linked sample/resolve/exit fees are included; unlinked executor fees remain in chain totals.
   Only the newest 200 orders (descending order ID) are returned; `per_order_margin_truncated` reports
   whether older orders were omitted. All totals still cover every order.
 
@@ -188,8 +225,8 @@ same error shape; successful status responses still pass through.
 - `GET /v1/ledger`, `/v1/orders/:id` (numeric ID), `/v1/quote/status`, `/v1/stats`, and `/v1/health`:
   public reads without those guards. HEAD remains unsupported.
 
-Apply migrations through `worker/migrations/0006_x402.sql` before deploying. Migration `0005` removes
-the obsolete D1 limiter table; `0006` adds payment operations and judgement attempts.
+Apply migrations through `worker/migrations/0007_exits.sql` before deploying. Migration `0005` removes
+the obsolete D1 limiter table; `0006` adds payment operations and judgement attempts; `0007` adds durable exits.
 The binding is configured in `worker/wrangler.toml`, with observability enabled.
 
 ### x402 judgement purchases

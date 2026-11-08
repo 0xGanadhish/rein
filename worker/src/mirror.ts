@@ -5,6 +5,7 @@ import { CHAINS, ORACLES } from './broadcast';
 import { NETWORK_CHAINS, type DeskClient } from './deskTypes';
 import { rpcFor, type Env, type NearNetwork } from './env';
 import { inputCheck } from './inputCheck';
+import { queueExits } from './exits';
 
 const ORDER_PAGE = 100;
 const ORDER_PAGES = 10;
@@ -200,6 +201,8 @@ export async function mirror(
           check,
         )
         .run();
+      // Queue before moving the cursor; an interrupted mirror safely repeats this durable insert.
+      if (p.verdict === 1) await queueExits(env, chain, id);
       if (check === 'mismatch')
         console.error(JSON.stringify({ msg: 'post_input_mismatch', chain, verdictId: id, orderId: doc?.order_id }));
       tally.posts++;

@@ -5,6 +5,7 @@ import { handle } from './api';
 import { CHAINS, viemChain } from './broadcast';
 import { NETWORK_CHAINS, type DeskClient, type DeskOrder } from './deskTypes';
 import { rpcFor, type Env, type NearNetwork } from './env';
+import { realExitDeps, runExits, type ExitDeps } from './exits';
 import { gradeDue, realGradeDeps, type GradeDeps } from './grade';
 import { checkHealth, readActivity, type HealthDeps, type Health } from './health';
 import { judge } from './judge';
@@ -181,6 +182,7 @@ export interface CronDeps {
   mirror: MirrorDeps;
   grade: GradeDeps;
   watch: WatchDeps;
+  exits?: ExitDeps;
   health?(): Promise<Health>;
 }
 
@@ -193,6 +195,7 @@ async function realCronDeps(env: Env): Promise<CronDeps> {
     mirror: realMirrorDeps(env, desk),
     grade: realGradeDeps(env),
     watch: realWatchDeps(env, desk),
+    exits: realExitDeps(env),
     health: async () => checkHealth(env.NEAR_NETWORK, await realHealthDeps(env)),
   };
 }
@@ -243,6 +246,13 @@ export async function runAll(env: Env, network: NearNetwork, now: number, deps: 
     const run = await withLock(env.DB, `watch:${network}`, LOCK_TTL_S, () => watchOnce(env, network, now, deps.watch));
     return run.ran ? run.value : 'busy';
   });
+  // Share grading's executor lease: an exit and a grade must not allocate the same nonce.
+  const exited = deps.exits
+    ? await step('exits', async () => {
+        const run = await withLock(env.DB, `grade:${network}`, LOCK_TTL_S, () => runExits(env, network, deps.exits!));
+        return run.ran ? run.value : 'busy';
+      })
+    : { worked: 0, failed: 0 };
   const successful =
     typeof orders !== 'string' &&
     Object.values(orders).every((v) => v !== 'error' && v !== 'busy') &&
@@ -250,7 +260,9 @@ export async function runAll(env: Env, network: NearNetwork, now: number, deps: 
     typeof graded !== 'string' &&
     Object.values(graded).every((v) => !v?.failed) &&
     typeof watched !== 'string' &&
-    watched.failed === 0;
+    watched.failed === 0 &&
+    typeof exited !== 'string' &&
+    exited.failed === 0;
   if (scheduled && successful)
     await env.DB.prepare(
       `INSERT INTO meta (key, json, at) VALUES (?, '{}', ?)
@@ -259,7 +271,7 @@ export async function runAll(env: Env, network: NearNetwork, now: number, deps: 
       .bind(`cron:${network}`, Math.floor(Date.now() / 1000))
       .run();
   if (deps.health) await step('health', deps.health);
-  return { orders, mirror: mirrored, grade: graded, watch: watched };
+  return { orders, mirror: mirrored, grade: graded, watch: watched, exits: exited };
 }
 
 const nowS = () => Math.floor(Date.now() / 1000);
