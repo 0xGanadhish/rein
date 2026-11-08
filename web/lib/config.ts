@@ -13,6 +13,8 @@ export interface PublicConfig {
   sample: boolean;
   /** The Worker, for agents' x402 requests. */
   api: string | null;
+  /** Rein's exit worker is running against the deployed Guardian, so an EXIT is acted on without the owner. */
+  exitWorker: boolean;
 }
 
 const DEFAULT_DESK: Record<Network, string | null> = { testnet: 'desk.rein.testnet', mainnet: null };
@@ -30,5 +32,6 @@ export function publicConfig(): PublicConfig {
     baseRpc: process.env.BASE_RPC || 'https://mainnet.base.org',
     sample,
     api: process.env.REIN_API_URL || null,
+    exitWorker: process.env.EXIT_WORKER_LIVE === 'true',
   };
 }

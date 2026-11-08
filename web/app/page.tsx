@@ -223,12 +223,12 @@ export default async function Landing() {
       <section id="guardian" className={`container ${s.section} ${s.guard}`}>
         <div>
           <div className={s.eyebrow}>03 — Guardian</div>
-          <h2 className={s.h2}>The call lands. You’re already out.</h2>
-          <p className={s.copy} style={{ marginTop: 28 }}>Set your own rule once. When a fresh EXIT meets it, anyone can trigger Guardian, and your whole position goes back to your wallet. No keeper to pay, nobody to trust with funds.</p>
+          <h2 className={s.h2}>{cfg.exitWorker ? 'The call lands. You’re already out.' : 'The call lands. One call takes you out.'}</h2>
+          <p className={s.copy} style={{ marginTop: 28 }}>Set your own rule once. When a fresh EXIT meets it, anyone can call Guardian’s exit, and your position goes back to your wallet. {cfg.exitWorker ? 'Rein’s exit worker makes that call as soon as the post lands.' : 'Rein’s exit worker isn’t running yet, so for now someone has to make that call.'} Nobody holds your funds.</p>
           <ul className={s.facts}>
             <li><span>A</span><span><strong>Assets only ever go to you.</strong> Guardian never holds funds; its admin can only approve vaults.</span></li>
-            <li><span>B</span><span><strong>Full exits, or nothing.</strong> A caller can’t starve the gas to force a partial redeem.</span></li>
-            <li><span>C</span><span><strong>No stale or replayed calls.</strong> A verdict from before you opted in can’t move you, and one verdict can’t be used twice.</span></li>
+            <li><span>B</span><span><strong>Full exits when the vault can pay.</strong> A caller can’t starve the gas to force a partial redeem. If liquidity is short, the exit redeems what it can and the rest can follow on the same call.</span></li>
+            <li><span>C</span><span><strong>No stale or replayed calls.</strong> A verdict from before you opted in can’t move you, and one that fully exited you can’t move a later deposit.</span></li>
           </ul>
           <Link href="/guardian" className={`${s.btn} ${s.btnLine} ${s.btnLg}`} style={{ marginTop: 32 }}>Arm Guardian</Link>
         </div>

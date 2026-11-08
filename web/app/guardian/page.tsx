@@ -30,7 +30,7 @@ export default async function GuardianPage({ searchParams }: { searchParams: Pro
     <div style={{ minHeight: '100vh', background: 'var(--night)', color: 'var(--night-ink)' }}>
       <Header active="guardian" dark />
       <main className="container" style={{ paddingTop: 'clamp(32px, 4vw, 56px)', paddingBottom: 80 }}>
-        <GuardianPanel vaults={vaults} initial={initial} guardian={cfg.guardian} rpc={cfg.baseRpc} sample={cfg.sample} />
+        <GuardianPanel vaults={vaults} initial={initial} guardian={cfg.guardian} rpc={cfg.baseRpc} sample={cfg.sample} exitWorker={cfg.exitWorker} />
       </main>
     </div>
   );

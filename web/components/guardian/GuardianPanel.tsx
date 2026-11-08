@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPublicClient, createWalletClient, custom, formatUnits, http, maxUint256, parseAbi, type Address, type EIP1193Provider } from 'viem';
+import { createPublicClient, createWalletClient, custom, formatUnits, http, parseAbi, type Address, type EIP1193Provider } from 'viem';
 import { base } from 'viem/chains';
 import { utcStamp } from '@/lib/format';
 import s from './guardian.module.css';
@@ -41,12 +41,14 @@ const SAMPLE: Position = { shares: 958571300000000000000n, decimals: 18, assets:
 const injected = () => (typeof window === 'undefined' ? undefined : (window as unknown as { ethereum?: EIP1193Provider }).ethereum);
 const usdc = (v: bigint) => Number(formatUnits(v, 6)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export function GuardianPanel({ vaults, initial, guardian, rpc, sample }: {
+export function GuardianPanel({ vaults, initial, guardian, rpc, sample, exitWorker }: {
   vaults: GuardVault[];
   initial: Address | undefined;
   guardian: Address | null;
   rpc: string;
   sample: boolean;
+  /** Rein's exit worker is live, so copy may say exits happen without the owner. */
+  exitWorker: boolean;
 }) {
   const [vault, setVault] = useState<Address | undefined>(initial);
   const [conf, setConf] = useState(90);
@@ -100,7 +102,7 @@ export function GuardianPanel({ vaults, initial, guardian, rpc, sample }: {
       const { client, account } = await wallet();
       if (pos.allowance < pos.shares) {
         setBusy('Approve Guardian to redeem your shares…');
-        const h = await client.writeContract({ account, address: vault, abi: vaultAbi, functionName: 'approve', args: [guardian, maxUint256] });
+        const h = await client.writeContract({ account, address: vault, abi: vaultAbi, functionName: 'approve', args: [guardian, pos.shares] });
         await reader.waitForTransactionReceipt({ hash: h });
       }
       setBusy('Sign the rule…');
@@ -147,7 +149,7 @@ export function GuardianPanel({ vaults, initial, guardian, rpc, sample }: {
           <select id="gv" className={s.pick} value={vault} onChange={(e) => { setVault(e.target.value as Address); setPos(sample ? SAMPLE : null); }}>
             {vaults.map((x) => <option key={x.vault} value={x.vault}>{x.name}</option>)}
           </select>
-          <h1 className={s.title}>Set the rule.<br /><span>Walk away.</span></h1>
+          <h1 className={s.title}>Set the rule.<br /><span>{exitWorker ? 'Walk away.' : 'Exit in one call.'}</span></h1>
         </div>
         <div className={s.position}>
           <span className={s.k}>Your position{sample && ' · sample'}</span>
@@ -208,7 +210,7 @@ export function GuardianPanel({ vaults, initial, guardian, rpc, sample }: {
             )}
           </div>
           {(blocked || msg) && <p className={s.note} role={msg ? 'alert' : undefined}>{msg ?? blocked}</p>}
-          {pos?.armed && <p className={s.note}>Armed. Changing the rule and arming again replaces it; only calls posted from then on count.</p>}
+          {pos?.armed && <p className={s.note}>Armed. Guardian may redeem only the shares you hold now; approve again after a deposit. Changing the rule and arming again replaces it; only calls posted from then on count.</p>}
         </section>
 
         <aside className={s.side}>
@@ -218,8 +220,8 @@ export function GuardianPanel({ vaults, initial, guardian, rpc, sample }: {
               <>
                 <p className={s.btLine}>
                   {exits.length === 1
-                    ? `The last EXIT call here would ${fired ? '' : 'not '}have walked you out.`
-                    : `${fired} of the last ${exits.length} EXIT calls here would have walked you out.`}
+                    ? `The last EXIT call here would ${fired ? '' : 'not '}have met your rule.`
+                    : `${fired} of the last ${exits.length} EXIT calls here would have met your rule.`}
                 </p>
                 <ol className={s.history}>
                   {exits.map((x) => {
@@ -233,14 +235,17 @@ export function GuardianPanel({ vaults, initial, guardian, rpc, sample }: {
                     );
                   })}
                 </ol>
-                <p className={s.btFine}>A keeper exits as soon as a call lands, so freshness only matters if nobody calls exit in time.</p>
+                <p className={s.btFine}>{exitWorker
+                  ? 'Rein’s exit worker calls exit as soon as a call lands; the age limit only matters if it can’t.'
+                  : 'Nothing calls exit for you yet. When an EXIT meets your rule, you or anyone else has to call it before it’s too old.'}</p>
               </>
             ) : <p className={s.btLine}>No EXIT calls on this vault in the Ledger yet.</p>}
           </section>
           <section className={s.facts}>
             <div><span>A</span><span>Funds go only to your address. Guardian never holds them.</span></div>
-            <div><span>B</span><span>Anyone can trigger the exit, so no keeper has to be online.</span></div>
-            <div><span>C</span><span>Calls posted before you arm don’t count, and one call can’t be used twice.</span></div>
+            <div><span>B</span><span>Anyone can call the exit once your rule matches, so it doesn’t depend on Rein being online.</span></div>
+            <div><span>C</span><span>A full exit needs the vault to have the liquidity. If it doesn’t, the exit redeems what it can, and the rest can follow on the same call while it’s fresh.</span></div>
+            <div><span>D</span><span>Calls posted before you arm don’t count, and a call that fully exited you can’t move a later deposit.</span></div>
           </section>
         </aside>
       </div>
