@@ -15,7 +15,7 @@
     "split_agent_bps": 3000,
     "kill": false,
     "usdc_token": "usdc.fakes.testnet",
-    "agent": "agent.rein.testnet",
+    "agent": "agent.rein-desk.testnet",
     "treasury": "treasury.rein.testnet",
     "oracle": {
       "monad-testnet": "0x5a1c0e9b7d3f2a6c8e4b1d0f9a7c5e3b2d4f6a81",

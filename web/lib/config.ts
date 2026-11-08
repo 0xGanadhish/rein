@@ -1,3 +1,4 @@
+import { DEPLOYMENTS } from '../../shared/deployments';
 import type { Network } from './ledger';
 
 /** What the browser needs to know about this deployment. Read on the server, passed down as props. */
@@ -17,7 +18,10 @@ export interface PublicConfig {
   exitWorker: boolean;
 }
 
-const DEFAULT_DESK: Record<Network, string | null> = { testnet: 'desk.rein.testnet', mainnet: null };
+const DEFAULT_DESK: Record<Network, string | null> = {
+  testnet: DEPLOYMENTS.testnet.desk,
+  mainnet: DEPLOYMENTS.mainnet.desk,
+};
 
 export function publicConfig(): PublicConfig {
   const sample = process.env.DATA_SOURCE === 'fixtures';

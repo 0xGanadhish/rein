@@ -1,3 +1,4 @@
+import { DEPLOYMENTS } from '../../shared/deployments';
 import {
   BaseError,
   ContractFunctionRevertedError,
@@ -18,12 +19,12 @@ import { oracleAbi } from './abis';
 
 export const CHAINS = { 'monad-testnet': monadTestnet, monad, base, 'base-sepolia': baseSepolia } as const;
 
-/** Oracle each chain posts verdicts to. Null until it is deployed there; simulation then refuses every post. */
+/** Oracle each chain posts verdicts to, from the deployment manifest. Null until it is deployed there; simulation then refuses every post. */
 export const ORACLES: Record<DeskChain, Address | null> = {
-  'monad-testnet': null,
-  monad: null,
-  base: null,
-  'base-sepolia': null,
+  'monad-testnet': DEPLOYMENTS.testnet.oracles['monad-testnet'] ?? null,
+  monad: DEPLOYMENTS.mainnet.oracles.monad ?? null,
+  base: DEPLOYMENTS.mainnet.oracles.base ?? null,
+  'base-sepolia': DEPLOYMENTS.testnet.oracles['base-sepolia'] ?? null,
 };
 
 /** Answer actions in verdict order: HOLD 0, EXIT 1, MOVE 2. */

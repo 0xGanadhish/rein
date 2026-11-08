@@ -10,7 +10,7 @@ import {
   type Hex,
 } from 'viem';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { DeskStats } from '../../shared/desk';
+import type { DeskPolicy, DeskStats } from '../../shared/desk';
 import { oracleAbi } from '../src/abis';
 import { handle, type ApiDeps } from '../src/api';
 import type { DeskOrder } from '../src/deskTypes';
@@ -399,6 +399,42 @@ describe('api', () => {
       }),
     );
     expect(unlimited).toMatchObject({ ok: false, flags: ['gas_unreadable:monad'], allowance_pct: null });
+
+    // The deployment manifest, the Worker's config and the live desk policy must agree.
+    const testnetPolicy = {
+      agent: 'agent.rein-desk.testnet',
+      oracle: { 'monad-testnet': null, monad: null, base: null, 'base-sepolia': null },
+    } as unknown as DeskPolicy;
+    const fine = { gasBalance: async () => 10n ** 18n, agent: async () => ({ balance: 10n ** 24n, allowance: null }) };
+    const agreed = await checkHealth(
+      'testnet',
+      deps({
+        ...fine,
+        deskAccount: 'rein-desk.testnet',
+        agentAccount: 'agent.rein-desk.testnet',
+        policy: async () => testnetPolicy,
+      }),
+    );
+    expect(agreed).toMatchObject({ ok: true, flags: [] });
+    const drifted = await checkHealth(
+      'testnet',
+      deps({
+        ...fine,
+        deskAccount: 'desk.rein.testnet',
+        agentAccount: 'agent.rein-desk.testnet',
+        policy: async () => ({
+          ...testnetPolicy,
+          agent: 'someone.testnet',
+          oracle: { ...testnetPolicy.oracle, 'monad-testnet': '0x00000000000000000000000000000000000000ab' },
+        }),
+      }),
+    );
+    expect(drifted.flags).toEqual(['config_desk_mismatch', 'policy_agent_mismatch', 'oracle_mismatch:monad-testnet']);
+    const unread = await checkHealth(
+      'testnet',
+      deps({ ...fine, policy: async () => Promise.reject(new Error('rpc down')) }),
+    );
+    expect(unread.flags).toEqual(['policy_unreadable']);
 
     const res = await get('/v1/health', { health: () => checkHealth('mainnet', deps()) });
     expect(res.status).toBe(503);

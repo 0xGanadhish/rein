@@ -1,4 +1,6 @@
-import type { DeskChain } from '../../shared/desk';
+import type { DeskChain, DeskPolicy } from '../../shared/desk';
+import { DEPLOYMENTS } from '../../shared/deployments';
+import { ORACLES } from './broadcast';
 import { NETWORK_CHAINS } from './deskTypes';
 import type { NearNetwork } from './env';
 import { MIN_GAS_WEI } from './order';
@@ -48,6 +50,9 @@ export interface HealthDeps {
   /** What the agent key was granted, in yoctoNEAR; null if unknown. */
   allowanceGranted: bigint | null;
   deskAccount?: string;
+  agentAccount?: string;
+  /** The live desk policy, to check its agent and oracles against the deployment manifest. */
+  policy?(): Promise<DeskPolicy>;
   activity?(): Promise<Activity>;
   now?(): number;
   db?: D1Database;
@@ -132,6 +137,21 @@ export async function checkHealth(network: NearNetwork, deps: HealthDeps): Promi
       if (activity.pending_refunds.orders > 0) flags.push('pending_refunds');
     } catch {
       flags.push('activity_unreadable');
+    }
+  }
+  const manifest = DEPLOYMENTS[network];
+  if (deps.deskAccount !== undefined && deps.deskAccount !== manifest.desk) flags.push('config_desk_mismatch');
+  if (deps.agentAccount !== undefined && deps.agentAccount !== manifest.agent) flags.push('config_agent_mismatch');
+  if (deps.policy) {
+    try {
+      const policy = await deps.policy();
+      if (policy.agent !== manifest.agent) flags.push('policy_agent_mismatch');
+      for (const chain of NETWORK_CHAINS[network]) {
+        if ((policy.oracle[chain]?.toLowerCase() ?? null) !== (ORACLES[chain]?.toLowerCase() ?? null))
+          flags.push(`oracle_mismatch:${chain}`);
+      }
+    } catch {
+      flags.push('policy_unreadable');
     }
   }
   const incidents = deps.db ? await reconcileIncidents(deps.db, network, flags, now) : [];

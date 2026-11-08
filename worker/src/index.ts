@@ -208,6 +208,8 @@ async function realHealthDeps(env: Env): Promise<HealthDeps> {
     agent: () => agentStatus(env),
     allowanceGranted: env.AGENT_KEY_ALLOWANCE ? BigInt(env.AGENT_KEY_ALLOWANCE) : null,
     deskAccount: env.DESK_ACCOUNT,
+    agentAccount: env.AGENT_ACCOUNT,
+    policy: () => nearDesk(env).policy(),
     db: env.DB,
     activity: async () => {
       const policy = await nearDesk(env).policy();
