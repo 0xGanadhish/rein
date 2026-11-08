@@ -15,8 +15,10 @@ export interface Env {
   RPC_MONAD_TESTNET: string;
   RPC_BASE: string;
   RPC_BASE_SEPOLIA: string;
-  /** Sends `sample` and `resolve` to the oracles. Posts are signed by the desk through Chain Signatures. */
+  /** Sends oracle grading and Guardian exit transactions; posts are signed by the desk. */
   EXECUTOR_KEY: string;
+  /** JSON keyed by DeskChain: { address, fromBlock } for each deployed Guardian. */
+  GUARDIANS?: string;
   /** Verifies and settles x402 payments. */
   PINGPAY_API_KEY: string;
   /** yoctoNEAR the agent's function-call key was granted; health flags it once under 20% is left. */
