@@ -79,6 +79,20 @@ impl Desk {
         amount: U128,
     ) -> u64 {
         self.assert_agent();
+        // A separate storage prefix preserves the contract state's serialized layout.
+        // Keep receipts after order pruning: a lost RPC response must never open another order.
+        let mut receipts: near_sdk::store::LookupMap<String, (u64, Chain, [u8; 20], u128)> =
+            near_sdk::store::LookupMap::new(b"x402".as_slice());
+        let parsed = parse_vault(&vault).unwrap_or_else(|e| env::panic_str(e));
+        if let Some((id, original_chain, original_vault, original_amount)) =
+            receipts.get(&payment_ref)
+        {
+            require!(
+                (*original_chain, *original_vault, *original_amount) == (chain, parsed, amount.0),
+                "payment_ref terms differ"
+            );
+            return *id;
+        }
         require!(
             amount.0 >= self.policy.price_usdc.0,
             "amount below price_usdc"
@@ -87,6 +101,7 @@ impl Desk {
             .open_order(Source::X402, None, chain, &vault, amount.0)
             .unwrap_or_else(|e| env::panic_str(e));
         env::log_str(&format!("order {id} x402 {payment_ref}"));
+        receipts.insert(payment_ref, (id, chain, parsed, amount.0));
         id
     }
 
@@ -181,15 +196,13 @@ impl Desk {
         self.open_order(Source::Usdc, Some(sender_id), m.chain, &m.vault, amount)
     }
 
-    /// Checks every rule, then stores the order. Nothing changes on `Err`.
-    fn open_order(
-        &mut self,
+    /// Admission checks shared by requests and the read-only x402 preflight.
+    pub(crate) fn check_order(
+        &self,
         source: Source,
-        payer: Option<AccountId>,
         chain: Chain,
         vault: &str,
-        amount: u128,
-    ) -> Result<u64, &'static str> {
+    ) -> Result<VaultKey, &'static str> {
         let p = &self.policy;
         if p.kill {
             return Err("kill switch on");
@@ -207,9 +220,23 @@ impl Desk {
         if source.is_paid() && self.totals.open_paid >= p.max_open_paid {
             return Err("too many open orders");
         }
-        let now = now_s();
         let history = self.posts.get(&key).map(Vec::as_slice).unwrap_or(&[]);
-        check_post(history, &self.global_posts, now, p)?;
+        check_post(history, &self.global_posts, now_s(), p)?;
+        Ok(key)
+    }
+
+    /// Checks every rule, then stores the order. Nothing changes on `Err`.
+    fn open_order(
+        &mut self,
+        source: Source,
+        payer: Option<AccountId>,
+        chain: Chain,
+        vault: &str,
+        amount: u128,
+    ) -> Result<u64, &'static str> {
+        let key = self.check_order(source, chain, vault)?;
+        let p = &self.policy;
+        let now = now_s();
         let mut watch = self.watch;
         if source == Source::Watch {
             watch.bump(now, p)?;
@@ -282,5 +309,61 @@ impl Desk {
             Source::Usdc => self.pay_usdc(payer, order.amount).detach(),
             Source::X402 | Source::Watch => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::Policy;
+    use near_sdk::{test_utils::VMContextBuilder, testing_env};
+
+    #[test]
+    fn x402_submission_replay_returns_original_order() {
+        let agent: AccountId = "agent.near".parse().unwrap();
+        testing_env!(VMContextBuilder::new()
+            .predecessor_account_id(agent.clone())
+            .build());
+        let mut desk = Desk::new(
+            "owner.near".parse().unwrap(),
+            Policy::testnet(agent, "treasury.near".parse().unwrap()),
+            "0x00000000000000000000000000000000000000cc".into(),
+        );
+        let vault = "0x00000000000000000000000000000000000000aa";
+        desk.menu.insert(VaultKey {
+            chain: Chain::MonadTestnet,
+            vault: parse_vault(vault).unwrap(),
+        });
+        let amount = desk.policy.price_usdc;
+        assert_eq!(
+            desk.check_x402_request(Chain::MonadTestnet, vault.into()),
+            "ok"
+        );
+        let first = desk.submit_x402_request(
+            Chain::MonadTestnet,
+            vault.into(),
+            "deposit:attempt0".into(),
+            amount,
+        );
+        assert_eq!(
+            desk.check_x402_request(Chain::MonadTestnet, vault.into()),
+            "vault has an open order"
+        );
+        desk.reject(first, "failed judgement".into());
+        desk.orders.remove(&first);
+        desk.policy.kill = true;
+        assert_eq!(
+            desk.check_x402_request(Chain::MonadTestnet, vault.into()),
+            "kill switch on"
+        );
+        let replay = desk.submit_x402_request(
+            Chain::MonadTestnet,
+            vault.into(),
+            "deposit:attempt0".into(),
+            amount,
+        );
+        assert_eq!(replay, first);
+        assert_eq!(desk.next_order_id(), 1);
+        assert_eq!(desk.stats().sales_x402_usdc, amount);
     }
 }

@@ -37,6 +37,14 @@ impl Desk {
         self.policy.clone()
     }
 
+    /// Current admission only, not a reservation. Quote/payment latency can change the answer.
+    pub fn check_x402_request(&self, chain: Chain, vault: String) -> String {
+        match self.check_order(crate::types::Source::X402, chain, &vault) {
+            Ok(_) => "ok".into(),
+            Err(reason) => reason.into(),
+        }
+    }
+
     /// Vaults on the menu for `chain`, as 0x-lowercase hex.
     pub fn menu(&self, chain: Chain) -> Vec<String> {
         self.menu

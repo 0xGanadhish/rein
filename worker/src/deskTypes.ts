@@ -38,6 +38,8 @@ export interface DeskClient {
   policy(): Promise<DeskPolicy>;
   /** Vaults on the menu for `chain`, 0x-lowercase. */
   menu(chain: DeskChain): Promise<string[]>;
+  /** Same admission checks as opening a paid order; read-only, not a reservation. */
+  check_x402_request(chain: DeskChain, vault: string): Promise<string>;
   stats(): Promise<DeskStats>;
   /** Opens a watch order and returns its id; throws when the desk refuses it. */
   submit_watch_request(chain: DeskChain, vault: string): Promise<number>;

@@ -104,6 +104,9 @@ class FakeDesk implements DeskClient {
   async menu() {
     return [];
   }
+  async check_x402_request(): Promise<string> {
+    throw new Error('not used');
+  }
   async stats() {
     return {} as DeskStats;
   }
