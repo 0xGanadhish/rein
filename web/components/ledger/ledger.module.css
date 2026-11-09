@@ -284,6 +284,136 @@
   border-bottom: 1.5px dashed var(--cobalt);
 }
 
+/* Brier over time */
+.brierPlot {
+  position: relative;
+  margin-top: 22px;
+  height: 200px;
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+.brierPlot:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+.brierPlot svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.brierLine {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.brierRef {
+  stroke: var(--mute);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  vector-effect: non-scaling-stroke;
+}
+.brierBase {
+  stroke: var(--line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.brierCross {
+  stroke: var(--mute);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.brierEarly {
+  fill: var(--line-soft);
+}
+.brierRefLabel {
+  position: absolute;
+  right: 0;
+  transform: translateY(-120%);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--mute);
+  pointer-events: none;
+}
+.brierDot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--paper);
+  pointer-events: none;
+}
+.brierTip {
+  position: absolute;
+  top: 0;
+  transform: translateX(12px);
+  display: grid;
+  gap: 2px;
+  min-width: 150px;
+  padding: 8px 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--mute);
+  pointer-events: none;
+}
+.brierTip[data-flip] {
+  transform: translateX(calc(-100% - 12px));
+}
+.brierTip strong {
+  font-size: 15px;
+  color: var(--ink);
+}
+.brierAxis {
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--mute);
+}
+.swatchLine {
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--ink);
+}
+.swatchEarly {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--line-soft);
+  border: 1px solid var(--line);
+}
+.brierTable {
+  margin-top: 14px;
+  font-size: 13px;
+}
+.brierTable summary {
+  cursor: pointer;
+  color: var(--mute);
+}
+.brierTable table {
+  margin-top: 10px;
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.brierTable :is(th, td) {
+  padding: 4px 8px 4px 0;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+}
+
 /* Books */
 .books {
   margin: 20px 0 0;

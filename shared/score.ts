@@ -80,3 +80,24 @@ export function newCalls<T extends CallRow>(rows: T[]): T[] {
   }
   return rows.filter((_, i) => keep.has(i));
 }
+
+export interface BrierPoint {
+  /** When this call resolved. */
+  at: number;
+  /** Resolved calls so far, this one included. */
+  n: number;
+  /** Brier score over those calls, as scoreLedger computes it. */
+  brier: number;
+}
+
+/** The running Brier score: one point per resolved call, in the order they resolved. Pass calls, not repeats. */
+export function brierSeries(rows: (ScoreRow & { resolvedAt: number | null })[]): BrierPoint[] {
+  const resolved = rows
+    .filter((r) => r.resolved && r.adverse !== null && r.resolvedAt !== null)
+    .sort((a, b) => a.resolvedAt! - b.resolvedAt!);
+  let sum = 0;
+  return resolved.map((r, i) => {
+    sum += (r.riskBps / 10000 - (r.adverse ? 1 : 0)) ** 2;
+    return { at: r.resolvedAt!, n: i + 1, brier: sum / (i + 1) };
+  });
+}

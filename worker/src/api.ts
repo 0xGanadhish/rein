@@ -4,7 +4,7 @@ import { CRON_INTERVAL_S } from './health';
 import { RESOLVE_WINDOW_S, SAMPLE_WINDOW_S } from './vendor/cadence';
 import type { DeskStats } from '../../shared/desk';
 import { economics } from './economics';
-import { newCalls, scoreLedger, type ScoreVerdict } from '../../shared/score';
+import { brierSeries, newCalls, scoreLedger, type ScoreVerdict } from '../../shared/score';
 import { NETWORK_CHAINS } from './deskTypes';
 import type { Env, NearNetwork } from './env';
 import type { Health } from './health';
@@ -80,7 +80,8 @@ async function business(env: Env) {
   };
 }
 
-async function ledger(env: Env, network: NearNetwork) {
+/** Every post on the network's chains, oldest first, in the shape the scorer reads. */
+async function ledgerRows(env: Env, network: NearNetwork) {
   const chains = NETWORK_CHAINS[network];
   const { results } = await env.DB.prepare(
     `SELECT p.chain, p.id, p.vault, p.verdict, p.confidence_bps, p.risk_bps, p.posted_at, p.order_id, p.input_check,
@@ -92,7 +93,7 @@ async function ledger(env: Env, network: NearNetwork) {
   )
     .bind(...chains)
     .all<PostRow>();
-  const rows = results.map((r) => ({
+  return results.map((r) => ({
     ...r,
     verdict: VERDICTS[r.verdict] ?? 'HOLD',
     postedAt: r.posted_at,
@@ -100,7 +101,12 @@ async function ledger(env: Env, network: NearNetwork) {
     riskBps: r.risk_bps,
     resolved: r.resolved === 1,
     adverse: r.adverse === null ? null : r.adverse === 1,
+    resolvedAt: r.resolved_at,
   }));
+}
+
+async function ledger(env: Env, network: NearNetwork) {
+  const rows = await ledgerRows(env, network);
   const calls = newCalls(rows);
   const now = Math.floor(Date.now() / 1000);
   const isNew = new Set(calls);
@@ -203,6 +209,12 @@ app.get('/v1/ledger', async (c) => {
   const network = (c.req.query('network') ?? c.env.NEAR_NETWORK) as NearNetwork;
   if (!Object.hasOwn(NETWORK_CHAINS, network)) return json({ error: 'network must be testnet or mainnet' }, 400);
   return json(await ledger(c.env, network));
+});
+/** The running Brier score over every resolved call, for the Ledger's chart; /v1/ledger lists only recent posts. */
+app.get('/v1/ledger/brier', async (c) => {
+  const network = (c.req.query('network') ?? c.env.NEAR_NETWORK) as NearNetwork;
+  if (!Object.hasOwn(NETWORK_CHAINS, network)) return json({ error: 'network must be testnet or mainnet' }, 400);
+  return json({ network, points: brierSeries(newCalls(await ledgerRows(c.env, network))) });
 });
 /** A NEAR account's orders, newest first. */
 app.get('/v1/orders', async (c) => {

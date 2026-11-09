@@ -94,3 +94,29 @@ export async function readLedger(network?: Network): Promise<LedgerResult> {
     return { ok: false, error: 'The desk could not be reached.' };
   }
 }
+
+/** One point of the Worker's `GET /v1/ledger/brier`: the running score after each resolved call. */
+export interface BrierPoint {
+  at: number;
+  n: number;
+  brier: number;
+}
+
+/** The running Brier score over every resolved call on the visitor's network. Null when it can't be read. */
+export async function readBrier(): Promise<BrierPoint[] | null> {
+  const cfg = await publicConfig();
+  if (cfg.sample) {
+    const dir = process.env.FIXTURES_DIR ?? join(process.cwd(), 'fixtures');
+    return (JSON.parse(await readFile(join(dir, `brier.${cfg.network}.json`), 'utf8')) as { points: BrierPoint[] })
+      .points;
+  }
+  if (!cfg.api) return null;
+  const url = new URL('/v1/ledger/brier', cfg.api);
+  url.searchParams.set('network', cfg.network);
+  try {
+    const res = await fetch(url, { next: { revalidate: 60 } });
+    return res.ok ? ((await res.json()) as { points: BrierPoint[] }).points : null;
+  } catch {
+    return null;
+  }
+}

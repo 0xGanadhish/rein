@@ -224,6 +224,50 @@ describe('api', () => {
     expect((await get('/v1/ledger?network=devnet')).status).toBe(400);
   });
 
+  it('brier_series_covers_all_posts', async () => {
+    const post = env.DB.prepare(`INSERT INTO posts (chain, id, vault, verdict, confidence_bps, risk_bps, state_hash,
+      posted_at, pps_at_post, assets_at_post, liquidity_at_post, input_check, resolved, adverse, resolved_at)
+      VALUES (?, ?, ?, 0, 8000, ?, '0x00', ?, '1', '1', '1', 'match', ?, ?, ?)`);
+    // 205 resolved calls on distinct vaults, more than the Ledger's 200-post list; each said 20% risk and every
+    // fifth went wrong. Then a repeat, an unresolved post and a mainnet post, none of which count.
+    const rows = Array.from({ length: 205 }, (_, i) =>
+      post.bind(
+        'monad-testnet',
+        i + 1,
+        `0x${(i + 1).toString(16).padStart(40, '0')}`,
+        2000,
+        T + i,
+        1,
+        i % 5 === 0 ? 1 : 0,
+        T + 3600 + i,
+      ),
+    );
+    await env.DB.batch([
+      ...rows,
+      post.bind('monad-testnet', 206, `0x${(1).toString(16).padStart(40, '0')}`, 2000, T + 10, 1, 1, T + 9000),
+      post.bind('monad-testnet', 207, VAULT, 2000, T + 300, 0, null, null),
+      post.bind('monad', 1, VAULT, 2000, T, 1, 1, T + 3600),
+    ]);
+
+    const body = await (
+      await get('/v1/ledger/brier?network=testnet')
+    ).json<{
+      network: string;
+      points: { at: number; n: number; brier: number }[];
+    }>();
+    expect(body.network).toBe('testnet');
+    expect(body.points).toHaveLength(205);
+    expect(body.points.map((p) => p.n)).toEqual(Array.from({ length: 205 }, (_, i) => i + 1));
+    expect(body.points.map((p) => p.at)).toEqual(Array.from({ length: 205 }, (_, i) => T + 3600 + i));
+    // The first call went wrong: (0.2 − 1)². At the end, 41 of 205 went wrong.
+    expect(body.points[0]!.brier).toBeCloseTo(0.64, 10);
+    expect(body.points.at(-1)!.brier).toBeCloseTo((41 * 0.64 + 164 * 0.04) / 205, 10);
+    const ledger = await (await get('/v1/ledger?network=testnet')).json<{ score: { n: number; brier: number } }>();
+    expect(ledger.score.n).toBe(205);
+    expect(body.points.at(-1)!.brier).toBeCloseTo(ledger.score.brier, 10);
+    expect((await get('/v1/ledger/brier?network=devnet')).status).toBe(400);
+  });
+
   it('kick_is_idempotent', async () => {
     // Order 5 was judged on `doc`, delivered, and its post landed an hour ago, so it is due to resolve.
     const doc = `rein-v1|order=5|chain=monad-testnet|vault=${VAULT}|at=${T - 3601}|block=9|pps=1000000|assets=5000000|liquidity=na|apy_bps=500|apy_bps_prev=500|util_bps=5000|net_out_pct_1h=0.00|name=M`;

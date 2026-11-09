@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { Header } from '@/components/Header';
+import { BrierChart } from '@/components/ledger/BrierChart';
 import { Calls } from '@/components/ledger/Calls';
 import { Books, Calibration, Kpis } from '@/components/ledger/Summary';
 import { TareComparison } from '@/components/ledger/Tare';
 import styles from '@/components/ledger/ledger.module.css';
 import { readDesk } from '@/lib/desk';
 import { publicConfig } from '@/lib/config';
-import { NETWORKS, readLedger, type Network } from '@/lib/ledger';
+import { NETWORKS, readBrier, readLedger, type Network } from '@/lib/ledger';
 import { readTareScore } from '@/lib/tare';
 
 export const metadata: Metadata = { title: 'Ledger' };
@@ -17,7 +18,7 @@ const NETWORK_LABEL: Record<Network, string> = {
 };
 
 export default async function LedgerPage() {
-  const [result, desk, cfg] = await Promise.all([readLedger(), readDesk(), publicConfig()]);
+  const [result, desk, cfg, brier] = await Promise.all([readLedger(), readDesk(), publicConfig(), readBrier()]);
   const network = cfg.network;
   // Tare runs on mainnet only, so it's compared with Rein's mainnet calls.
   const tare = network === 'mainnet' ? await readTareScore() : null;
@@ -53,6 +54,7 @@ export default async function LedgerPage() {
             <Kpis ledger={result.ledger} />
             <div className={styles.panels}>
               <Calibration score={result.ledger.score} />
+              {brier && <BrierChart points={brier} />}
               <Books business={result.ledger.business} kill={desk?.policy.kill ?? null} />
               <TareComparison tare={tare} rein={result.ledger.score} />
             </div>
