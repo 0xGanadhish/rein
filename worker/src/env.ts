@@ -23,6 +23,11 @@ export interface Env {
   PINGPAY_API_KEY: string;
   /** yoctoNEAR the agent's function-call key was granted; health flags it once under 20% is left. */
   AGENT_KEY_ALLOWANCE?: string;
+  /** Web Push keys for EXIT alerts, base64url: the raw public point and the private scalar. Unset turns alerts off. */
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
+  /** Contact the push services see, a mailto: or https: URL. */
+  VAPID_SUBJECT?: string;
   /** Bearer token for manual cron kicks. Unset disables the endpoint. */
   KICK_TOKEN?: string;
 }

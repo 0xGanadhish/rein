@@ -21,3 +21,6 @@ next-env.d.ts
 .DS_Store
 web/test-results/
 web/playwright-report/
+
+# Local Worker state from wrangler dev
+.wrangler/

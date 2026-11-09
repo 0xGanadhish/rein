@@ -11,6 +11,7 @@ import { checkHealth, readActivity, type HealthDeps, type Health } from './healt
 import { judge } from './judge';
 import { BroadcastJournal } from './journal';
 import { withLock } from './lock';
+import { realAlertDeps, sendAlerts, type AlertDeps } from './alerts';
 import { mirror, realMirrorDeps, type MirrorDeps } from './mirror';
 import { orderReady, processOrder, type ChainClient, type OrderDeps, type OrderOutcome } from './order';
 import { reconcileX402 } from './x402';
@@ -183,6 +184,7 @@ export interface CronDeps {
   grade: GradeDeps;
   watch: WatchDeps;
   exits?: ExitDeps;
+  alerts?: AlertDeps | null;
   health?(): Promise<Health>;
 }
 
@@ -196,6 +198,7 @@ async function realCronDeps(env: Env): Promise<CronDeps> {
     grade: realGradeDeps(env),
     watch: realWatchDeps(env, desk),
     exits: realExitDeps(env),
+    alerts: realAlertDeps(env),
     health: async () => checkHealth(env.NEAR_NETWORK, await realHealthDeps(env)),
   };
 }
@@ -253,6 +256,9 @@ export async function runAll(env: Env, network: NearNetwork, now: number, deps: 
         return run.ran ? run.value : 'busy';
       })
     : { worked: 0, failed: 0 };
+  const alerted = deps.alerts
+    ? await step('alerts', () => sendAlerts(env, network, deps.alerts!))
+    : { sent: 0, failed: 0 };
   const successful =
     typeof orders !== 'string' &&
     Object.values(orders).every((v) => v !== 'error' && v !== 'busy') &&
@@ -271,7 +277,7 @@ export async function runAll(env: Env, network: NearNetwork, now: number, deps: 
       .bind(`cron:${network}`, Math.floor(Date.now() / 1000))
       .run();
   if (deps.health) await step('health', deps.health);
-  return { orders, mirror: mirrored, grade: graded, watch: watched, exits: exited };
+  return { orders, mirror: mirrored, grade: graded, watch: watched, exits: exited, alerts: alerted };
 }
 
 const nowS = () => Math.floor(Date.now() / 1000);

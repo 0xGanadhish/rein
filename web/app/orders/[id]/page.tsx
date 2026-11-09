@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import type { DeskOrderStatus } from '../../../../shared/desk';
 import { Header } from '@/components/Header';
 import { AutoRefresh } from '@/components/orders/AutoRefresh';
+import { ExitAlertButton } from '@/components/orders/ExitAlertButton';
 import { RefundButton } from '@/components/orders/RefundButton';
 import s from '@/components/orders/receipt.module.css';
 import { publicConfig } from '@/lib/config';
@@ -363,6 +364,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
                 See it on the Ledger
               </Link>
               {canRefund && <RefundButton orderId={order.id} className={s.ghost} />}
+              <ExitAlertButton api={cfg.api} chain={order.chain} vault={order.vault} className={s.ghost} />
             </div>
             {links.length > 0 && (
               <ul aria-label="Proof links" className={s.links}>

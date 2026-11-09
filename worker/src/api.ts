@@ -1,8 +1,10 @@
 import { Hono, type MiddlewareHandler } from 'hono';
+import { cors } from 'hono/cors';
 import type { DeskChain } from '../../shared/desk';
 import { CRON_INTERVAL_S } from './health';
 import { RESOLVE_WINDOW_S, SAMPLE_WINDOW_S } from './vendor/cadence';
 import type { DeskStats } from '../../shared/desk';
+import { changeSubscription } from './alerts';
 import { economics } from './economics';
 import { brierSeries, newCalls, scoreLedger, type ScoreVerdict } from '../../shared/score';
 import { NETWORK_CHAINS } from './deskTypes';
@@ -182,7 +184,9 @@ const limitQuote: MiddlewareHandler<ApiEnv> = async (c, next) => {
 };
 
 const app = new Hono<ApiEnv>({ strict: true });
-const POST_PATHS = ['/v1/kick', '/v1/quote', '/v1/x402/judge'];
+// Browsers subscribe to EXIT alerts from the site's own origin. These routes carry no credentials.
+app.use('/v1/alerts/*', cors({ origin: '*', allowMethods: ['GET', 'POST'], allowHeaders: ['content-type'] }));
+const POST_PATHS = ['/v1/kick', '/v1/quote', '/v1/x402/judge', '/v1/alerts/subscribe', '/v1/alerts/unsubscribe'];
 const methodNotAllowed = (allow: string) => {
   const response = json({ error: 'method not allowed' }, 405);
   response.headers.set('Allow', allow);
@@ -203,6 +207,17 @@ app.notFound(() => json({ error: 'not found' }, 404));
 app.post('/v1/kick', requireKickToken, async (c) => json(await c.env.deps.kick()));
 app.post('/v1/quote', limitQuote, async (c) => quote(c.req.raw, await c.env.deps.payments()));
 app.post('/v1/x402/judge', async (c) => x402Judge(c.req.raw, c.env, await c.env.deps.payments()));
+for (const [path, on] of [
+  ['/v1/alerts/subscribe', true],
+  ['/v1/alerts/unsubscribe', false],
+] as const) {
+  app.post(path, limitQuote, async (c) => {
+    if (!c.env.VAPID_PUBLIC_KEY) return json({ error: 'alerts are off' }, 503);
+    const body = await c.req.json().catch(() => null);
+    const r = await changeSubscription(c.env.DB, c.env.NEAR_NETWORK, body, on, Math.floor(Date.now() / 1000));
+    return json(r.body, r.status);
+  });
+}
 for (const path of POST_PATHS) app.all(path, () => methodNotAllowed('POST'));
 
 app.get('/v1/ledger', async (c) => {
@@ -256,6 +271,8 @@ app.get('/v1/orders/:id{[0-9]+}', async (c) => {
     post_tx: landed?.hash ?? null,
   });
 });
+/** The VAPID public key a browser subscribes with; null while alerts are off. */
+app.get('/v1/alerts/key', (c) => json({ key: c.env.VAPID_PUBLIC_KEY ?? null }));
 app.get('/v1/quote/status', async (c) => quoteStatus(new URL(c.req.url), await c.env.deps.payments()));
 app.get('/v1/stats', async (c) => json(await business(c.env)));
 app.get('/v1/health', async (c) => {
