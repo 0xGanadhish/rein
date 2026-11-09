@@ -12,3 +12,9 @@ order 18 · base-sepolia tx 0xb1092d1747b1362cba08c78eb22c9fe764e171e99b13e90cbf
   same post from the attester: StateAlreadyPosted (expected StateAlreadyPosted)
 no delivered post past its validity window yet
 
+# 2026-11-09T18:55:45.988Z · base-sepolia · oracle 0xd535a4068265b383976d92718e3E650b5183b6Ab
+no delivered post still inside its validity window yet: run pnpm demo, then this
+order 18 · base-sepolia tx 0xb1092d1747b1362cba08c78eb22c9fe764e171e99b13e90cbfc84bfd2f24e692 · valid until 2026-11-09T18:54:36.000Z
+  resend signed tx: refused by the chain: nonce too low: next nonce 1, tx nonce 0
+  same post from the attester: PostExpired (expected PostExpired)
+
