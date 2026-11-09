@@ -21,7 +21,7 @@ export const DEPLOYMENTS: Record<'mainnet' | 'testnet', Deployment> = {
   testnet: {
     desk: 'rein-desk.testnet',
     agent: 'agent.rein-desk.testnet',
-    oracles: { 'monad-testnet': '0x16b998475d3c2b7FB5b794406701167039fD841A', 'base-sepolia': null },
+    oracles: { 'monad-testnet': '0x16b998475d3c2b7FB5b794406701167039fD841A', 'base-sepolia': '0xd535a4068265b383976d92718e3E650b5183b6Ab' },
     menu: {
       // Rein's mirror vaults on mock USDC: rmSTEAK, rmCSCB, rmSIRLOIN.
       'monad-testnet': [
@@ -29,7 +29,11 @@ export const DEPLOYMENTS: Record<'mainnet' | 'testnet', Deployment> = {
         '0x4a03c331a2fFFB7Df05609749319940247ea3843',
         '0xA05df79d9fb5195C621Bc655fE345d6166fb2E07',
       ],
-      'base-sepolia': [],
+      'base-sepolia': [
+        '0x7B1D9003983c0B55B8b15aA37e7E188Ce6AabdC8',
+        '0x0B673bFAC6383bFd6E31170d94d5A9D4F8cf5c44',
+        '0x9a410Af861d07545A1E7a53aCF86e570A6F32FA8',
+      ],
     },
   },
   mainnet: {
