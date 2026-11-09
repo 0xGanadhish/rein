@@ -21,7 +21,10 @@ export const DEPLOYMENTS: Record<'mainnet' | 'testnet', Deployment> = {
   testnet: {
     desk: 'rein-desk.testnet',
     agent: 'agent.rein-desk.testnet',
-    oracles: { 'monad-testnet': '0x16b998475d3c2b7FB5b794406701167039fD841A', 'base-sepolia': '0xd535a4068265b383976d92718e3E650b5183b6Ab' },
+    oracles: {
+      'monad-testnet': '0x16b998475d3c2b7FB5b794406701167039fD841A',
+      'base-sepolia': '0xd535a4068265b383976d92718e3E650b5183b6Ab',
+    },
     menu: {
       // Rein's mirror vaults on mock USDC: rmSTEAK, rmCSCB, rmSIRLOIN.
       'monad-testnet': [
@@ -37,9 +40,13 @@ export const DEPLOYMENTS: Record<'mainnet' | 'testnet', Deployment> = {
     },
   },
   mainnet: {
-    desk: null,
-    agent: null,
+    desk: 'rein-desk.near',
+    agent: 'agent.rein-desk.near',
     oracles: { monad: null, base: null },
-    menu: { monad: [], base: [] },
+    menu: {
+      // Clearstar Earn USDC (Euler Earn) and August USDC V2 (Morpho V2), with Tare's deployed adapters.
+      monad: ['0xE1BcA19baA63894D374578320551633320436523', '0x80017bF0f793EBbE9679Cd61ff0e395B62CAbB59'],
+      base: [],
+    },
   },
 };

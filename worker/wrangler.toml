@@ -32,3 +32,30 @@ migrations_dir = "migrations"
 
 # Secrets, set with `wrangler secret put`: AGENT_KEY, NEAR_AI_API_KEY, EXECUTOR_KEY,
 # RPC_MONAD, RPC_MONAD_TESTNET, RPC_BASE, RPC_BASE_SEPOLIA, PINGPAY_API_KEY, KICK_TOKEN.
+
+# Mainnet runs as its own Worker with its own database, so testnet and mainnet order ids never collide.
+# Deploy with `wrangler deploy --env mainnet`; secrets go in with `wrangler secret put <NAME> --env mainnet`.
+[env.mainnet]
+name = "rein-worker-mainnet"
+
+[env.mainnet.triggers]
+crons = ["* * * * *"]
+
+[[env.mainnet.ratelimits]]
+name = "QUOTE_RATE_LIMITER"
+namespace_id = "1002"
+simple = { limit = 10, period = 60 }
+
+[env.mainnet.vars]
+NEAR_NETWORK = "mainnet"
+DESK_ACCOUNT = "rein-desk.near"
+AGENT_ACCOUNT = "agent.rein-desk.near"
+AGENT_KEY_ALLOWANCE = "2000000000000000000000000"
+GUARDIANS = "{}"
+
+[[env.mainnet.d1_databases]]
+binding = "DB"
+database_name = "rein-mainnet"
+# Fill in from `wrangler d1 create rein-mainnet`.
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
