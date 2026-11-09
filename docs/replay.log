@@ -1,0 +1,8 @@
+# 2026-11-09T18:08:57.089Z · monad-testnet · oracle 0x16b998475d3c2b7FB5b794406701167039fD841A
+order 16 · monad-testnet tx 0x3869f546a3c5f86339e496f575d962439bde574b1d3f02545da6027d3cf8e380 · valid until 2026-11-09T18:38:19.000Z
+  resend signed tx: refused by the chain: Transaction nonce too low
+  same post from the attester: StateAlreadyPosted (expected StateAlreadyPosted)
+order 15 · monad-testnet tx 0xbcc974f21a90648d7e9a7aff9989aca65c8b2c4e567e3ac795b9489cf9ad7929 · valid until 2026-11-08T20:37:00.000Z
+  resend signed tx: refused by the chain: Transaction nonce too low
+  same post from the attester: PostExpired (expected PostExpired)
+

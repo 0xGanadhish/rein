@@ -90,7 +90,9 @@ async function replay(orderId: number, tx: Transaction, validUntil: bigint, now:
     await client.sendRawTransaction({ serializedTransaction: rawOf(tx) });
     lines.push('  resend signed tx: ACCEPTED (unexpected)');
   } catch (e) {
-    lines.push(`  resend signed tx: refused by the chain: ${short(e)}`);
+    // The RPC's own reason (e.g. "nonce too low") is in `details`; viem's short message is generic.
+    const reason = e instanceof BaseError && e.details ? e.details : short(e);
+    lines.push(`  resend signed tx: refused by the chain: ${reason}`);
   }
   const expected = now > validUntil ? 'PostExpired' : 'StateAlreadyPosted';
   let got = 'no revert';
