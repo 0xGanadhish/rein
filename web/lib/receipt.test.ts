@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DeskOrderStatus } from '../../shared/desk';
-import { proofLinks, statusTrack } from './receipt';
+import { isExitOrder, proofLinks, statusTrack } from './receipt';
 
 const order = (status: DeskOrderStatus, post_tx: string | null = null) => ({
   id: 7,
@@ -31,5 +31,12 @@ describe('receipt', () => {
       { label: 'Order on the NEAR desk', href: 'https://testnet.nearblocks.io/address/rein-desk.testnet' },
       { label: 'Oracle post on Monad testnet', href: 'https://testnet.monadscan.com/tx/0xabc' },
     ]);
+  });
+
+  it('retried_judge_calls_do_not_make_a_hold_an_exit', () => {
+    const retried = { ...order('delivered'), judge_calls: [{}, {}, {}], posts: [{ verdict: 'HOLD' }] };
+    expect(isExitOrder(retried)).toBe(false);
+    expect(statusTrack(retried).map((s) => s.status)).not.toContain('exit_pending');
+    expect(isExitOrder({ ...retried, posts: [{ verdict: 'EXIT' }] })).toBe(true);
   });
 });

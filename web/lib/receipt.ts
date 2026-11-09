@@ -37,9 +37,8 @@ interface TrackOrder {
   posts: { verdict: string }[];
 }
 
-/** An EXIT reading goes through exit_pending; other orders skip it. */
-export const isExitOrder = (o: TrackOrder) =>
-  o.posts.at(-1)?.verdict === 'EXIT' || o.status === 'exit_pending' || o.judge_calls.length > 1;
+/** An EXIT reading goes through exit_pending; other orders skip it. Extra judge calls can be retries, so they don't count. */
+export const isExitOrder = (o: TrackOrder) => o.posts.at(-1)?.verdict === 'EXIT' || o.status === 'exit_pending';
 
 /** The status bar: each step of the happy path, done or not, and where the order is now. A failed order ends in its failure. */
 export function statusTrack(o: TrackOrder): { status: DeskOrderStatus; label: string; done: boolean; now: boolean }[] {
