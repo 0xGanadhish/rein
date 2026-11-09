@@ -1,5 +1,6 @@
+import { cookies } from 'next/headers';
 import { DEPLOYMENTS } from '../../shared/deployments';
-import type { Network } from './ledger';
+import { isNetwork, type Network } from './ledger';
 
 /** What the browser needs to know about this deployment. Read on the server, passed down as props. */
 export interface PublicConfig {
@@ -12,34 +13,41 @@ export interface PublicConfig {
   baseRpc: string;
   /** Sample data from fixtures/ instead of the desk and the Worker. */
   sample: boolean;
-  /** The Worker, for agents' x402 requests. */
+  /** This network's Worker: the Ledger, receipts, orders and agents' x402 requests. */
   api: string | null;
   /** Rein's exit worker is running against the deployed Guardian, so an EXIT is acted on without the owner. */
   exitWorker: boolean;
 }
 
-const DEFAULT_DESK: Record<Network, string | null> = {
-  testnet: DEPLOYMENTS.testnet.desk,
-  mainnet: DEPLOYMENTS.mainnet.desk,
-};
+/** The cookie the header's network switch sets. */
+export const NETWORK_COOKIE = 'rein-network';
 
-export function publicConfig(): PublicConfig {
-  const sample = process.env.DATA_SOURCE === 'fixtures';
-  // Sample data shows mainnet (Base and Monad) unless NEAR_NETWORK says otherwise; a live app defaults to testnet, like the Worker.
-  const network: Network =
-    process.env.NEAR_NETWORK === 'mainnet' || process.env.NEAR_NETWORK === 'testnet'
-      ? process.env.NEAR_NETWORK
-      : sample
-        ? 'mainnet'
-        : 'testnet';
-  const guardian = process.env.GUARDIAN_BASE;
+/** The network a visitor sees before choosing one: NEAR_NETWORK, else mainnet for sample data and testnet live. */
+export function defaultNetwork(env: NodeJS.ProcessEnv = process.env): Network {
+  if (isNetwork(env.NEAR_NETWORK)) return env.NEAR_NETWORK;
+  return env.DATA_SOURCE === 'fixtures' ? 'mainnet' : 'testnet';
+}
+
+/**
+ * The settings for one network. Each network has its own desk and its own Worker, from shared/deployments.ts;
+ * DESK_ACCOUNT_<NETWORK> and REIN_API_URL_<NETWORK> override them.
+ */
+export function configFor(network: Network, env: NodeJS.ProcessEnv = process.env): PublicConfig {
+  const NET = network.toUpperCase();
+  const guardian = env.GUARDIAN_BASE;
   return {
     network,
-    desk: process.env.DESK_ACCOUNT || DEFAULT_DESK[network],
+    desk: env[`DESK_ACCOUNT_${NET}`] || DEPLOYMENTS[network].desk,
     guardian: guardian && /^0x[0-9a-fA-F]{40}$/.test(guardian) ? (guardian as `0x${string}`) : null,
-    baseRpc: process.env.BASE_RPC || 'https://mainnet.base.org',
-    sample,
-    api: process.env.REIN_API_URL || null,
-    exitWorker: process.env.EXIT_WORKER_LIVE === 'true',
+    baseRpc: env.BASE_RPC || 'https://mainnet.base.org',
+    sample: env.DATA_SOURCE === 'fixtures',
+    api: env[`REIN_API_URL_${NET}`] || DEPLOYMENTS[network].api || null,
+    exitWorker: env.EXIT_WORKER_LIVE === 'true',
   };
+}
+
+/** This request's settings: the network from the switch's cookie, else the default. */
+export async function publicConfig(): Promise<PublicConfig> {
+  const chosen = (await cookies()).get(NETWORK_COOKIE)?.value;
+  return configFor(isNetwork(chosen) ? chosen : defaultNetwork());
 }

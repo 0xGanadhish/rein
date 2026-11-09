@@ -14,7 +14,7 @@ const isScore = (v: unknown): v is LedgerScore => {
 /** Tare's mainnet score from its public API, for comparison only. Null when it can't be read, so the page hides it. */
 export async function readTareScore(): Promise<LedgerScore | null> {
   try {
-    if (publicConfig().sample) {
+    if ((await publicConfig()).sample) {
       const dir = process.env.FIXTURES_DIR ?? join(process.cwd(), 'fixtures');
       return JSON.parse(await readFile(join(dir, 'tare.score.json'), 'utf8')) as LedgerScore;
     }

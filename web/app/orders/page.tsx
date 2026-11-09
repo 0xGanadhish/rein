@@ -8,8 +8,8 @@ export const metadata: Metadata = { title: 'My orders' };
 /** In sample mode there's no wallet to connect, so the page shows this sample payer's orders. */
 const SAMPLE_PAYER = 'vault-watch.near';
 
-export default function OrdersPage() {
-  const { sample } = publicConfig();
+export default async function OrdersPage() {
+  const { sample } = await publicConfig();
   return (
     <>
       <Header active="orders" />

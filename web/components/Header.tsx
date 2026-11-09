@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { publicConfig } from '@/lib/config';
 import { Account } from './near/Account';
+import { NetworkSwitch } from './NetworkSwitch';
 import styles from './Header.module.css';
 
 /** Two rings joined by a taut line: the reins. */
@@ -24,8 +25,8 @@ const TABS: { id: Tab; href: string; label: string }[] = [
 ];
 
 /** The app bar. `dark` matches the night pages (receipt, Guardian). */
-export function Header({ active, dark = false }: { active: Tab; dark?: boolean }) {
-  const { network } = publicConfig();
+export async function Header({ active, dark = false }: { active: Tab; dark?: boolean }) {
+  const { network } = await publicConfig();
   return (
     <header className={styles.bar} data-dark={dark || undefined}>
       <div className={`container ${styles.inner}`}>
@@ -41,10 +42,7 @@ export function Header({ active, dark = false }: { active: Tab; dark?: boolean }
           ))}
         </nav>
         <div className={styles.right}>
-          <span className={styles.network}>
-            <span className={styles.netDot} aria-hidden="true" />
-            NEAR {network}
-          </span>
+          <NetworkSwitch network={network} />
           <Account />
         </div>
       </div>

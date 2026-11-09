@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readOrder } from './desk';
+
+vi.mock('next/headers', () => ({ cookies: async () => ({ get: () => undefined }) }));
+const { readOrder } = await import('./desk');
 
 const live = {
   id: 7,
@@ -21,8 +23,8 @@ afterEach(() => {
 
 describe('readOrder', () => {
   it('paid_order_before_mirror_shows_pending_indexing', async () => {
-    vi.stubEnv('REIN_API_URL', 'https://api.rein.test');
-    vi.stubEnv('DESK_ACCOUNT', 'rein-desk.testnet');
+    vi.stubEnv('REIN_API_URL_TESTNET', 'https://api.rein.test');
+    vi.stubEnv('NEAR_NETWORK', 'testnet');
     vi.stubGlobal('fetch', async (url: string | URL) =>
       String(url).startsWith('https://api.rein.test')
         ? new Response('{"error":"not found"}', { status: 404 })

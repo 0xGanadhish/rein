@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: 'Guardian' };
 
 /** Guardian lives on Base and acts on the Rein oracle there, which the mainnet desk posts to. */
 export default async function GuardianPage({ searchParams }: { searchParams: Promise<{ vault?: string }> }) {
-  const cfg = publicConfig();
+  const cfg = await publicConfig();
   const [{ vault: asked }, desk, ledger] = await Promise.all([searchParams, readDesk(), readLedger('mainnet')]);
   const menu = desk?.menu.base?.length ? desk.menu.base : BASE_MENU;
   const exits = new Map<string, { confidenceBps: number; postedAt: number }[]>();

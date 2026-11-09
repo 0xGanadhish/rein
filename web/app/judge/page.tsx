@@ -11,7 +11,7 @@ import { BASE_MENU, SNAPSHOT, vaultName, shortAddress, usdShort } from '@/lib/va
 export const metadata: Metadata = { title: 'Judge a vault' };
 
 export default async function JudgePage({ searchParams }: { searchParams: Promise<{ vault?: string }> }) {
-  const cfg = publicConfig();
+  const cfg = await publicConfig();
   const [desk, ledger, { vault: asked }] = await Promise.all([readDesk(), readLedger(cfg.network), searchParams]);
   const chains = NETWORK_CHAINS[cfg.network];
   const entries = desk

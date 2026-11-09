@@ -5,6 +5,8 @@ type Address = `0x${string}`;
 export interface Deployment {
   /** The desk contract on NEAR; null until it's deployed on this network. */
   desk: string | null;
+  /** The Worker's public API for this network; each network runs its own Worker and database. */
+  api: string;
   /** The agent account whose function-call key the Worker uses. */
   agent: string | null;
   /** Rein oracle per chain; null until it's deployed there. */
@@ -20,6 +22,7 @@ export interface Deployment {
 export const DEPLOYMENTS: Record<'mainnet' | 'testnet', Deployment> = {
   testnet: {
     desk: 'rein-desk.testnet',
+    api: 'https://rein-worker.ganadhish-mardikar-dev.workers.dev',
     agent: 'agent.rein-desk.testnet',
     oracles: {
       'monad-testnet': '0x16b998475d3c2b7FB5b794406701167039fD841A',
@@ -41,6 +44,7 @@ export const DEPLOYMENTS: Record<'mainnet' | 'testnet', Deployment> = {
   },
   mainnet: {
     desk: 'rein-desk.near',
+    api: 'https://rein-worker-mainnet.ganadhish-mardikar-dev.workers.dev',
     agent: 'agent.rein-desk.near',
     oracles: { monad: null, base: null },
     menu: {

@@ -79,7 +79,7 @@ const WORDS = [
 ];
 
 export default async function Landing() {
-  const cfg = publicConfig();
+  const cfg = await publicConfig();
   const [ledgerResult, desk] = await Promise.all([readLedger(cfg.network), readDesk()]);
   const ledger = ledgerResult.ok ? ledgerResult.ledger : null;
   const policy = desk?.policy ?? null;

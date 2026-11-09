@@ -48,8 +48,8 @@ const fixture = async <T>(name: string): Promise<T> =>
   JSON.parse(await readFile(join(fixturesDir(), name), 'utf8')) as T;
 
 async function api<T>(path: string): Promise<T | null> {
-  const base = process.env.REIN_API_URL;
-  if (!base) throw new Error('REIN_API_URL is not set.');
+  const base = (await publicConfig()).api;
+  if (!base) throw new Error('No Worker is configured for this network.');
   const res = await fetch(new URL(path, base), { next: { revalidate: 15 } });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`The desk answered ${res.status}.`);
@@ -58,7 +58,7 @@ async function api<T>(path: string): Promise<T | null> {
 
 /** The desk's policy and menu, from the contract or fixtures. Null when no desk is configured or it can't be read. */
 export async function readDesk(): Promise<DeskInfo | null> {
-  const cfg = publicConfig();
+  const cfg = await publicConfig();
   if (cfg.sample) return fixture<DeskInfo>(`desk.${cfg.network}.json`);
   if (!cfg.desk) return null;
   const desk = cfg.desk;
@@ -76,7 +76,7 @@ export async function readDesk(): Promise<DeskInfo | null> {
 
 /** An order with its posts. The status comes from the desk itself when it can be read, since the Worker mirrors it once a minute. */
 export async function readOrder(id: number): Promise<OrderDetail | null> {
-  const cfg = publicConfig();
+  const cfg = await publicConfig();
   if (cfg.sample) return (await fixture<OrderDetail[]>('orders.json')).find((o) => o.id === id) ?? null;
   const [order, live] = await Promise.all([
     api<OrderDetail>(`/v1/orders/${id}`),
@@ -89,7 +89,7 @@ export async function readOrder(id: number): Promise<OrderDetail | null> {
 
 /** A payer's orders, newest first. */
 export async function readOrders(payer: string): Promise<DeskOrder[]> {
-  if (publicConfig().sample) {
+  if ((await publicConfig()).sample) {
     return (await fixture<OrderDetail[]>('orders.json')).filter((o) => o.payer === payer).sort((a, b) => b.id - a.id);
   }
   return (await api<{ orders: DeskOrder[] }>(`/v1/orders?payer=${encodeURIComponent(payer)}&limit=50`))?.orders ?? [];

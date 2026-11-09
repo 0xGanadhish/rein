@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { DeskChain, DeskStats } from '../../shared/desk';
 import type { LedgerScore, ScoreVerdict } from '../../shared/score';
+import { configFor, publicConfig } from './config';
 
 export type Network = 'testnet' | 'mainnet';
 export const NETWORKS: Network[] = ['mainnet', 'testnet'];
@@ -72,19 +73,19 @@ export type LedgerResult = { ok: true; ledger: Ledger; sample: boolean } | { ok:
 export const isNetwork = (v: unknown): v is Network => v === 'testnet' || v === 'mainnet';
 
 /**
- * The Ledger from the Worker at REIN_API_URL, or from fixtures/ when DATA_SOURCE=fixtures. Without a network the
- * Worker answers for the NEAR network it runs on; fixtures default to mainnet.
+ * The Ledger from that network's Worker, or from fixtures/ when DATA_SOURCE=fixtures. Without a network it's the
+ * network the visitor has switched to.
  */
 export async function readLedger(network?: Network): Promise<LedgerResult> {
-  if (process.env.DATA_SOURCE === 'fixtures') {
+  const cfg = network ? configFor(network) : await publicConfig();
+  if (cfg.sample) {
     const dir = process.env.FIXTURES_DIR ?? join(process.cwd(), 'fixtures');
-    const ledger = JSON.parse(await readFile(join(dir, `ledger.${network ?? 'mainnet'}.json`), 'utf8')) as Ledger;
+    const ledger = JSON.parse(await readFile(join(dir, `ledger.${cfg.network}.json`), 'utf8')) as Ledger;
     return { ok: true, ledger, sample: true };
   }
-  const base = process.env.REIN_API_URL;
-  if (!base) return { ok: false, error: 'REIN_API_URL is not set.' };
-  const url = new URL('/v1/ledger', base);
-  if (network) url.searchParams.set('network', network);
+  if (!cfg.api) return { ok: false, error: 'No Worker is configured for this network.' };
+  const url = new URL('/v1/ledger', cfg.api);
+  url.searchParams.set('network', cfg.network);
   try {
     const res = await fetch(url, { next: { revalidate: 30 } });
     if (!res.ok) return { ok: false, error: `The desk answered ${res.status}.` };

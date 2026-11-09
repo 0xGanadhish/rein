@@ -65,14 +65,32 @@
 .network {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
   height: 36px;
-  padding: 0 14px;
+  padding: 0 3px;
   border: 1px solid var(--hdr-line);
   border-radius: 999px;
   font-family: var(--mono);
   font-size: 11px;
   white-space: nowrap;
+}
+.netItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 999px;
+  color: var(--hdr-mute);
+  text-decoration: none;
+}
+.netItem[aria-current] {
+  background: var(--hdr-line);
+  color: inherit;
+}
+.netItem:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 1px;
 }
 .netDot {
   width: 6px;
@@ -162,9 +180,6 @@
 @media (max-width: 760px) {
   .inner {
     gap: 0 16px;
-  }
-  .network {
-    display: none;
   }
   .nav {
     order: 3;

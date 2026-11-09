@@ -13,8 +13,8 @@ export const metadata: Metadata = {
   description: 'Signed HOLD, EXIT and MOVE calls on yield vaults, graded in public.',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const { network, desk } = publicConfig();
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const { network, desk } = await publicConfig();
   return (
     <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
       <body>
