@@ -28,8 +28,8 @@ test('receipt walks the order to delivered and links the oracle post', async ({ 
   await page.goto('/orders/4001');
   const status = page.getByRole('list', { name: 'Order status' });
   await expect(status.getByText('Delivered')).toBeVisible();
-  const proof = page.getByRole('list', { name: 'Proof links' });
-  await expect(proof.getByRole('link', { name: /Oracle post on Base/ })).toHaveAttribute(
+  const proof = page.getByRole('list', { name: 'Proof chain' });
+  await expect(proof.getByRole('link', { name: /Chain Signatures post/ })).toHaveAttribute(
     'href',
     /^https:\/\/basescan\.org\/tx\/0x[0-9a-f]{64}$/,
   );

@@ -1,5 +1,5 @@
 import type { LedgerScore } from '../../../shared/score';
-import { units, pct, utcStamp } from '@/lib/format';
+import { amount, units, pct, utcStamp } from '@/lib/format';
 import type { Ledger } from '@/lib/ledger';
 import styles from './ledger.module.css';
 
@@ -226,7 +226,7 @@ export function Books({ business, kill }: { business: Ledger['business']; kill: 
           <div>
             <dt>Margin before gas</dt>
             <dd>
-              {units(business.margin.usdc_less_inference_micros, 6)} USDC
+              {amount(business.margin.usdc_less_inference_micros, 6)} USDC
               <small>{business.margin_unavailable_reason}</small>
             </dd>
           </div>

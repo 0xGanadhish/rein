@@ -10,7 +10,7 @@ import s from '@/components/orders/receipt.module.css';
 import { publicConfig } from '@/lib/config';
 import { readDesk, readOrder, type OrderDetail } from '@/lib/desk';
 import { refundable } from '@/lib/orders';
-import { CHAIN_LABEL as CHAIN, STATUS_LABEL as LABEL, isExitOrder, proofLinks, statusTrack } from '@/lib/receipt';
+import { CHAIN_LABEL as CHAIN, STATUS_LABEL as LABEL, isExitOrder, proofChain, statusTrack } from '@/lib/receipt';
 import { hotFields, parseDoc } from '@/lib/doc';
 import { amount, bpsPct, reasonLabels, utcStamp } from '@/lib/format';
 import { shortAddress, vaultName } from '@/lib/vaults';
@@ -75,7 +75,11 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   const failed = status === 'rejected' || status === 'refunded' || status === 'post_failed';
   const reached = FLOW.indexOf(status);
   const isExit = isExitOrder(order);
-  const links = proofLinks(order, cfg.network, cfg.desk);
+  const chain = proofChain(order, cfg.network, {
+    desk: cfg.desk,
+    signers: desk?.signers ?? null,
+    derived_address: desk?.derived_address ?? null,
+  });
   const judged = order.judge_calls[0];
   const confirmed = order.judge_calls[1];
   const fields = post?.doc ? parseDoc(post.doc) : [];
@@ -366,17 +370,36 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
               {canRefund && <RefundButton orderId={order.id} className={s.ghost} />}
               <ExitAlertButton api={cfg.api} chain={order.chain} vault={order.vault} className={s.ghost} />
             </div>
-            {links.length > 0 && (
-              <ul aria-label="Proof links" className={s.links}>
-                {links.map((l) => (
-                  <li key={l.href}>
-                    <a href={l.href} target="_blank" rel="noreferrer">
-                      {l.label} ↗
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <section aria-labelledby="verify" className={s.grade}>
+              <div>
+                <h2 id="verify" className={s.h2}>
+                  Verify this order
+                </h2>
+                <p>
+                  Checks compare the stored document hash and the desk’s current signer list; they do not verify the
+                  model signature or TEE attestation.
+                </p>
+                <ol className={`${s.links} ${s.proof}`} aria-label="Proof chain">
+                  {chain.map((step) => (
+                    <li key={step.label}>
+                      <strong>{step.label}</strong>
+                      {step.check !== undefined && (
+                        <span>
+                          {' '}
+                          · {step.check === 'ok' ? 'Match' : step.check === 'fail' ? 'Mismatch' : 'Not checked'}
+                        </span>
+                      )}
+                      <p className={s.mono}>{step.detail}</p>
+                      {step.href && (
+                        <a href={step.href} target="_blank" rel="noreferrer">
+                          {step.label} ↗
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </section>
 
             {post && (
               <div className={s.grade}>

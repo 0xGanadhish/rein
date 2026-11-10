@@ -47,6 +47,22 @@ const business: Ledger['business'] = {
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
 describe('Books', () => {
+  it('shows_micro_margins_exactly', () => {
+    const b = { ...business, margin: { ...business.margin, usdc_less_inference_micros: '-37' } };
+    const t = text(renderToStaticMarkup(<Books business={b} kill={false} />));
+    expect(t).toContain('Margin before gas -0.000037 USDC');
+    expect(t).not.toContain('-0.00 USDC');
+  });
+
+  it('zero_margin_has_no_sign', () => {
+    for (const raw of ['0', '-0', '-000']) {
+      const b = { ...business, margin: { ...business.margin, usdc_less_inference_micros: raw } };
+      const t = text(renderToStaticMarkup(<Books business={b} kill={false} />));
+      expect(t).toContain('Margin before gas 0 USDC');
+      expect(t).not.toContain('-0');
+    }
+  });
+
   it('business_panel_shows_sales_refunds_inference_gas_margin_split_kill_switch', () => {
     const t = text(renderToStaticMarkup(<Books business={business} kill />));
     expect(t).toContain('Paid by customers 3.00 NEAR · 5.00 USDC');
@@ -58,7 +74,7 @@ describe('Books', () => {
     expect(t).toContain('x402 credits, not yet redeemed 0.25 USDC');
     expect(t).toContain('Model cost $0.0001');
     expect(t).toContain('Gas, at least monad 0.06 MON');
-    expect(t).toContain('Margin before gas 2.99 USDC');
+    expect(t).toContain('Margin before gas 2.999852 USDC');
     expect(t).toContain('Native gas has no USD valuation');
     expect(t).toContain('Kill switch On');
   });

@@ -1,3 +1,5 @@
+import { DEPLOYMENTS } from '../../shared/deployments';
+
 /** Display names of the Base vaults on the menu (shared/addresses.base.json, docs/vaults.md), by lowercase address. */
 const BASE: Record<string, string> = {
   '0xbeef0786756810478b88982de00f3cd7fdb8e7c7': 'Grove x Steakhouse USDC',
@@ -18,9 +20,27 @@ const BASE: Record<string, string> = {
 
 export const shortAddress = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
-/** A vault's name when it's on the Base menu, else its short address. */
+const namesByChain: Record<string, Record<string, string>> = { base: BASE };
+for (const [chain, vaults] of Object.entries(DEPLOYMENTS.testnet.menu)) {
+  namesByChain[chain] = Object.fromEntries(
+    vaults.map((vault, i) => [vault.toLowerCase(), ['rmSTEAK', 'rmCSCB', 'rmSIRLOIN'][i]]),
+  );
+}
+namesByChain.monad = Object.fromEntries(
+  (DEPLOYMENTS.mainnet.menu.monad ?? []).map((vault, i) => [
+    vault.toLowerCase(),
+    ['Clearstar Earn USDC', 'August USDC V2'][i],
+  ]),
+);
+
+export function isMirror(chain: string): boolean {
+  return chain === 'monad-testnet' || chain === 'base-sepolia';
+}
+
+/** A menu vault's chain-specific name, else its short address. */
 export function vaultName(chain: string, vault: string): string {
-  return (chain === 'base' && BASE[vault.toLowerCase()]) || shortAddress(vault);
+  const name = namesByChain[chain]?.[vault.toLowerCase()];
+  return name ? `${name}${isMirror(chain) ? ' (mirror)' : ''}` : shortAddress(vault);
 }
 
 /** TVL and withdrawable share of each Base menu vault, read at Base block ~53,498,800 (docs/vaults.md). */

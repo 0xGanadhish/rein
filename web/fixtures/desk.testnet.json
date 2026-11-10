@@ -1,4 +1,6 @@
 {
+  "signers": ["0x4c1f7a20d9e3b5a6c8f0e2d4b6a8c0e2f4b39e02"],
+  "derived_address": "0xfe48d719c50092cda5e6c7be54e91fe1acc39985",
   "policy": {
     "spacing_s": 600,
     "per_vault_max": 6,

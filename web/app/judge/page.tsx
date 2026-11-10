@@ -6,7 +6,7 @@ import { publicConfig } from '@/lib/config';
 import { NETWORK_CHAINS, readDesk } from '@/lib/desk';
 import { readLedger } from '@/lib/ledger';
 import { buildMenu } from '@/lib/menu';
-import { BASE_MENU, SNAPSHOT, vaultName, shortAddress, usdShort } from '@/lib/vaults';
+import { BASE_MENU, SNAPSHOT, vaultName, shortAddress, usdShort, isMirror } from '@/lib/vaults';
 
 export const metadata: Metadata = { title: 'Judge a vault' };
 
@@ -33,7 +33,7 @@ export default async function JudgePage({ searchParams }: { searchParams: Promis
         name: vaultName(chain, vault),
         short: shortAddress(vault),
         tvlUsd: snap?.tvlUsd ?? null,
-        tvl: snap ? usdShort(snap.tvlUsd) : null,
+        tvl: snap ? usdShort(snap.tvlUsd) : isMirror(chain) ? 'Testnet mirror' : null,
         withdrawable: snap?.withdrawablePct ?? null,
         last,
         nextAt,

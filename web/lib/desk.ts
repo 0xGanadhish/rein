@@ -15,6 +15,8 @@ export const NETWORK_CHAINS: Record<Network, DeskChain[]> = {
 export interface DeskInfo {
   policy: DeskPolicy;
   menu: Partial<Record<DeskChain, string[]>>;
+  signers: string[] | null;
+  derived_address: string | null;
 }
 
 /** One oracle post of an order, from the Worker's `/v1/orders/:id`. */
@@ -56,7 +58,7 @@ async function api<T>(path: string): Promise<T | null> {
   return (await res.json()) as T;
 }
 
-/** The desk's policy and menu, from the contract or fixtures. Null when no desk is configured or it can't be read. */
+/** The desk's policy, menu and verification views. Null when no desk is configured or it can't be read. */
 export async function readDesk(): Promise<DeskInfo | null> {
   const cfg = await publicConfig();
   if (cfg.sample) return fixture<DeskInfo>(`desk.${cfg.network}.json`);
@@ -64,11 +66,14 @@ export async function readDesk(): Promise<DeskInfo | null> {
   const desk = cfg.desk;
   try {
     const chains = NETWORK_CHAINS[cfg.network];
-    const [policy, ...menus] = await Promise.all([
+    const [policy, signers, derived_address, ...menus] = await Promise.all([
       view<DeskPolicy>(cfg.network, desk, 'policy'),
+      // Receipt checks only: a failed read leaves them unchecked instead of hiding the menu.
+      view<string[]>(cfg.network, desk, 'signers').catch(() => null),
+      view<string>(cfg.network, desk, 'derived_address').catch(() => null),
       ...chains.map((chain) => view<string[]>(cfg.network, desk, 'menu', { chain })),
     ]);
-    return { policy, menu: Object.fromEntries(chains.map((c, i) => [c, menus[i]])) };
+    return { policy, signers, derived_address, menu: Object.fromEntries(chains.map((c, i) => [c, menus[i]])) };
   } catch {
     return null;
   }
