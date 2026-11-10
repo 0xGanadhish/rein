@@ -32,9 +32,9 @@ export default async function GuardianPage({ searchParams }: { searchParams: Pro
     vaults[0]?.vault;
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--night)', color: 'var(--night-ink)' }}>
-      <Header active="guardian" dark />
-      <main className="container" style={{ paddingTop: 'clamp(32px, 4vw, 56px)', paddingBottom: 80 }}>
+    <>
+      <Header active="guardian" />
+      <main className="container" style={{ paddingTop: 'clamp(24px, 3vw, 36px)', paddingBottom: 80 }}>
         <GuardianPanel
           vaults={vaults}
           initial={initial}
@@ -45,6 +45,6 @@ export default async function GuardianPage({ searchParams }: { searchParams: Pro
           api={cfg.api}
         />
       </main>
-    </div>
+    </>
   );
 }
