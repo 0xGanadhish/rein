@@ -99,15 +99,21 @@ async function body(request: Request): Promise<Record<string, unknown> | null> {
   }
 }
 
-/** `POST /v1/quote`: a 1Click quote that lands USDC on NEAR in the customer's own account. */
+/** `POST /v1/quote`: customer-controlled destination, defaulting to USDC on NEAR. */
 export async function quote(request: Request, deps: Pick<PaymentDeps, 'fetch' | 'now'>): Promise<Response> {
   const b = await body(request);
-  const { originAsset, amount, recipientNear } = b ?? {};
+  const { originAsset, amount, recipientNear, destinationAsset, recipient, refundTo } = b ?? {};
+  const hasDestination = b !== null && Object.hasOwn(b, 'destinationAsset');
   if (typeof originAsset !== 'string' || !originAsset) return json({ error: 'originAsset required' }, 400);
   if (typeof amount !== 'string' || !/^[1-9]\d*$/.test(amount))
     return json({ error: 'amount must be a positive integer string' }, 400);
-  if (typeof recipientNear !== 'string' || !NEAR_ACCOUNT.test(recipientNear))
+  if (hasDestination) {
+    for (const [field, value] of Object.entries({ destinationAsset, recipient, refundTo })) {
+      if (typeof value !== 'string' || !value.trim()) return json({ error: `${field} required` }, 400);
+    }
+  } else if (typeof recipientNear !== 'string' || !NEAR_ACCOUNT.test(recipientNear)) {
     return json({ error: 'recipientNear must be a NEAR account' }, 400);
+  }
 
   const res = await deps.fetch(`${ONECLICK.base}/quote`, {
     method: 'POST',
@@ -118,12 +124,12 @@ export async function quote(request: Request, deps: Pick<PaymentDeps, 'fetch' | 
       slippageTolerance: ONECLICK.slippageBps,
       originAsset,
       depositType: 'ORIGIN_CHAIN',
-      destinationAsset: ONECLICK.usdcOnNear,
+      destinationAsset: hasDestination ? destinationAsset : ONECLICK.usdcOnNear,
       amount,
-      // A failed swap refunds to the customer's own intents account; we hold no origin-chain address for them.
-      refundTo: recipientNear,
-      refundType: 'INTENTS',
-      recipient: recipientNear,
+      // The default refunds to the customer's intents account; destination quotes supply an origin address.
+      refundTo: hasDestination ? refundTo : recipientNear,
+      refundType: hasDestination ? 'ORIGIN_CHAIN' : 'INTENTS',
+      recipient: hasDestination ? recipient : recipientNear,
       recipientType: 'DESTINATION_CHAIN',
       deadline: new Date(deps.now() + ONECLICK.quoteTtlS * 1000).toISOString(),
     }),
