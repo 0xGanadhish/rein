@@ -1,6 +1,8 @@
-import type { DeskChain } from '../../shared/desk';
+import type { DeskChain, DeskOrderStatus } from '../../shared/desk';
 
 export type NearNetwork = 'testnet' | 'mainnet';
+
+export type NudgeResult = { status: DeskOrderStatus } | null;
 
 export interface Env {
   DB: D1Database;

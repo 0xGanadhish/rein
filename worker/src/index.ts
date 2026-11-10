@@ -4,7 +4,7 @@ import { erc4626Abi } from './abis';
 import { handle } from './api';
 import { CHAINS, viemChain } from './broadcast';
 import { NETWORK_CHAINS, type DeskClient, type DeskOrder } from './deskTypes';
-import { rpcFor, type Env, type NearNetwork } from './env';
+import { rpcFor, type Env, type NearNetwork, type NudgeResult } from './env';
 import { realExitDeps, runExits, type ExitDeps } from './exits';
 import { gradeDue, realGradeDeps, type GradeDeps } from './grade';
 import { checkHealth, readActivity, type HealthDeps, type Health } from './health';
@@ -178,6 +178,20 @@ export async function tick(
   return result;
 }
 
+/** Shares the cron's chain lease so public nudges cannot duplicate paid work. */
+export async function nudgeOrder(env: Env, id: number, deps: OrderDeps): Promise<NudgeResult> {
+  const order = await deps.desk.get_order(id);
+  if (!order) return null;
+  const run = await withLock(env.DB, `chain:${env.NEAR_NETWORK}:${order.chain}`, LOCK_TTL_S, async () => {
+    const current = await deps.desk.get_order(id);
+    if (!current) return null;
+    await processOrder(current, deps);
+    const after = await deps.desk.get_order(id);
+    return after ? { status: after.status } : null;
+  });
+  return run.ran ? run.value : { status: order.status };
+}
+
 export interface CronDeps {
   order: OrderDeps;
   mirror: MirrorDeps;
@@ -286,6 +300,7 @@ export default {
   async fetch(request, env) {
     return handle(request, env, {
       kick: async () => runAll(env, env.NEAR_NETWORK, nowS(), await realCronDeps(env)),
+      nudge: async (id) => nudgeOrder(env, id, (await realCronDeps(env)).order),
       health: async () => checkHealth(env.NEAR_NETWORK, await realHealthDeps(env)),
       payments: async () => {
         const deps = await realCronDeps(env);
