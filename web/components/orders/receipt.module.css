@@ -436,6 +436,14 @@
 .links a:hover {
   color: var(--night-mute);
 }
+.proof {
+  display: block;
+  list-style: decimal;
+  padding-left: 22px;
+}
+.proof li + li {
+  margin-top: 18px;
+}
 .grade {
   margin-top: 28px;
   background: var(--night-2);
