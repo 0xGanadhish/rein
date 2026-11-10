@@ -20,7 +20,7 @@ While an x402 payment is still settling, `{ pending: true, payment_ref, order_id
 Verdict records contain the chain, vault, HOLD/EXIT/MOVE answer, confidence/risk, available proof links and grade.
 Proof fields that the receipt does not expose remain `null`.
 
-Local stdio runs from a clone with `pnpm --filter rein-mcp start`. Configure `REIN_NETWORK`
+Local stdio runs from a clone with `pnpm --silent --filter rein-mcp start` (`--silent` keeps pnpm's banner off stdout, which carries the MCP stream). Configure `REIN_NETWORK`
 (`testnet` or `mainnet`), `REIN_NEAR_ACCOUNT`, and `REIN_NEAR_KEY` in the MCP client's environment;
 never send the key in a tool argument. `REIN_API_URL` optionally overrides the network's public API.
 The network selects the desk and unsigned NEAR RPC endpoint. Signing is lazy: browsing never parses or uses

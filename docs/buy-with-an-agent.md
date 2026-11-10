@@ -30,14 +30,14 @@ Clone the repository and install its pinned dependencies:
 pnpm install
 ```
 
-Merge this `mcpServers` entry into your **private local** Claude Code configuration. Replace `/absolute/path/to/rein` with the clone path and the account/key placeholders locally. Do not commit the configuration. Using `--dir` makes the process independent of the client's working directory.
+Merge this `mcpServers` entry into your **private local** Claude Code configuration. Replace `/absolute/path/to/rein` with the clone path and the account/key placeholders locally. Do not commit the configuration. Using `--dir` makes the process independent of the client's working directory. `--silent` keeps pnpm's own banner off stdout, which carries the MCP protocol.
 
 ```json
 {
   "mcpServers": {
     "rein": {
       "command": "pnpm",
-      "args": ["--dir", "/absolute/path/to/rein", "--filter", "rein-mcp", "start"],
+      "args": ["--silent", "--dir", "/absolute/path/to/rein", "--filter", "rein-mcp", "start"],
       "env": {
         "REIN_NETWORK": "testnet",
         "REIN_NEAR_ACCOUNT": "agent.<your-account>.testnet",
