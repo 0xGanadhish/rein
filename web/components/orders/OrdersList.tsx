@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { DeskOrder } from '../../../shared/desk';
 import { useNearWallet } from '@/components/near/NearWallet';
+import { useNewKeys } from '@/components/useNewKeys';
 import { amount, utcStamp } from '@/lib/format';
 import { shortAddress, vaultName } from '@/lib/vaults';
 import s from './orders.module.css';
@@ -33,6 +34,7 @@ export function OrdersList({ samplePayer }: { samplePayer: string | null }) {
   const [orders, setOrders] = useState<DeskOrder[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lookup, setLookup] = useState('');
+  const fresh = useNewKeys((orders ?? []).map((o) => String(o.id)));
 
   useEffect(() => {
     if (!payer) return;
@@ -55,12 +57,9 @@ export function OrdersList({ samplePayer }: { samplePayer: string | null }) {
   return (
     <>
       <div className={s.head}>
-        <div>
-          <div className={`label ${s.eyebrow}`}>
-            <span>My orders</span>
-            {!account && samplePayer && <span className={s.sample}>· Sample data for {samplePayer}</span>}
-          </div>
+        <div className={s.titleRow}>
           <h1 className={s.title}>Every call you paid for.</h1>
+          {!account && samplePayer && <p className={s.sample}>Sample data for {samplePayer}</p>}
         </div>
         <form
           className={s.lookup}
@@ -108,29 +107,39 @@ export function OrdersList({ samplePayer }: { samplePayer: string | null }) {
           </Link>
         </div>
       ) : (
-        <ul className={s.list}>
-          {orders.map((o) => (
-            <li key={o.id}>
-              <Link href={`/orders/${o.id}`} className={s.row}>
-                <span className={s.id}>#{o.id}</span>
-                <span className={s.vault}>
-                  <b>{vaultName(o.chain, o.vault)}</b>
-                  <small>
-                    {o.chain} · {shortAddress(o.vault)}
-                  </small>
-                </span>
-                <span className={s.mono}>{paid(o)}</span>
-                <span className={s.mono}>{utcStamp(o.created_s)}</span>
-                <span className={s.status} data-status={o.status}>
-                  {STATUS[o.status]}
-                </span>
-                <span className={s.go} aria-hidden="true">
-                  →
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className={s.cols} aria-hidden="true">
+            <span>ORDER</span>
+            <span>VAULT</span>
+            <span className={s.colMono}>PAID</span>
+            <span className={s.colMono}>CREATED (UTC)</span>
+            <span>STATUS</span>
+            <span />
+          </div>
+          <ul className={s.list}>
+            {orders.map((o) => (
+              <li key={o.id} data-new={fresh.has(String(o.id)) || undefined}>
+                <Link href={`/orders/${o.id}`} className={s.row}>
+                  <span className={s.id}>#{o.id}</span>
+                  <span className={s.vault}>
+                    <b>{vaultName(o.chain, o.vault)}</b>
+                    <small>
+                      {o.chain} · {shortAddress(o.vault)}
+                    </small>
+                  </span>
+                  <span className={s.mono}>{paid(o)}</span>
+                  <span className={s.mono}>{utcStamp(o.created_s)}</span>
+                  <span className={s.status} data-status={o.status}>
+                    {STATUS[o.status]}
+                  </span>
+                  <span className={s.go} aria-hidden="true">
+                    →
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </>
   );
