@@ -188,6 +188,8 @@ const limitQuote: MiddlewareHandler<ApiEnv> = async (c, next) => {
 const app = new Hono<ApiEnv>({ strict: true });
 // Browsers subscribe to EXIT alerts from the site's own origin. These routes carry no credentials.
 app.use('/v1/alerts/*', cors({ origin: '*', allowMethods: ['GET', 'POST'], allowHeaders: ['content-type'] }));
+// Browsers request deposit quotes directly, so the per-IP limit applies to each visitor. No credentials.
+app.use('/v1/quote', cors({ origin: '*', allowMethods: ['POST'], allowHeaders: ['content-type'] }));
 const POST_PATHS = [
   '/v1/kick',
   '/v1/quote',

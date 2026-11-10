@@ -12,6 +12,7 @@ import {
   type EIP1193Provider,
 } from 'viem';
 import { base } from 'viem/chains';
+import { MoveAfterExit } from '@/components/orders/MoveAfterExit';
 import { utcStamp } from '@/lib/format';
 import s from './guardian.module.css';
 
@@ -44,6 +45,9 @@ const vaultAbi = parseAbi([
   'function decimals() view returns (uint8)',
 ]);
 
+// Native Base USDC, verified against 1Click's public token catalog.
+const BASE_USDC: Address = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
+
 interface Position {
   shares: bigint;
   decimals: number;
@@ -51,6 +55,8 @@ interface Position {
   allowance: bigint;
   approved: boolean;
   armed: boolean;
+  ruleEnabled: boolean;
+  usdcBalance: bigint;
 }
 const SAMPLE: Position = {
   shares: 958571300000000000000n,
@@ -59,6 +65,8 @@ const SAMPLE: Position = {
   allowance: 0n,
   approved: true,
   armed: false,
+  ruleEnabled: false,
+  usdcBalance: 0n,
 };
 
 const injected = () =>
@@ -73,6 +81,7 @@ export function GuardianPanel({
   rpc,
   sample,
   exitWorker,
+  api,
 }: {
   vaults: GuardVault[];
   initial: Address | undefined;
@@ -81,6 +90,7 @@ export function GuardianPanel({
   sample: boolean;
   /** Rein's exit worker is live, so copy may say exits happen without the owner. */
   exitWorker: boolean;
+  api: string | null;
 }) {
   const [vault, setVault] = useState<Address | undefined>(initial);
   const [conf, setConf] = useState(90);
@@ -112,7 +122,20 @@ export function GuardianPanel({
               args: [shares],
             });
       const [enabled, minBps, maxAge] = rule;
-      setPos({ shares, decimals, assets, allowance, approved, armed: enabled && allowance >= shares && shares > 0n });
+      const usdcBalance =
+        enabled && shares === 0n
+          ? await reader.readContract({ address: BASE_USDC, abi: vaultAbi, functionName: 'balanceOf', args: [owner] })
+          : 0n;
+      setPos({
+        shares,
+        decimals,
+        assets,
+        allowance,
+        approved,
+        armed: enabled && allowance >= shares && shares > 0n,
+        ruleEnabled: enabled,
+        usdcBalance,
+      });
       if (enabled) {
         setConf(Math.round(minBps / 100));
         setAge(Math.max(MIN_AGE_MIN, Math.round(maxAge / 60)));
@@ -449,6 +472,15 @@ export function GuardianPanel({
           </section>
         </aside>
       </div>
+      {!sample && api && owner && vault && pos?.ruleEnabled && pos.shares === 0n && (
+        <MoveAfterExit
+          key={`${owner}:${vault}:${pos.usdcBalance}`}
+          api={api}
+          chain="base"
+          amount={pos.usdcBalance}
+          owner={owner}
+        />
+      )}
     </>
   );
 }
