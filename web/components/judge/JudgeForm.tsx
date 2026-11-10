@@ -7,6 +7,7 @@ import { useNearWallet } from '@/components/near/NearWallet';
 import { menuNote, paymentCall } from '@/lib/menu';
 import { orderIdFrom } from '@/lib/orders';
 import { amount, duration } from '@/lib/format';
+import { isMirror } from '@/lib/vaults';
 import s from './judge.module.css';
 
 export interface MenuVault {
@@ -193,7 +194,9 @@ export function JudgeForm({
                   <span className={s.optMono}>{v.withdrawable.toFixed(1)}%</span>
                 </span>
               )}
-              <span className={`${s.optMono} ${s.right} ${s.hideSm}`}>{v.tvl ?? '–'}</span>
+              <span className={`${s.optMono} ${s.right} ${s.hideSm}`}>
+                {isMirror(v.chain) ? <span className={s.mirror}>{v.tvl}</span> : (v.tvl ?? '–')}
+              </span>
             </button>
           ))}
           {list.length === 0 && (
