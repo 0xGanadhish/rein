@@ -31,7 +31,7 @@ export default defineConfig([
     '.env*',
   ]),
   {
-    files: ['worker/**/*.ts', 'shared/**/*.ts', 'scripts/**/*.ts', 'web/**/*.{ts,tsx}'],
+    files: ['worker/**/*.ts', 'shared/**/*.ts', 'scripts/**/*.ts', 'web/**/*.{ts,tsx}', 'mcp/**/*.ts'],
     extends: [js.configs.recommended, tseslint.configs.recommended, prettier],
   },
 ]);

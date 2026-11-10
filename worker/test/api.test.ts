@@ -9,16 +9,17 @@ import {
   decodeFunctionData,
   type Hex,
 } from 'viem';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DeskPolicy, DeskStats } from '../../shared/desk';
 import { oracleAbi } from '../src/abis';
 import { handle, type ApiDeps } from '../src/api';
 import { ORACLES } from '../src/broadcast';
 import type { DeskOrder } from '../src/deskTypes';
 import { checkHealth, type HealthDeps } from '../src/health';
-import { runAll, type CronDeps } from '../src/index';
+import { nudgeOrder, runAll, type CronDeps } from '../src/index';
 import { BroadcastJournal } from '../src/journal';
 import type { OraclePost } from '../src/mirror';
+import type { OrderDeps } from '../src/order';
 
 const T = 1_793_774_400;
 const VAULT = '0x00000000000000000000000000000000000000aa';
@@ -53,6 +54,7 @@ const TABLES = [
 const get = (path: string, deps: Partial<ApiDeps> = {}) =>
   handle(new Request(`https://rein.test${path}`), env, {
     kick: async () => ({}),
+    nudge: null!,
     health: async () => {
       throw new Error('unused');
     },
@@ -70,6 +72,106 @@ describe('api', () => {
     await env.DB.batch(TABLES.map((t) => env.DB.prepare(`DELETE FROM ${t}`)));
   });
 
+  it('nudge_unknown_order_404s', async () => {
+    const nudge = vi.fn(async () => null);
+    const response = await handle(new Request('https://rein.test/v1/orders/999/nudge', { method: 'POST' }), env, {
+      kick: null!,
+      health: null!,
+      payments: null!,
+      nudge,
+    });
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: 'not found' });
+    expect(nudge).toHaveBeenCalledWith(999);
+  });
+
+  it('nudge_rate_limited_per_ip', async () => {
+    const nudge = vi.fn(async () => null);
+    const limit = vi.fn(async () => ({ success: false }));
+    const response = await handle(
+      new Request('https://rein.test/v1/orders/7/nudge', {
+        method: 'POST',
+        headers: { 'CF-Connecting-IP': '192.0.2.7' },
+      }),
+      { ...env, QUOTE_RATE_LIMITER: { limit } },
+      { kick: null!, health: null!, payments: null!, nudge },
+    );
+    expect(response.status).toBe(429);
+    expect(response.headers.get('Retry-After')).toBe('60');
+    expect(await response.json()).toEqual({ error: 'rate limited' });
+    expect(limit).toHaveBeenCalledWith({ key: '192.0.2.7' });
+    expect(nudge).not.toHaveBeenCalled();
+  });
+
+  it('nudge_terminal_order_refused', async () => {
+    const judge = vi.fn();
+    const order: DeskOrder = {
+      id: 7,
+      chain: 'monad-testnet',
+      vault: VAULT,
+      source: 'near',
+      payer: 'buyer.testnet',
+      amount: '1',
+      created_s: T,
+      status: 'delivered',
+      valid_until: null,
+      exit_pending_s: null,
+    };
+    const deps: OrderDeps = {
+      desk: {
+        get_order: async () => order,
+        open_orders: null!,
+        list_orders: null!,
+        next_order_id: null!,
+        policy: null!,
+        menu: null!,
+        check_x402_request: null!,
+        stats: null!,
+        submit_watch_request: null!,
+        submit_x402_request: null!,
+        prompt: null!,
+        signers: null!,
+        get_signed_tx: null!,
+        derived_address: null!,
+        check_reading: null!,
+        fulfil: null!,
+        confirm_exit: null!,
+        resign: null!,
+        report_delivery: null!,
+        fail_post: null!,
+        reject: null!,
+      },
+      journal: null!,
+      read: null!,
+      flows: null!,
+      judge,
+      chain: null!,
+      now: () => T,
+      alert: null!,
+    };
+    const response = await handle(new Request('https://rein.test/v1/orders/7/nudge', { method: 'POST' }), env, {
+      kick: null!,
+      health: null!,
+      payments: null!,
+      nudge: (id) => nudgeOrder(env, id, deps),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: 'delivered' });
+    expect(judge).not.toHaveBeenCalled();
+    for (const method of ['GET', 'HEAD', 'PUT']) {
+      const wrong = await handle(new Request('https://rein.test/v1/orders/7/nudge', { method }), env, {
+        kick: null!,
+        health: null!,
+        payments: null!,
+        nudge: null!,
+      });
+      expect(wrong.status).toBe(405);
+      expect(wrong.headers.get('Allow')).toBe('POST');
+      expect(wrong.headers.get('content-type')).toBe('application/json');
+      if (method !== 'HEAD') expect(await wrong.json()).toEqual({ error: 'method not allowed' });
+    }
+  });
+
   it('kick_refused_without_token', async () => {
     let invoked = false;
     const deps = {
@@ -79,6 +181,7 @@ describe('api', () => {
       },
       health: null!,
       payments: null!,
+      nudge: null!,
     };
     const response = await handle(new Request('https://rein.test/v1/kick', { method: 'POST' }), env, deps);
     expect(response.status).toBe(401);
@@ -122,6 +225,7 @@ describe('api', () => {
       {
         kick: null!,
         health: null!,
+        nudge: null!,
         payments: async () => {
           paymentsCalled = true;
           throw new Error('must not initialize');
@@ -373,7 +477,7 @@ describe('api', () => {
           headers: { Authorization: 'Bearer test-only-kick' },
         }),
         { ...env, KICK_TOKEN: 'test-only-kick' },
-        { kick: () => runAll(env, 'testnet', T, deps), health: null!, payments: null! },
+        { kick: () => runAll(env, 'testnet', T, deps), health: null!, payments: null!, nudge: null! },
       );
     const dump = async () =>
       Promise.all(

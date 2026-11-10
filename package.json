@@ -5,9 +5,9 @@
   "license": "MIT",
   "packageManager": "pnpm@10.34.6",
   "scripts": {
-    "lint": "eslint worker shared scripts web --max-warnings=0",
-    "format": "prettier --write worker shared scripts web near evm package.json eslint.config.mjs .prettierrc.json",
-    "format:check": "prettier --check worker shared scripts web near evm package.json eslint.config.mjs .prettierrc.json",
+    "lint": "eslint worker shared scripts web mcp --max-warnings=0",
+    "format": "prettier --write worker shared scripts web mcp near evm package.json eslint.config.mjs .prettierrc.json",
+    "format:check": "prettier --check worker shared scripts web mcp near evm package.json eslint.config.mjs .prettierrc.json",
     "fmt:rust": "cargo fmt --manifest-path near/Cargo.toml --all",
     "fmt:rust:check": "cargo fmt --manifest-path near/Cargo.toml --all --check",
     "fmt:sol": "forge fmt --root evm",

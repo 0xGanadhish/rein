@@ -6,6 +6,42 @@ Work in progress for NEAR HACKATHON.
 
 The first commit vendors code reused from [Tare](https://github.com/0xGanadhish/tare) at `b584c863`, unchanged, under MIT. Everything after it is hackathon work.
 
+## Use Rein from an agent
+
+The private `rein-mcp` workspace package exposes five tools with structured results and a one-line summary:
+`list_vaults` (menus, prices and spacing), `latest_verdict` (latest public vault verdict),
+`get_verdict` (buy and wait), `order_status` (resume an order), and `ledger` (graded posts and scores).
+Free tools never submit a payment. Before buying, `get_verdict` checks the menu, kill switch and visible post
+spacing. Desk admission remains authoritative if the public Ledger is behind.
+
+An order wait is capped at four minutes; `{ pending: true, order_id, status }` resumes with `order_status`.
+While an x402 payment is still settling, `{ pending: true, payment_ref, order_id: null }` means call
+`get_verdict` again with the same payment; that payment is not charged twice.
+Verdict records contain the chain, vault, HOLD/EXIT/MOVE answer, confidence/risk, available proof links and grade.
+Proof fields that the receipt does not expose remain `null`.
+
+Local stdio runs from a clone with `pnpm --filter rein-mcp start`. Configure `REIN_NETWORK`
+(`testnet` or `mainnet`), `REIN_NEAR_ACCOUNT`, and `REIN_NEAR_KEY` in the MCP client's environment;
+never send the key in a tool argument. `REIN_API_URL` optionally overrides the network's public API.
+The network selects the desk and unsigned NEAR RPC endpoint. Signing is lazy: browsing never parses or uses
+the key. A paid call attaches the current `price_near` to one `request_judgement` call.
+Keys and original signing exceptions are excluded from reported errors.
+
+`POST /v1/orders/:id/nudge` advances one order under the cron's chain lease and returns `{ status }`.
+Unknown orders return JSON 404; terminal orders do not call the model. The public route shares the quote
+per-IP limit (JSON 429 with `Retry-After: 60`); only POST is allowed.
+
+Remote MCP uses the Worker's `/mcp` endpoint with stateless streamable HTTP. Each POST gets a fresh server;
+there is no session ID. It shares the nudge/quote per-IP limit and rejects other methods with JSON 405.
+The endpoint becomes available with the next Worker deployment; adding the code does not deploy it.
+
+In remote mode, `get_verdict` without `payment` returns the existing x402 `accepts` requirements. Pass the
+encoded x402 payment as `payment` to use the same in-process payment handler as `/v1/x402/judge`.
+Once an order ID exists, the tool nudges it and polls the desk, sending progress notifications on status changes
+when the MCP client supplies a progress token. Delivery returns the same verdict record as local mode.
+Remote mode never accepts a NEAR signing key. x402 payments retain the existing upfront-payment and one-use
+retry-credit policy; they are not NEAR escrow refunds.
+
 ## Desk invariants
 
 The desk verifies the model's signed answer against an owner-approved prompt and signer. Documents must belong to

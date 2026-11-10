@@ -247,6 +247,7 @@ function call(fakes: Fakes, path: string, body: unknown, headers: Record<string,
     {
       kick: async () => ({}),
       health: null!,
+      nudge: null!,
       payments: async () => fakes.deps(),
     },
   );
@@ -258,9 +259,14 @@ const purchase = async (f: Fakes) => {
   return judge(f, payment('deposit'));
 };
 const business = async () =>
-  (await handle(new Request('https://rein.test/v1/stats'), env, { kick: null!, health: null!, payments: null! })).json<
-    Record<string, unknown>
-  >();
+  (
+    await handle(new Request('https://rein.test/v1/stats'), env, {
+      kick: null!,
+      health: null!,
+      payments: null!,
+      nudge: null!,
+    })
+  ).json<Record<string, unknown>>();
 
 describe('payments', () => {
   beforeAll(async () => {
@@ -289,6 +295,7 @@ describe('payments', () => {
     const status = await handle(new Request('https://rein.test/v1/quote/status?depositAddress=0xdep051t'), env, {
       kick: null!,
       health: null!,
+      nudge: null!,
       payments: async () => f.deps(),
     });
     expect(await status.json()).toEqual({ status: 'PENDING_DEPOSIT' });
