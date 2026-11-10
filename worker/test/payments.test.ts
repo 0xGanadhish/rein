@@ -1,11 +1,11 @@
 import { applyD1Migrations } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { encodeFunctionData, parseAbi, serializeTransaction } from 'viem';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DeskChain, DeskPolicy } from '../../shared/desk';
 import { handle } from '../src/api';
 import type { DeskOrder } from '../src/deskTypes';
-import { ONECLICK, PINGPAY, type PaymentDeps } from '../src/payments';
+import { ONECLICK, PINGPAY, quote, type PaymentDeps } from '../src/payments';
 import { reconcileX402 } from '../src/x402';
 
 const VAULT = '0x00000000000000000000000000000000000000aa';
@@ -302,6 +302,100 @@ describe('payments', () => {
     expect(
       (await call(f, '/v1/quote', { originAsset: 'x', amount: '1', recipientNear: 'Not An Account' })).status,
     ).toBe(400);
+  });
+
+  it('quote_passes_destination_recipient_refund_through', async () => {
+    const fetch = vi.fn(async () =>
+      Response.json({ quote: { depositAddress: DEPOSIT, amountIn: '2500000', deadline: '2026-11-04T13:00:00.000Z' } }),
+    );
+    const res = await quote(
+      new Request('https://rein.test/v1/quote', {
+        method: 'POST',
+        body: JSON.stringify({
+          originAsset: 'origin-usdc',
+          amount: '2500000',
+          destinationAsset: 'destination-usdc',
+          recipient: VAULT,
+          refundTo: DEPOSIT,
+        }),
+      }),
+      { fetch, now: () => T0 },
+    );
+    expect(res.status).toBe(200);
+    expect(fetch).toHaveBeenCalledWith(
+      `${ONECLICK.base}/quote`,
+      expect.objectContaining({
+        body: JSON.stringify({
+          dry: false,
+          swapType: 'EXACT_INPUT',
+          slippageTolerance: ONECLICK.slippageBps,
+          originAsset: 'origin-usdc',
+          depositType: 'ORIGIN_CHAIN',
+          destinationAsset: 'destination-usdc',
+          amount: '2500000',
+          refundTo: DEPOSIT,
+          refundType: 'ORIGIN_CHAIN',
+          recipient: VAULT,
+          recipientType: 'DESTINATION_CHAIN',
+          deadline: new Date(T0 + ONECLICK.quoteTtlS * 1000).toISOString(),
+        }),
+      }),
+    );
+  });
+
+  it('destination_requires_recipient_and_refund', async () => {
+    const fetch = vi.fn();
+    for (const field of ['recipient', 'refundTo', 'destinationAsset']) {
+      for (const invalid of [undefined, '', '   ', 42, null]) {
+        if (field === 'destinationAsset' && invalid === undefined) continue;
+        const res = await quote(
+          new Request('https://rein.test/v1/quote', {
+            method: 'POST',
+            body: JSON.stringify({
+              originAsset: 'origin-usdc',
+              amount: '2500000',
+              destinationAsset: 'destination-usdc',
+              recipient: VAULT,
+              refundTo: DEPOSIT,
+              [field]: invalid,
+            }),
+          }),
+          { fetch, now: () => T0 },
+        );
+        expect(res.status).toBe(400);
+        expect(await res.json()).toEqual({ error: `${field} required` });
+      }
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('default_quote_unchanged', async () => {
+    const fetch = vi.fn(async () => Response.json({ quote: { depositAddress: DEPOSIT } }));
+    await quote(
+      new Request('https://rein.test/v1/quote', {
+        method: 'POST',
+        body: JSON.stringify({ originAsset: 'origin-usdc', amount: '2500000', recipientNear: 'alice.near' }),
+      }),
+      { fetch, now: () => T0 },
+    );
+    expect(fetch).toHaveBeenCalledWith(`${ONECLICK.base}/quote`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        dry: false,
+        swapType: 'EXACT_INPUT',
+        slippageTolerance: ONECLICK.slippageBps,
+        originAsset: 'origin-usdc',
+        depositType: 'ORIGIN_CHAIN',
+        destinationAsset: ONECLICK.usdcOnNear,
+        amount: '2500000',
+        refundTo: 'alice.near',
+        refundType: 'INTENTS',
+        recipient: 'alice.near',
+        recipientType: 'DESTINATION_CHAIN',
+        deadline: new Date(T0 + ONECLICK.quoteTtlS * 1000).toISOString(),
+      }),
+    });
   });
 
   it('x402_without_payment_returns_402', async () => {

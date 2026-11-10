@@ -42,6 +42,7 @@ export default async function GuardianPage({ searchParams }: { searchParams: Pro
           rpc={cfg.baseRpc}
           sample={cfg.sample}
           exitWorker={cfg.exitWorker}
+          api={cfg.api}
         />
       </main>
     </div>
