@@ -11,6 +11,7 @@ import { NETWORK_CHAINS } from './deskTypes';
 import type { Env, NearNetwork, NudgeResult } from './env';
 import type { Health } from './health';
 import { quote, quoteStatus, x402Judge, type PaymentDeps } from './payments';
+import { mountMcp } from '../../mcp/src/remote';
 
 export interface ApiDeps {
   /** One pass of everything the cron does. */
@@ -187,7 +188,14 @@ const limitQuote: MiddlewareHandler<ApiEnv> = async (c, next) => {
 const app = new Hono<ApiEnv>({ strict: true });
 // Browsers subscribe to EXIT alerts from the site's own origin. These routes carry no credentials.
 app.use('/v1/alerts/*', cors({ origin: '*', allowMethods: ['GET', 'POST'], allowHeaders: ['content-type'] }));
-const POST_PATHS = ['/v1/kick', '/v1/quote', '/v1/x402/judge', '/v1/alerts/subscribe', '/v1/alerts/unsubscribe'];
+const POST_PATHS = [
+  '/v1/kick',
+  '/v1/quote',
+  '/v1/x402/judge',
+  '/v1/alerts/subscribe',
+  '/v1/alerts/unsubscribe',
+  '/mcp',
+];
 const NUDGE_PATH = '/v1/orders/:id{[0-9]+}/nudge';
 const methodNotAllowed = (allow: string) => {
   const response = json({ error: 'method not allowed' }, 405);
@@ -212,6 +220,7 @@ app.notFound(() => json({ error: 'not found' }, 404));
 app.post('/v1/kick', requireKickToken, async (c) => json(await c.env.deps.kick()));
 app.post('/v1/quote', limitQuote, async (c) => quote(c.req.raw, await c.env.deps.payments()));
 app.post('/v1/x402/judge', async (c) => x402Judge(c.req.raw, c.env, await c.env.deps.payments()));
+mountMcp(app, limitQuote);
 for (const [path, on] of [
   ['/v1/alerts/subscribe', true],
   ['/v1/alerts/unsubscribe', false],
