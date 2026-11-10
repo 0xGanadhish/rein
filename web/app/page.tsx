@@ -401,9 +401,7 @@ export default async function Landing() {
                 <div className={s.addr}>Steakhouse High Yield USDC Edition</div>
               </div>
             </div>
-            <span className={s.armed}>
-              ARMED
-            </span>
+            <span className={s.armed}>ARMED</span>
           </div>
           <div className={s.rule}>
             <div className={s.ruleBox}>

@@ -211,7 +211,7 @@
   .nav {
     order: 3;
     width: 100%;
-    gap: 22px;
+    gap: 16px;
     border-top: 1px solid var(--hdr-line);
   }
   .tab {
