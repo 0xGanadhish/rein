@@ -22,6 +22,7 @@ export function units(raw: string, decimals: number, shown = 2): string {
 
 /** A base-unit amount without trailing zeros: "5", "2.5". */
 export function amount(raw: string, decimals: number): string {
+  if (BigInt(raw || '0') === 0n) return '0';
   return units(raw, decimals, decimals).replace(/\.?0+$/, '');
 }
 
