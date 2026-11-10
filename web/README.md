@@ -35,3 +35,41 @@ The document check compares Keccak-256 of its UTF-8 bytes against the stored sta
 compares against the desk's current `signers()` list, case-insensitively; an unavailable list is not a match.
 These checks do not verify the model signature or TEE attestation, nor prove historical signer membership
 or that the judgement is correct. Explorer links remain available for independent inspection.
+
+## MOVE and cross-chain top-up
+
+Both flows request a deposit address only after **Get deposit address** is clicked. They never sign,
+send, or approve funds. Send the quoted amount on the selected origin chain yourself before the displayed
+expiry. Editing the quote inputs discards the displayed address.
+
+Guardian serves Base mainnet. MOVE appears when the connected owner's on-chain rule remains enabled
+and their vault shares are zero, including after a reload and reconnect. The amount is the owner's **current Base USDC balance**, not an exact exit receipt; it can
+include other funds. Base and Monad are the supported MOVE destinations. Partial exits with remaining
+shares do not show MOVE.
+
+The Judge page offers mainnet top-up for the connected NEAR account, with USDC origins on Base, Monad,
+Ethereum, Arbitrum, and Solana. Amounts support up to six decimals without rounding. After showing the
+deposit address and expiry, it explains that the user must wait for USDC to arrive on NEAR and then
+separately pay the desk with `ft_transfer_call`. Top-up is not an order payment. Sample data disables
+quotes, and testnet pages explain that top-up uses mainnet funds only.
+
+The browser calls the selected network's Worker `/v1/quote` directly (it allows any origin and carries no
+credentials), so the Worker's per-IP rate limit applies to each visitor. Asset IDs are pinned in
+`lib/oneclick.ts` from the public 1Click token catalog; no testnet IDs are substituted.
+
+### Worker quote contract
+
+`POST /v1/quote` takes `originAsset` and a positive integer `amount` in the origin asset's smallest units.
+Without `destinationAsset`, the existing body is unchanged: `recipientNear` must be a NEAR account,
+the destination is native USDC on NEAR, and failed swaps refund to that account with `refundType: INTENTS`.
+
+With `destinationAsset`, `recipient` and `refundTo` must be non-empty strings; `recipientNear` is not
+required. The request passes the caller's asset and addresses to 1Click with `depositType: ORIGIN_CHAIN`,
+`recipientType: DESTINATION_CHAIN`, and `refundType: ORIGIN_CHAIN`. Missing or invalid destination fields
+return HTTP 400 JSON `{ "error": "<field> required" }` before contacting 1Click. Both paths retain
+`EXACT_INPUT`, 100 bps slippage, and the one-hour quote deadline.
+
+### Component tests
+
+The MOVE and top-up tests render the components in happy-dom with a stubbed `fetch`; they need no browser,
+server or network.

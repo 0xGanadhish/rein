@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Header } from '@/components/Header';
 import { JudgeForm, type MenuVault } from '@/components/judge/JudgeForm';
+import { AccountTopUp } from '@/components/judge/TopUp';
 import s from '@/components/judge/judge.module.css';
 import { publicConfig } from '@/lib/config';
 import { NETWORK_CHAINS, readDesk } from '@/lib/desk';
@@ -70,6 +71,7 @@ export default async function JudgePage({ searchParams }: { searchParams: Promis
           sample={cfg.sample}
           api={cfg.api}
         />
+        {!cfg.sample && cfg.api && <AccountTopUp api={cfg.api} />}
       </main>
     </>
   );
