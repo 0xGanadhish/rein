@@ -109,10 +109,10 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.25s var(--ease);
+  transition: opacity 0.2s var(--ease);
 }
 .connect:hover {
-  transform: translateY(-1px);
+  opacity: 0.8;
 }
 .bar[data-dark] .connect {
   background: var(--night-ink);
@@ -178,8 +178,35 @@
   background: var(--line-soft);
 }
 @media (max-width: 760px) {
+  /* Row one: brand, network, account. Row two: the tabs. */
   .inner {
-    gap: 0 16px;
+    gap: 0 8px;
+  }
+  .right {
+    gap: 6px;
+  }
+  .network {
+    height: 32px;
+    font-size: 10.5px;
+  }
+  .netItem {
+    height: 26px;
+    padding: 0 7px;
+  }
+  .netDot {
+    display: none;
+  }
+  .connect {
+    height: 36px;
+    padding: 0 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .accountPill {
+    height: 36px;
+    max-width: 150px;
+    padding: 0 10px 0 8px;
+    gap: 6px;
   }
   .nav {
     order: 3;

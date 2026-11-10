@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Mark } from '@/components/Header';
+import { Header, Mark } from '@/components/Header';
 import s from '@/components/landing/landing.module.css';
 import { Calibration } from '@/components/ledger/Summary';
 import { NETWORK_CHAINS, readDesk } from '@/lib/desk';
@@ -69,13 +69,12 @@ const STEPS = [
 ];
 
 const WORDS = [
-  { v: 'HOLD', n: 0, p: 'Risk sits inside its range. Stay in and keep earning.' },
+  { v: 'HOLD', p: 'Risk sits inside its range. Stay in and keep earning.' },
   {
     v: 'EXIT',
-    n: 1,
     p: 'Liquidity, flows or rates say leave now. An EXIT is read a second time before the desk will sign it.',
   },
-  { v: 'MOVE', n: 2, p: 'Not an emergency, but drifting. Rotate to a steadier vault on the menu.' },
+  { v: 'MOVE', p: 'Not an emergency, but drifting. Rotate to a steadier vault on the menu.' },
 ];
 
 export default async function Landing() {
@@ -108,30 +107,7 @@ export default async function Landing() {
 
   return (
     <div className={s.page}>
-      <header className={s.nav}>
-        <nav aria-label="Primary" className={`container ${s.navInner}`}>
-          <Link href="/" className={s.brand} aria-label="Rein home">
-            <Mark />
-            <span className={s.word}>rein</span>
-          </Link>
-          <div className={s.links}>
-            <a href="#how">How a call is made</a>
-            <Link href="/ledger">Ledger</Link>
-            <a href="#guardian">Guardian</a>
-            <a href="#menu">Vaults</a>
-            <a href="#pay">Pricing</a>
-            <Link href="/how">How it works</Link>
-          </div>
-          <div className={s.actions}>
-            <Link href="/ledger" className={`${s.btn} ${s.btnLine} ${s.hideSm}`}>
-              Read the Ledger
-            </Link>
-            <Link href="/judge" className={`${s.btn} ${s.btnInk}`}>
-              Judge a vault <Arrow />
-            </Link>
-          </div>
-        </nav>
-      </header>
+      <Header />
 
       <section id="top" className={`container ${s.hero}`}>
         <div className={`${s.eyebrow} ${s.heroMeta}`}>
@@ -159,9 +135,7 @@ export default async function Landing() {
             <span>Pull the reins</span>
           </span>
           <span className={s.line}>
-            <span>
-              before the <span className={s.run}>run.</span>
-            </span>
+            <span>before the run.</span>
           </span>
         </h1>
         <div className={s.heroFoot}>
@@ -195,7 +169,6 @@ export default async function Landing() {
             <div className={s.instGroup}>
               <span>Example reading</span>
               <span className={s.instGroup} style={{ gap: 8, color: 'var(--night-ink)' }}>
-                <span className={s.blink} aria-hidden="true" />
                 Block 53,512,044
               </span>
             </div>
@@ -246,7 +219,6 @@ export default async function Landing() {
               />
               <circle className={s.trip} cx="776" cy="196" r="5" fill="#FF5420" />
             </svg>
-            <div className={s.scan} aria-hidden="true" />
             <div className={`${s.tripNote} ${s.hideSm}`}>net_out_pct_1h = 6.42 &gt; 5.00</div>
             <div className={s.stamp}>
               <div className={s.stampWord}>EXIT</div>
@@ -286,8 +258,8 @@ export default async function Landing() {
       {ticker.length > 0 && (
         <div className={s.ticker} aria-label="Recent calls">
           <div className={s.track}>
-            {[...ticker, ...ticker].map((p, i) => (
-              <div key={i} className={s.tick} aria-hidden={i >= ticker.length || undefined}>
+            {ticker.map((p, i) => (
+              <div key={i} className={s.tick}>
                 <span className="chip" data-verdict={p.verdict}>
                   {p.verdict}
                 </span>
@@ -304,7 +276,6 @@ export default async function Landing() {
       <section id="how" className={`container ${s.section}`}>
         <div className={s.split}>
           <div>
-            <div className={s.eyebrow}>01 — How a call is made</div>
             <h2 className={s.h2}>Every call carries its own proof.</h2>
           </div>
           <p className={s.copy}>
@@ -314,7 +285,6 @@ export default async function Landing() {
         </div>
         <div className={s.steps}>
           <div className={s.rail} aria-hidden="true" />
-          <div className={s.runner} aria-hidden="true" />
           <ol className={s.stepList}>
             {STEPS.map((st, i) => (
               <li key={st.t} className={s.step}>
@@ -336,7 +306,6 @@ export default async function Landing() {
                 {w.v}
               </div>
               <div className={s.wordNote}>
-                <span className={s.eyebrow}>Verdict {w.n}</span>
                 <p>{w.p}</p>
               </div>
             </div>
@@ -347,10 +316,7 @@ export default async function Landing() {
       <section id="ledger" className={s.night}>
         <div className={`container ${s.nightInner}`}>
           <div>
-            <div className={s.eyebrow}>
-              02 — The Ledger
-              {ledgerResult.ok && ledgerResult.sample && <span style={{ color: 'var(--signal)' }}> · Sample data</span>}
-            </div>
+            {ledgerResult.ok && ledgerResult.sample && <p className={s.sample}>Sample data</p>}
             <h2 className={s.h2}>Graded in public. Every call, forever.</h2>
             <p className={s.copy}>
               Each call is resolved against what the vault did next and scored with a Brier score: lower is better, zero
@@ -378,7 +344,6 @@ export default async function Landing() {
 
       <section id="guardian" className={`container ${s.section} ${s.guard}`}>
         <div>
-          <div className={s.eyebrow}>03 — Guardian</div>
           <h2 className={s.h2}>
             {cfg.exitWorker ? 'The call lands. You’re already out.' : 'The call lands. One call takes you out.'}
           </h2>
@@ -437,7 +402,6 @@ export default async function Landing() {
               </div>
             </div>
             <span className={s.armed}>
-              <span className={s.blink} aria-hidden="true" />
               ARMED
             </span>
           </div>
@@ -499,7 +463,6 @@ export default async function Landing() {
       <section id="menu" className={`container ${s.section}`}>
         <div className={s.split}>
           <div>
-            <div className={s.eyebrow}>04 — The menu</div>
             <h2 className={s.h2}>
               {baseCount > 0 ? `${baseCount} Base vaults made the cut.` : `${rows.length} vaults on the menu.`}
             </h2>
@@ -575,8 +538,7 @@ export default async function Landing() {
       </section>
 
       <section id="pay" className={`container ${s.section}`}>
-        <div className={s.eyebrow}>05 — Pricing</div>
-        <div className={s.split} style={{ marginTop: 18 }}>
+        <div className={s.split}>
           <h2 className={s.h2} style={{ margin: 0 }}>
             One price per call.{' '}
             <span className={s.soft}>
