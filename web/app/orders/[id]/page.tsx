@@ -5,6 +5,7 @@ import type { DeskOrderStatus } from '../../../../shared/desk';
 import { Header } from '@/components/Header';
 import { AutoRefresh } from '@/components/orders/AutoRefresh';
 import { ExitAlertButton } from '@/components/orders/ExitAlertButton';
+import { ReceiptStamp } from '@/components/orders/ReceiptStamp';
 import { RefundButton } from '@/components/orders/RefundButton';
 import s from '@/components/orders/receipt.module.css';
 import { publicConfig } from '@/lib/config';
@@ -257,7 +258,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
 
             <div className={s.stampZone}>
               {verdict ? (
-                <div className={s.stamp} data-verdict={verdict}>
+                <ReceiptStamp status={status} verdict={verdict} className={s.stamp} playClassName={s.stampPlay}>
                   <span className={s.stampWord}>{verdict}</span>
                   <span className={s.stampSub}>
                     {verdict === 'EXIT'
@@ -268,7 +269,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
                         ? 'SIGNED · DELIVERED'
                         : 'SIGNING'}
                   </span>
-                </div>
+                </ReceiptStamp>
               ) : (
                 <div className={s.stamp} data-verdict="none">
                   <span className={s.stampWord}>{failed ? LABEL[status].toUpperCase() : 'JUDGING'}</span>
@@ -332,15 +333,12 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           </article>
 
           <section aria-labelledby="prov" className={s.prov}>
-            <div className={s.k} style={{ color: 'var(--night-mute)' }}>
-              Provenance
-            </div>
             <h2 id="prov" className={s.h2}>
               From the vault to the chain, step by step.
             </h2>
             <ol className={s.steps}>
-              {steps.map((st, i) => (
-                <li key={st.title} className={s.step} style={{ animationDelay: `${0.15 + i * 0.12}s` }}>
+              {steps.map((st) => (
+                <li key={st.title} className={s.step}>
                   <span
                     className={s.node}
                     data-done={st.done || undefined}
