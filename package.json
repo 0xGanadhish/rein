@@ -5,6 +5,7 @@
   "license": "MIT",
   "packageManager": "pnpm@10.34.6",
   "scripts": {
+    "baseline": "node --experimental-strip-types scripts/baseline.ts",
     "lint": "eslint worker shared scripts web mcp --max-warnings=0",
     "format": "prettier --write worker shared scripts web mcp near evm package.json eslint.config.mjs .prettierrc.json",
     "format:check": "prettier --check worker shared scripts web mcp near evm package.json eslint.config.mjs .prettierrc.json",
