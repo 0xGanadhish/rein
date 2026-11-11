@@ -465,7 +465,7 @@ export default async function Landing() {
               {baseCount > 0 ? `${baseCount} Base vaults made the cut.` : `${rows.length} vaults on the menu.`}
             </h2>
           </div>
-          <p className={s.copy} style={{ fontSize: 16 }}>
+          <p className={s.copy}>
             USDC Morpho Vault V2s on Base with at least $1M in them, a liquidity read we trust, and a Guardian exit of
             1,000 USDC proven on a fork. 24 candidates, 10 turned away.
           </p>
