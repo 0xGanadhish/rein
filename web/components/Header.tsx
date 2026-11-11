@@ -15,17 +15,18 @@ export function Mark() {
   );
 }
 
-export type Tab = 'ledger' | 'judge' | 'guardian' | 'orders' | 'how';
+export type Tab = 'ledger' | 'judge' | 'guardian' | 'orders' | 'how' | 'docs';
 const TABS: { id: Tab; href: string; label: string }[] = [
   { id: 'ledger', href: '/ledger', label: 'Ledger' },
   { id: 'judge', href: '/judge', label: 'Judge' },
   { id: 'guardian', href: '/guardian', label: 'Guardian' },
   { id: 'orders', href: '/orders', label: 'My orders' },
   { id: 'how', href: '/how', label: 'How it works' },
+  { id: 'docs', href: '/docs', label: 'Docs' },
 ];
 
 /** The app bar. `dark` matches the night pages (receipt, Guardian). */
-export async function Header({ active, dark = false }: { active: Tab; dark?: boolean }) {
+export async function Header({ active, dark = false }: { active?: Tab; dark?: boolean }) {
   const { network } = await publicConfig();
   return (
     <header className={styles.bar} data-dark={dark || undefined}>
