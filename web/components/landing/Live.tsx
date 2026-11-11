@@ -57,7 +57,8 @@ export function Heartbeat({ at, stamp, sample }: { at: number; stamp: string; sa
   }, []);
   return (
     <span className={s.beat}>
-      Latest call {now === null ? `${stamp} UTC` : `${ago(now - at)} ago`}
+      {/* Past a day the counter only reads as stale, so the posted time stays instead. */}
+      Latest call {now === null || now - at > 86400 ? `${stamp} UTC` : `${ago(now - at)} ago`}
       {sample && <span className={s.beatTag}>Sample data</span>}
     </span>
   );
