@@ -1,11 +1,15 @@
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 import { Header, Mark } from '@/components/Header';
 import s from '@/components/landing/landing.module.css';
+import { Heartbeat, Instrument, TabVisibility, type HeroCall } from '@/components/landing/Live';
 import { Calibration } from '@/components/ledger/Summary';
 import { NETWORK_CHAINS, readDesk } from '@/lib/desk';
 import { amount, duration, utcStamp, bpsPct } from '@/lib/format';
 import { publicConfig } from '@/lib/config';
+import { LOW_LIQUIDITY_PCT, hotFields, parseDoc } from '@/lib/doc';
 import { readLedger, type LedgerPost } from '@/lib/ledger';
+import { CHAIN_LABEL } from '@/lib/receipt';
 import { BASE_MENU, SNAPSHOT, SNAPSHOT_BLOCK, shortAddress, usdShort, vaultName } from '@/lib/vaults';
 
 export const revalidate = 60;
@@ -23,22 +27,43 @@ const Arrow = ({ color = 'currentColor' }: { color?: string }) => (
   </svg>
 );
 
-/** The example reading in the hero: the line the model judges, as the Worker builds it (worker/src/doc.ts). */
-const DOC: [string, string, boolean?][] = [
-  ['order', '4127'],
-  ['chain', 'base'],
-  ['vault', '0xbeeff2490feffa212fac2f6553682c219e6a8845'],
-  ['at', '1793802600'],
-  ['block', '53512044'],
-  ['pps', '1043218'],
-  ['assets', '457959928112233'],
-  ['liquidity', '10.10', true],
-  ['apy_bps', '812'],
-  ['apy_bps_prev', '694'],
-  ['util_bps', '9390'],
-  ['net_out_pct_1h', '6.42', true],
-  ['name', 'Steakhouse High Yield USDC Edition'],
-];
+/** The example reading in the hero when no recent call carries its reading: the line the model judges (worker/src/doc.ts). */
+const EXAMPLE_DOC =
+  'rein-v1|order=4127|chain=base|vault=0xbeeff2490feffa212fac2f6553682c219e6a8845|at=1793802600|block=53512044|pps=1043218|assets=457959928112233|liquidity=10.10|apy_bps=812|apy_bps_prev=694|util_bps=9390|net_out_pct_1h=6.42|name=Steakhouse High Yield USDC Edition';
+
+/** A call the hero can show: its reading parsed, with every figure present, or null. */
+function heroCall(p: LedgerPost, doc: string): HeroCall | null {
+  const fields = parseDoc(doc);
+  const f = Object.fromEntries(fields);
+  const liquidity = Number(f.liquidity);
+  const utilBps = Number(f.util_bps);
+  const apyBps = Number(f.apy_bps);
+  const apyPrevBps = Number(f.apy_bps_prev);
+  const assets = Number(f.assets);
+  if (![liquidity, utilBps, apyBps, apyPrevBps, assets].every(Number.isFinite) || f.liquidity === 'na' || !f.block) {
+    return null;
+  }
+  return {
+    id: p.id,
+    verdict: p.verdict,
+    confidenceBps: p.confidence_bps,
+    riskBps: p.risk_bps,
+    name: vaultName(p.chain, p.vault),
+    address: shortAddress(p.vault),
+    chain: CHAIN_LABEL[p.chain],
+    block: Number(f.block).toLocaleString('en-US'),
+    postedStamp: utcStamp(p.posted_at),
+    inputCheck: p.input_check,
+    liquidity,
+    utilBps,
+    apyBps,
+    apyPrevBps,
+    // USDC vaults: assets are in 6-decimal base units.
+    tvlUsd: usdShort(assets / 1e6),
+    doc: fields,
+    hot: [...hotFields(fields)],
+  };
+}
 
 const STEPS = [
   {
@@ -90,6 +115,37 @@ export default async function Landing() {
     const k = `${p.chain}:${p.vault.toLowerCase()}`;
     if (!lastCall.has(k)) lastCall.set(k, p);
   }
+  const heroCalls: HeroCall[] = [];
+  for (const p of ticker) {
+    const c = p.doc ? heroCall(p, p.doc) : null;
+    if (c) heroCalls.push(c);
+    if (heroCalls.length === 6) break;
+  }
+  const example = heroCalls.length === 0;
+  const exampleCall = example
+    ? heroCall(
+        {
+          chain: 'base',
+          id: 4127,
+          vault: '0xbeeff2490feffa212fac2f6553682c219e6a8845',
+          verdict: 'EXIT',
+          confidence_bps: 9400,
+          risk_bps: 8100,
+          posted_at: 1793802600,
+          order_id: 4127,
+          input_check: 'match',
+          resolved: false,
+          adverse: null,
+          reasons: null,
+          repeat: false,
+          doc: EXAMPLE_DOC,
+          signer: null,
+        },
+        EXAMPLE_DOC,
+      )
+    : null;
+  const shown = example ? (exampleCall ? [exampleCall] : []) : heroCalls;
+  const newest = ledger?.recent[0];
   const chains = NETWORK_CHAINS[cfg.network];
   const menu = desk
     ? chains.flatMap((chain) => (desk.menu[chain] ?? []).map((vault) => ({ chain, vault })))
@@ -107,6 +163,7 @@ export default async function Landing() {
 
   return (
     <div className={s.page}>
+      <TabVisibility />
       <Header />
 
       <section id="top" className={`container ${s.hero}`}>
@@ -114,6 +171,13 @@ export default async function Landing() {
           <span className={s.live}>
             <span className={s.pulse} aria-hidden="true" />
             Desk open — watching {watched} vaults
+            {newest && (
+              <Heartbeat
+                at={newest.posted_at}
+                stamp={utcStamp(newest.posted_at)}
+                sample={!!ledgerResult.ok && ledgerResult.sample}
+              />
+            )}
           </span>
           <span>
             Risk calls for yield vaults · NEAR →{' '}
@@ -155,118 +219,33 @@ export default async function Landing() {
           </div>
         </div>
 
-        <figure
-          className={s.instrument}
-          aria-label="An example reading that ends in an EXIT call"
-          style={{ margin: 'clamp(40px, 5vw, 64px) 0 0' }}
-        >
-          <div className={s.instTop}>
-            <div className={s.instGroup}>
-              <strong>Steakhouse High Yield USDC Edition</strong>
-              <span>0xbeef…8845</span>
-              <span>Morpho Vault V2 · Base</span>
-            </div>
-            <div className={s.instGroup}>
-              <span>Example reading</span>
-              <span className={s.instGroup} style={{ gap: 8, color: 'var(--night-ink)' }}>
-                Block 53,512,044
-              </span>
-            </div>
-          </div>
-          <div className={s.chart}>
-            <div className={s.chartLabel}>Withdrawable liquidity · 3h</div>
-            <div className={s.chartKey}>
-              <span>
-                <span className={s.keyLine} />
-                Liquidity
-              </span>
-              <span className={s.hideSm}>
-                <span className={s.keyDash} />
-                Watch trigger
-              </span>
-            </div>
-            <svg className={s.svg} viewBox="0 0 1000 300" preserveAspectRatio="none" aria-hidden="true">
-              <defs>
-                <linearGradient id="liqfill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stopColor="#ECEBE5" stopOpacity="0.16" />
-                  <stop offset="1" stopColor="#ECEBE5" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <line
-                x1="0"
-                y1="196"
-                x2="1000"
-                y2="196"
-                stroke="#FF5420"
-                strokeWidth="1.5"
-                strokeDasharray="6 6"
-                vectorEffect="non-scaling-stroke"
-                opacity="0.9"
-              />
-              <path
-                className={s.area}
-                fill="url(#liqfill)"
-                d="M0,64 C40,60 70,72 110,68 S190,52 240,60 S330,78 380,70 S470,58 520,66 S600,84 640,96 S700,128 730,160 S780,222 820,236 S900,246 940,244 S985,248 1000,248 L1000,300 L0,300 Z"
-              />
-              <path
-                className={s.trace}
-                fill="none"
-                stroke="#ECEBE5"
-                strokeWidth="2.2"
-                strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
-                d="M0,64 C40,60 70,72 110,68 S190,52 240,60 S330,78 380,70 S470,58 520,66 S600,84 640,96 S700,128 730,160 S780,222 820,236 S900,246 940,244 S985,248 1000,248"
-              />
-              <circle className={s.trip} cx="776" cy="196" r="5" fill="#FF5420" />
-            </svg>
-            <div className={`${s.tripNote} ${s.hideSm}`}>net_out_pct_1h = 6.42 &gt; 5.00</div>
-            <div className={s.stamp}>
-              <div className={s.stampWord}>EXIT</div>
-              <div className={s.stampMeta}>CONF 94.0% · RISK 81.0%</div>
-              <div className={s.stampSub}>signed · verified · read twice</div>
-            </div>
-          </div>
-          <div className={s.stats}>
-            <div className={s.stat}>
-              <div className={s.statLabel}>Withdrawable</div>
-              <div className={`${s.statValue} ${s.hot}`}>10.10%</div>
-            </div>
-            <div className={s.stat}>
-              <div className={s.statLabel}>Utilization</div>
-              <div className={s.statValue}>93.90%</div>
-            </div>
-            <div className={s.stat}>
-              <div className={s.statLabel}>APY · was 6.94%</div>
-              <div className={s.statValue}>8.12%</div>
-            </div>
-            <div className={s.stat}>
-              <div className={s.statLabel}>TVL</div>
-              <div className={s.statValue}>$457.96M</div>
-            </div>
-          </div>
-          <figcaption className={s.doc}>
-            <b>rein-v1</b>
-            {DOC.map(([k, v, hot]) => (
-              <span key={k}>
-                |{k}=<b className={hot ? s.hot : undefined}>{v}</b>
-              </span>
-            ))}
-          </figcaption>
-        </figure>
+        {shown.length > 0 && (
+          <Instrument
+            calls={shown}
+            example={example}
+            sample={!!ledgerResult.ok && ledgerResult.sample}
+            trigger={LOW_LIQUIDITY_PCT}
+          />
+        )}
       </section>
 
       {ticker.length > 0 && (
-        <div className={s.ticker} aria-label="Recent calls">
-          <div className={s.track}>
-            {ticker.map((p, i) => (
-              <div key={i} className={s.tick}>
-                <span className="chip" data-verdict={p.verdict}>
-                  {p.verdict}
-                </span>
-                <span className={s.tickName}>{vaultName(p.chain, p.vault)}</span>
-                <span className={s.tickMeta}>
-                  {bpsPct(p.confidence_bps)} · {utcStamp(p.posted_at)}
-                </span>
+        <div className={s.ticker} aria-label="Recent calls" data-loop={ticker.length >= 4 || undefined}>
+          {/* A marquee needs two identical halves; the second is a visual copy only. */}
+          <div className={s.marquee} style={{ '--tick-s': `${ticker.length * 9}s` } as CSSProperties}>
+            {[false, true].map((copy) => (
+              <div key={String(copy)} className={s.track} aria-hidden={copy || undefined} data-copy={copy || undefined}>
+                {ticker.map((p) => (
+                  <Link key={`${p.chain}-${p.id}`} href="/ledger" className={s.tick} tabIndex={copy ? -1 : undefined}>
+                    <span className="chip" data-verdict={p.verdict}>
+                      {p.verdict}
+                    </span>
+                    <span className={s.tickName}>{vaultName(p.chain, p.vault)}</span>
+                    <span className={s.tickMeta}>
+                      {bpsPct(p.confidence_bps)} · {utcStamp(p.posted_at)}
+                    </span>
+                  </Link>
+                ))}
               </div>
             ))}
           </div>
@@ -300,7 +279,7 @@ export default async function Landing() {
 
       <section aria-label="The three calls" className={s.words}>
         {WORDS.map((w) => (
-          <div key={w.v} className={s.wordRow}>
+          <div key={w.v} className={s.wordRow} data-verdict={w.v} tabIndex={0}>
             <div className={`container ${s.wordInner}`}>
               <div className={s.word2} data-verdict={w.v}>
                 {w.v}
@@ -382,7 +361,7 @@ export default async function Landing() {
             Arm Guardian
           </Link>
         </div>
-        <div className={s.card} aria-label="An example Guardian rule">
+        <div className={`${s.card} torn`} aria-label="An example Guardian rule">
           <div className={s.cardHead}>
             <div className={s.cardWho}>
               <span className={s.shield}>
@@ -405,9 +384,7 @@ export default async function Landing() {
           </div>
           <div className={s.rule}>
             <div className={s.ruleBox}>
-              <div className={s.eyebrow} style={{ fontSize: 10 }}>
-                Min confidence
-              </div>
+              <div className="label">Min confidence</div>
               <div className={s.ruleValue}>90%</div>
               <div className={s.meter}>
                 <span style={{ width: '52.6%' }} />
@@ -418,9 +395,7 @@ export default async function Landing() {
               </div>
             </div>
             <div className={s.ruleBox}>
-              <div className={s.eyebrow} style={{ fontSize: 10 }}>
-                Fresh within
-              </div>
+              <div className="label">Fresh within</div>
               <div className={s.ruleValue}>10 min</div>
               <div className={s.meter}>
                 <span style={{ width: '15.3%' }} />
@@ -431,7 +406,7 @@ export default async function Landing() {
               </div>
             </div>
           </div>
-          <div className={s.eyebrow} style={{ fontSize: 10, marginTop: 24 }}>
+          <div className="label" style={{ marginTop: 24 }}>
             Last event
           </div>
           <ol className={s.events}>
@@ -552,7 +527,7 @@ export default async function Landing() {
         </div>
         <div className={s.rails}>
           <article className={s.railCard}>
-            <span className={s.eyebrow}>Rail A</span>
+            <span className="label">Rail A</span>
             <h3>NEAR</h3>
             <p>
               Pay {policy ? `${amount(policy.price_near, 24)} NEAR` : 'in NEAR'} from your NEAR wallet. It sits in the
@@ -561,13 +536,13 @@ export default async function Landing() {
             <code>request_judgement({'{ chain, vault }'})</code>
           </article>
           <article className={s.railCard}>
-            <span className={s.eyebrow}>Rail B</span>
+            <span className="label">Rail B</span>
             <h3>USDC on NEAR</h3>
             <p>Send USDC straight to the desk with one transfer. Same escrow, same refund.</p>
             <code>ft_transfer_call → desk</code>
           </article>
           <article className={s.railCard} data-dark>
-            <span className={s.eyebrow}>Rail C — for agents</span>
+            <span className="label">Rail C — for agents</span>
             <h3>x402</h3>
             <p>
               Your agent asks over HTTP, pays per call with x402, and gets the signed post back. No account, no wallet

@@ -87,8 +87,32 @@
 }
 .live {
   display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.beat {
+  display: inline-flex;
   align-items: center;
   gap: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--mute);
+}
+.beat::before {
+  content: '';
+  width: 1px;
+  height: 12px;
+  background: var(--line);
+}
+.beatTag {
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
 }
 .pulse {
   position: relative;
@@ -152,7 +176,7 @@
 
 /* Instrument */
 .instrument {
-  margin-top: clamp(40px, 5vw, 64px);
+  margin: clamp(40px, 5vw, 64px) 0 0;
   background: var(--night);
   color: var(--night-ink);
   border-radius: var(--radius-md);
@@ -182,6 +206,59 @@
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
+}
+.instTop > .instGroup:first-child {
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+  gap: 10px 12px;
+}
+.instTop > .instGroup:first-child > span {
+  flex: none;
+}
+.instName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pager {
+  display: inline-flex;
+  align-items: center;
+}
+.pip {
+  position: relative;
+  width: 20px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.pip::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--night-mute);
+  opacity: 0.55;
+  transition:
+    transform 0.2s var(--ease),
+    opacity 0.2s;
+}
+.pip[aria-current]::before {
+  background: var(--night-ink);
+  opacity: 1;
+  transform: scale(1.4);
+}
+.pip:focus-visible {
+  outline: 2px solid var(--cobalt-light);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
 }
 .chart {
   position: relative;
@@ -236,8 +313,58 @@
   width: 100%;
   height: calc(100% - 44px);
 }
+.plot {
+  position: absolute;
+  inset: 44px 0 0 0;
+}
+.plot .svg {
+  inset: 0;
+  height: 100%;
+}
+.point {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 50%;
+  background: var(--night);
+  border: 1.5px solid var(--night-mute);
+  transition:
+    left 0.4s var(--ease),
+    top 0.4s var(--ease);
+}
+.point[data-on] {
+  width: 13px;
+  height: 13px;
+  margin: -6.5px 0 0 -6.5px;
+  border: 0;
+  background: var(--night-ink);
+  animation: fade 0.3s 1.1s both;
+}
+.point[data-on][data-verdict='EXIT'] {
+  background: var(--signal);
+}
+.point[data-on][data-verdict='MOVE'] {
+  background: var(--cobalt-light);
+}
+.instrument[data-cycled] .trace {
+  animation-duration: 1.4s;
+  animation-delay: 0s;
+}
+.instrument[data-cycled] .area {
+  animation-delay: 1s;
+}
+.instrument[data-cycled] .point[data-on] {
+  animation-delay: 1.2s;
+}
+.instrument[data-cycled] .stamp {
+  animation-delay: 1.3s;
+}
+.swap {
+  animation: fade 0.45s both;
+}
 .trace {
-  stroke-dasharray: 1400;
+  stroke-dasharray: 3000;
   animation: draw 2.6s 0.7s cubic-bezier(0.45, 0.05, 0.25, 1) both;
 }
 .area {
@@ -268,6 +395,14 @@
   background: rgba(12, 13, 11, 0.82);
   transform: rotate(-6deg);
   animation: stamp 0.7s 3.1s var(--ease) both;
+}
+.stamp[data-verdict='HOLD'] {
+  border-color: var(--night-ink);
+  color: var(--night-ink);
+}
+.stamp[data-verdict='MOVE'] {
+  border-color: var(--cobalt-light);
+  color: var(--cobalt-light);
 }
 .stampWord {
   font-family: var(--display);
@@ -331,6 +466,16 @@
   color: var(--night-mute);
   word-break: break-all;
 }
+.doc {
+  display: grid;
+}
+.docLine {
+  grid-area: 1 / 1;
+  visibility: hidden;
+}
+.docLine[data-on] {
+  visibility: visible;
+}
 .doc b {
   font-weight: 400;
   color: var(--night-ink);
@@ -343,17 +488,30 @@
 .ticker {
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  overflow-x: auto;
+  overflow: hidden;
   white-space: nowrap;
-  scrollbar-width: none;
-  /* Both ends fade so the overflow reads as intentional; it still scrolls. */
+  /* Both ends fade so the loop slides in and out of view. */
   mask-image: linear-gradient(90deg, transparent, #000 48px, #000 calc(100% - 48px), transparent);
 }
-.ticker::-webkit-scrollbar {
+/* Two identical halves; sliding by exactly one half loops without a seam. */
+.marquee {
+  display: flex;
+  width: max-content;
+}
+.ticker[data-loop] .marquee {
+  animation: marquee var(--tick-s, 90s) linear infinite;
+}
+.ticker[data-loop]:hover .marquee,
+.ticker[data-loop]:focus-within .marquee,
+:global(html[data-tab-hidden]) .ticker .marquee {
+  animation-play-state: paused;
+}
+.ticker:not([data-loop]) .track[data-copy] {
   display: none;
 }
 .track {
-  display: inline-flex;
+  display: flex;
+  flex: none;
 }
 .tick {
   display: inline-flex;
@@ -362,6 +520,16 @@
   padding: 14px 28px;
   border-right: 1px solid var(--line);
   font-size: 14px;
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+.tick:hover,
+.tick:focus-visible {
+  background: var(--paper);
+}
+.tick:focus-visible {
+  outline-offset: -2px;
 }
 .tickName {
   font-weight: 550;
@@ -417,6 +585,46 @@
   height: 1px;
   background: var(--ink);
 }
+/* Scroll-driven fill. Without support, or with reduced motion, every step simply shows complete. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .steps {
+      view-timeline: --steps block;
+    }
+    .rail {
+      background: var(--line);
+    }
+    .rail::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--ink);
+      transform-origin: 0 50%;
+      animation: railFill linear both;
+      animation-timeline: --steps;
+      animation-range: cover 22% cover 46%;
+    }
+    .num {
+      animation: markFill linear both;
+      animation-timeline: --steps;
+    }
+    .step:nth-child(1) .num {
+      animation-range: cover 22% cover 26%;
+    }
+    .step:nth-child(2) .num {
+      animation-range: cover 27% cover 31%;
+    }
+    .step:nth-child(3) .num {
+      animation-range: cover 32% cover 36%;
+    }
+    .step:nth-child(4) .num {
+      animation-range: cover 37% cover 41%;
+    }
+    .step:nth-child(5) .num {
+      animation-range: cover 42% cover 46%;
+    }
+  }
+}
 .stepList {
   list-style: none;
   margin: 0;
@@ -435,7 +643,8 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: var(--bone);
+  background: var(--ink);
+  color: var(--bone);
   border: 1px solid var(--ink);
   display: grid;
   place-items: center;
@@ -469,13 +678,32 @@
 }
 .wordRow {
   border-bottom: 1px solid var(--line);
-  transition: background 0.35s;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+.wordRow:focus-visible {
+  outline: 2px solid var(--cobalt);
+  outline-offset: -4px;
 }
 .wordRow:last-child {
   border-bottom-color: var(--ink);
 }
-.wordRow:hover {
-  background: var(--line-soft);
+/* On hover or focus the row floods with its verdict colour and the text flips for contrast (4.5:1 or better). */
+.wordRow[data-verdict='HOLD']:is(:hover, :focus-visible) {
+  background: var(--ink);
+  color: var(--bone);
+}
+.wordRow[data-verdict='EXIT']:is(:hover, :focus-visible) {
+  background: var(--signal);
+  color: var(--ink);
+}
+.wordRow[data-verdict='MOVE']:is(:hover, :focus-visible) {
+  background: var(--cobalt);
+  color: #fff;
+}
+.wordRow:is(:hover, :focus-visible) .word2 {
+  color: inherit;
 }
 .wordInner {
   padding-block: clamp(20px, 3vw, 36px);
@@ -488,12 +716,12 @@
 .word2 {
   font-family: var(--display);
   font-weight: 700;
-  font-size: clamp(72px, 10.4vw, 160px);
+  font-size: clamp(76px, 15vw, 232px);
   line-height: 0.82;
   letter-spacing: -0.06em;
   transition: letter-spacing 0.6s var(--ease);
 }
-.wordRow:hover .word2 {
+.wordRow:is(:hover, :focus-visible) .word2 {
   letter-spacing: -0.02em;
 }
 .word2[data-verdict='EXIT'] {
@@ -513,6 +741,7 @@
   font-size: 17px;
   line-height: 1.55;
   text-wrap: pretty;
+  transition: color 0.2s;
 }
 
 /* Night band */
@@ -597,10 +826,12 @@
   font-weight: 650;
 }
 .card {
+  /* The torn edge (globals.css) punches out the page colour. */
+  --torn-bg: var(--bone);
   position: relative;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   padding: clamp(20px, 3vw, 32px);
   box-shadow: var(--shadow-card);
 }
@@ -867,7 +1098,7 @@
   color: var(--night-soft);
 }
 .railCard[data-dark] code,
-.railCard[data-dark] .eyebrow {
+.railCard[data-dark] :global(.label) {
   color: var(--night-mute);
 }
 
@@ -886,8 +1117,8 @@
   margin: 0;
   font-family: var(--display);
   font-weight: 600;
-  font-size: var(--h2-size);
-  line-height: 1;
+  font-size: clamp(64px, 12vw, 200px);
+  line-height: 0.86;
   letter-spacing: -0.04em;
 }
 .footer {
@@ -917,6 +1148,29 @@
   font-size: 12.5px;
 }
 
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes railFill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes markFill {
+  from {
+    background: var(--bone);
+    color: var(--ink);
+  }
+  to {
+    background: var(--ink);
+    color: var(--bone);
+  }
+}
 @keyframes fade {
   from {
     opacity: 0;
@@ -927,7 +1181,7 @@
 }
 @keyframes draw {
   from {
-    stroke-dashoffset: 1400;
+    stroke-dashoffset: 3000;
   }
   to {
     stroke-dashoffset: 0;
@@ -965,6 +1219,20 @@
     display: none !important;
   }
   .rail {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No loop: the ticker is a static row you scroll. */
+  .ticker {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .ticker::-webkit-scrollbar {
+    display: none;
+  }
+  .track[data-copy] {
     display: none;
   }
 }

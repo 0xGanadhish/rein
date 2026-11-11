@@ -12,7 +12,7 @@ export function parseDoc(doc: string): [string, string][] {
 /** The watch feed's triggers (worker/src/watch.ts), used to mark the fields that look wrong. */
 const OUTFLOW_PCT = 5;
 const APY_MOVE_BPS = 50;
-const LOW_LIQUIDITY_PCT = 15;
+export const LOW_LIQUIDITY_PCT = 15;
 
 /** Fields worth flagging: thin liquidity, a big hourly outflow, or a jump in APY. */
 export function hotFields(fields: [string, string][]): Set<string> {
