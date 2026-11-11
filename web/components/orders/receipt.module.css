@@ -89,23 +89,6 @@
   border-radius: var(--radius-sm);
   padding: 36px clamp(20px, 3vw, 36px) 32px;
 }
-.receipt::before,
-.receipt::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 14px;
-  background-image: radial-gradient(circle at 7px 7px, var(--night) 6px, transparent 6.5px);
-  background-size: 20px 14px;
-  background-position: 3px 0;
-}
-.receipt::before {
-  top: -7px;
-}
-.receipt::after {
-  bottom: -7px;
-}
 .rHead {
   display: flex;
   justify-content: space-between;

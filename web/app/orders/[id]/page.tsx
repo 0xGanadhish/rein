@@ -246,7 +246,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
         </ol>
 
         <div className={s.grid}>
-          <article aria-label="Signed call" className={s.receipt}>
+          <article aria-label="Signed call" className={`${s.receipt} torn`}>
             <div className={s.rHead}>
               <span>REIN · {post ? 'SIGNED CALL' : 'ORDER'}</span>
               <span>#{order.id}</span>

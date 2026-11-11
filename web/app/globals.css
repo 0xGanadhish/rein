@@ -84,6 +84,32 @@ a {
   color: var(--mute);
 }
 
+/*
+ * The torn paper edge: half-circles punched out of the top and bottom of a card. --torn-bg is the colour behind the
+ * card (night by default); the card needs position: relative.
+ */
+.torn {
+  --torn-bg: var(--night);
+}
+.torn::before,
+.torn::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 14px;
+  background-image: radial-gradient(circle at 7px 7px, var(--torn-bg) 6px, transparent 6.5px);
+  background-size: 20px 14px;
+  background-position: 3px 0;
+  pointer-events: none;
+}
+.torn::before {
+  top: -7px;
+}
+.torn::after {
+  bottom: -7px;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
