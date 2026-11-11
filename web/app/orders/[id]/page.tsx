@@ -257,25 +257,28 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
             </div>
 
             <div className={s.stampZone}>
-              {verdict ? (
-                <ReceiptStamp status={status} verdict={verdict} className={s.stamp} playClassName={s.stampPlay}>
-                  <span className={s.stampWord}>{verdict}</span>
-                  <span className={s.stampSub}>
-                    {verdict === 'EXIT'
-                      ? past('signing')
-                        ? 'READ TWICE · AGREED'
-                        : 'CONFIRMING'
-                      : status === 'delivered'
-                        ? 'SIGNED · DELIVERED'
-                        : 'SIGNING'}
-                  </span>
-                </ReceiptStamp>
-              ) : (
-                <div className={s.stamp} data-verdict="none">
-                  <span className={s.stampWord}>{failed ? LABEL[status].toUpperCase() : 'JUDGING'}</span>
-                  <span className={s.stampSub}>{failed ? 'NO CALL POSTED' : 'THE MODEL IS READING THE VAULT'}</span>
-                </div>
-              )}
+              {/* One component for both branches, so it is already mounted while the order is pending. */}
+              <ReceiptStamp status={status} verdict={verdict ?? 'none'} className={s.stamp} playClassName={s.stampPlay}>
+                {verdict ? (
+                  <>
+                    <span className={s.stampWord}>{verdict}</span>
+                    <span className={s.stampSub}>
+                      {verdict === 'EXIT'
+                        ? past('signing')
+                          ? 'READ TWICE · AGREED'
+                          : 'CONFIRMING'
+                        : status === 'delivered'
+                          ? 'SIGNED · DELIVERED'
+                          : 'SIGNING'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className={s.stampWord}>{failed ? LABEL[status].toUpperCase() : 'JUDGING'}</span>
+                    <span className={s.stampSub}>{failed ? 'NO CALL POSTED' : 'THE MODEL IS READING THE VAULT'}</span>
+                  </>
+                )}
+              </ReceiptStamp>
             </div>
 
             <dl className={s.facts}>
