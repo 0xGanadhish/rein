@@ -68,7 +68,7 @@ contract DeployRein is Script {
     }
 
     function _monad(address deployer, address attester) internal {
-        TareRiskOracle oracle = _oracle(deployer, attester, 24 hours, 1 hours);
+        TareRiskOracle oracle = _oracle(deployer, attester, 6 hours, 1 hours);
         Kinds memory vaults = Kinds({
             eulerEarn: vm.envOr("EULER_EARN_VAULTS", ",", new address[](0)),
             morphoV2: vm.envOr("MORPHO_V2_VAULTS", ",", new address[](0))
@@ -80,7 +80,7 @@ contract DeployRein is Script {
     }
 
     function _base(address deployer, address attester) internal {
-        TareRiskOracle oracle = _oracle(deployer, attester, 24 hours, 1 hours);
+        TareRiskOracle oracle = _oracle(deployer, attester, 6 hours, 1 hours);
         string memory json = vm.readFile(string.concat(vm.projectRoot(), "/../shared/addresses.base.json"));
         _registerNew(
             oracle, Kinds({eulerEarn: _jsonVaults(json, "eulerEarn"), morphoV2: _jsonVaults(json, "morphoV2")})
