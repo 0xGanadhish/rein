@@ -128,8 +128,8 @@
 }
 .lede {
   margin: 0;
-  max-width: 62ch;
-  font-size: 17px;
+  max-width: 56ch;
+  font-size: clamp(17px, 1.4vw, 20px);
   line-height: 1.55;
   color: var(--ink-2);
   text-wrap: pretty;
