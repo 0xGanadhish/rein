@@ -9,7 +9,6 @@ export function DocsNav() {
   const pathname = usePathname();
   return (
     <nav aria-label="Documentation" className={styles.sidebar}>
-      <p className="label">Documentation</p>
       <ol>
         {DOC_PAGES.map((page) => (
           <li key={page.href}>

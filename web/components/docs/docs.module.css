@@ -14,29 +14,21 @@
 .sidebar ol {
   list-style: none;
   padding: 0;
-  margin: 16px 0 0;
-  counter-reset: topic;
+  margin: 0;
 }
 .sidebar li {
-  counter-increment: topic;
   border-bottom: 1px solid var(--line);
 }
 .sidebar a {
   display: flex;
-  gap: 10px;
   text-decoration: none;
   padding: 10px 0;
   color: var(--mute);
-  font-size: 13px;
-}
-.sidebar a::before {
-  content: counter(topic, decimal-leading-zero);
-  font-family: var(--mono);
-  font-size: 11px;
-  padding-top: 2px;
+  font-size: 14px;
 }
 .sidebar a[aria-current='page'] {
-  color: var(--signal-ink);
+  color: var(--ink);
+  font-weight: 650;
 }
 .sidebar a:hover {
   color: var(--ink);
@@ -119,7 +111,7 @@
   margin: 4px 0;
 }
 .notice {
-  border-left: 2px solid var(--signal);
+  border-left: 2px solid var(--ink);
   padding: 8px 16px;
   background: var(--paper);
 }

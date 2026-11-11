@@ -6,7 +6,6 @@ import styles from '@/components/docs/docs.module.css';
 export default function DocsOverview() {
   return (
     <>
-      <p className="label">Rein / Documentation</p>
       <h1>A risk desk with a public record.</h1>
       <p>
         Rein sells a fresh HOLD, EXIT or MOVE judgement on a supported yield vault. A buyer pays a NEAR desk, a model in
