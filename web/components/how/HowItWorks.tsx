@@ -65,9 +65,8 @@ const LIMITS: { title: string; body: string }[] = [
 
 export function HowItWorks() {
   return (
-    <>
-      <div className={s.head}>
-        <div className="label">How it works</div>
+    <div className={s.page}>
+      <div>
         <h1 className={s.title}>Every call is checked before it’s signed.</h1>
         <p className={s.lede}>
           You pay the desk contract on NEAR. Its agent reads the vault and asks a model running in a TEE. The contract
@@ -115,6 +114,6 @@ export function HowItWorks() {
           aren’t signed by a TEE, so Rein doesn’t check them.
         </p>
       </section>
-    </>
+    </div>
   );
 }

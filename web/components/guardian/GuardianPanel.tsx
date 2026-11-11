@@ -260,9 +260,7 @@ export function GuardianPanel({
             ))}
           </select>
           <h1 className={s.title}>
-            Set the rule.
-            <br />
-            <span>{exitWorker ? 'Walk away.' : 'Exit in one call.'}</span>
+            Set the rule. <span>{exitWorker ? 'Walk away.' : 'Exit in one call.'}</span>
           </h1>
         </div>
         <div className={s.position}>
@@ -295,7 +293,7 @@ export function GuardianPanel({
                 <path
                   d="M20,160 A130,130 0 0 1 280,160"
                   fill="none"
-                  stroke="#2A2B26"
+                  stroke="#D3D1C8"
                   strokeWidth="14"
                   strokeLinecap="round"
                 />
@@ -411,7 +409,7 @@ export function GuardianPanel({
         </section>
 
         <aside className={s.side}>
-          <section aria-labelledby="bt" className={s.backtest}>
+          <section aria-labelledby="bt" className={s.backtest} data-met={fired > 0 || undefined}>
             <h2 id="bt" className={s.k}>
               Under this rule
             </h2>

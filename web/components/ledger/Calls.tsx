@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { isHit, type ScoreVerdict } from '../../../shared/score';
 import { bpsPct, reasonLabels, utcStamp } from '@/lib/format';
 import type { LedgerPost } from '@/lib/ledger';
+import { useNewKeys } from '@/components/useNewKeys';
 import { shortAddress, vaultName } from '@/lib/vaults';
 import styles from './ledger.module.css';
 
@@ -46,6 +47,7 @@ export function Calls({ posts }: { posts: LedgerPost[] }) {
   const [limit, setLimit] = useState(PAGE);
   const matching = posts.filter((p) => (verdict === 'All' || p.verdict === verdict) && (repeats || !p.repeat));
   const shown = matching.slice(0, limit);
+  const fresh = useNewKeys(posts.map((p) => `${p.chain}:${p.id}`));
 
   return (
     <section className={styles.calls} aria-labelledby="calls">
@@ -108,6 +110,7 @@ export function Calls({ posts }: { posts: LedgerPost[] }) {
                 key={`${p.chain}:${p.id}`}
                 data-post={p.id}
                 data-repeat={p.repeat || undefined}
+                data-new={fresh.has(`${p.chain}:${p.id}`) || undefined}
                 data-mismatch={p.input_check === 'mismatch' || undefined}
               >
                 <td className={styles.cellMono}>

@@ -1,10 +1,10 @@
 .panel {
   margin-top: 24px;
   padding: 24px;
-  border: 1px solid var(--night-line);
+  border: 1px solid var(--line);
   border-radius: 18px;
-  background: var(--night-2);
-  color: var(--night-ink);
+  background: var(--paper);
+  color: var(--ink);
 }
 .panel h2 {
   margin: 0;
@@ -31,9 +31,9 @@
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
-  border: 1px solid var(--night-line);
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--night);
+  background: var(--bone);
   color: inherit;
   font: inherit;
 }

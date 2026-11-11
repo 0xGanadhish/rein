@@ -1,13 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DeskChain } from '../../../shared/desk';
 import { useNearWallet } from '@/components/near/NearWallet';
 import { menuNote, paymentCall } from '@/lib/menu';
 import { orderIdFrom } from '@/lib/orders';
 import { amount, duration } from '@/lib/format';
 import { isMirror } from '@/lib/vaults';
+import { useHighlight } from './useHighlight';
 import s from './judge.module.css';
 
 export interface MenuVault {
@@ -66,6 +67,16 @@ export function JudgeForm({
     (v) => v.chain === chain && (!query || `${v.name} ${v.vault}`.toLowerCase().includes(query.toLowerCase())),
   );
   const sel = menu.find((v) => v.chain === chain && v.vault === picked) ?? list[0];
+  const chainHl = useHighlight<HTMLDivElement>(chain);
+  const railHl = useHighlight<HTMLDivElement>(rail);
+
+  // The order card fades its new contents in when the vault or payment method changes, never on first load.
+  const orderKey = `${sel?.chain}:${sel?.vault}:${rail}`;
+  const firstKey = useRef(orderKey);
+  const [swapping, setSwapping] = useState(false);
+  useEffect(() => {
+    if (orderKey !== firstKey.current) setSwapping(true);
+  }, [orderKey]);
 
   const rails: { id: Rail; name: string; note: string; off?: string }[] = [
     {
@@ -122,10 +133,17 @@ export function JudgeForm({
       <section aria-labelledby="pick" className={s.pick}>
         <div className={s.row}>
           <h2 id="pick" className={s.h2}>
-            <span className={s.n}>01</span>Vault
+            Vault
           </h2>
           {chains.length > 1 && (
-            <div role="group" aria-label="Chain" className={s.chains}>
+            <div
+              role="group"
+              aria-label="Chain"
+              className={s.chains}
+              ref={chainHl.ref}
+              data-hl={chainHl.on || undefined}
+            >
+              <span className={s.hl} style={chainHl.style} data-armed={chainHl.armed || undefined} aria-hidden="true" />
               {chains.map((c) => (
                 <button
                   key={c}
@@ -213,9 +231,16 @@ export function JudgeForm({
       <aside aria-label="Order" className={s.side}>
         <section aria-labelledby="payh" className={s.card}>
           <h2 id="payh" className={s.h2}>
-            <span className={s.n}>02</span>Pay with
+            Pay with
           </h2>
-          <div role="radiogroup" aria-label="Payment" className={s.rails}>
+          <div
+            role="radiogroup"
+            aria-label="Payment"
+            className={s.rails}
+            ref={railHl.ref}
+            data-hl={railHl.on || undefined}
+          >
+            <span className={s.hl} style={railHl.style} data-armed={railHl.armed || undefined} aria-hidden="true" />
             {rails.map((r) => (
               <button
                 key={r.id}
@@ -237,28 +262,30 @@ export function JudgeForm({
           <h2 id="sum" className={s.sumLabel}>
             Your order
           </h2>
-          <div className={s.sumName}>{sel?.name ?? 'No vault picked'}</div>
-          <div className={s.sumMeta}>{sel ? `${CHAIN_LABEL[sel.chain]} · ${sel.short}` : '–'}</div>
-          <dl className={s.sumList}>
-            <div>
-              <dt>Price</dt>
-              <dd className={s.optMono}>{price}</dd>
-            </div>
-            <div>
-              <dt>Escrow</dt>
-              <dd>{rail === 'x402' ? 'None: x402 pays upfront' : 'Held by the desk contract'}</dd>
-            </div>
-            <div>
-              <dt>If it doesn’t land</dt>
-              <dd>
-                {rail === 'x402'
-                  ? 'A credit for one free judgement'
-                  : policy
-                    ? `Refund after ${duration(policy.deadlineS)}`
-                    : 'Refunded after the deadline'}
-              </dd>
-            </div>
-          </dl>
+          <div key={orderKey} className={swapping ? s.swap : undefined}>
+            <div className={s.sumName}>{sel?.name ?? 'No vault picked'}</div>
+            <div className={s.sumMeta}>{sel ? `${CHAIN_LABEL[sel.chain]} · ${sel.short}` : '–'}</div>
+            <dl className={s.sumList}>
+              <div>
+                <dt>Price</dt>
+                <dd className={s.optMono}>{price}</dd>
+              </div>
+              <div>
+                <dt>Escrow</dt>
+                <dd>{rail === 'x402' ? 'None: x402 pays upfront' : 'Held by the desk contract'}</dd>
+              </div>
+              <div>
+                <dt>If it doesn’t land</dt>
+                <dd>
+                  {rail === 'x402'
+                    ? 'A credit for one free judgement'
+                    : policy
+                      ? `Refund after ${duration(policy.deadlineS)}`
+                      : 'Refunded after the deadline'}
+                </dd>
+              </div>
+            </dl>
+          </div>
 
           {rail === 'x402' ? (
             <div className={s.agent}>
@@ -276,16 +303,11 @@ export function JudgeForm({
                 disabled={!!blocked || state.k === 'signing'}
                 onClick={() => void pay()}
               >
-                {state.k === 'signing' ? (
-                  <>
-                    <span className={s.spin} aria-hidden="true" />
-                    Waiting for your wallet…
-                  </>
-                ) : !account && !blocked ? (
-                  'Connect NEAR to pay'
-                ) : (
-                  'Pay & judge'
-                )}
+                {state.k === 'signing'
+                  ? 'Waiting for your wallet…'
+                  : !account && !blocked
+                    ? 'Connect NEAR to pay'
+                    : 'Pay & judge'}
                 {state.k !== 'signing' && (
                   <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
                     <path

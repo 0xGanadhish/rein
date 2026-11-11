@@ -22,10 +22,7 @@
   color: var(--night-ink);
 }
 .sample {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font-size: 13px;
   color: var(--signal);
 }
 .k {
@@ -57,14 +54,13 @@
 .bar {
   height: 3px;
   background: var(--night-line);
-  transform-origin: left;
+  transition: background-color 0.25s var(--ease);
 }
 .status li[data-done] {
   color: var(--night-ink);
 }
 .status li[data-done] .bar {
   background: var(--night-ink);
-  animation: grow-x 0.5s var(--ease) both;
 }
 .status li[data-signal] {
   color: var(--signal);
@@ -73,9 +69,7 @@
   background: var(--signal);
 }
 .status li[data-now]:not([data-done]) .bar {
-  background: linear-gradient(90deg, var(--night-ink), var(--night-line));
-  background-size: 200% 100%;
-  animation: shimmer 1.4s linear infinite;
+  background: linear-gradient(90deg, var(--night-ink) 40%, var(--night-line) 40%);
 }
 
 .grid {
@@ -94,7 +88,6 @@
   color: var(--ink);
   border-radius: 6px;
   padding: 36px clamp(20px, 3vw, 36px) 32px;
-  animation: rise 0.7s 0.1s var(--ease) both;
 }
 .receipt::before,
 .receipt::after {
@@ -149,7 +142,9 @@
   border: 4px solid var(--ink);
   border-radius: 6px;
   transform: rotate(-6deg);
-  animation: stamp 0.7s 0.6s var(--ease) both;
+}
+.stampPlay {
+  animation: stamp 0.4s var(--ease) both;
 }
 .stamp[data-verdict='EXIT'] {
   border-color: var(--signal);
@@ -161,7 +156,6 @@
   border-color: var(--faint);
   border-style: dashed;
   transform: rotate(-3deg);
-  animation: none;
 }
 .stampWord {
   font-family: var(--display);
@@ -282,7 +276,6 @@
   grid-template-columns: 32px minmax(0, 1fr);
   gap: 20px;
   padding-bottom: 28px;
-  animation: rise 0.5s var(--ease) both;
 }
 .step:last-child {
   padding-bottom: 0;
@@ -297,6 +290,9 @@
   display: grid;
   place-items: center;
   color: var(--night-ink);
+  transition:
+    background-color 0.25s var(--ease),
+    border-color 0.25s var(--ease);
 }
 .node[data-done] {
   border: 1px solid var(--night-ink);
@@ -499,22 +495,6 @@
   color: var(--night-soft);
 }
 
-@keyframes grow-x {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-@keyframes shimmer {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: -100% 0;
-  }
-}
 @keyframes ring {
   0% {
     transform: scale(0.8);

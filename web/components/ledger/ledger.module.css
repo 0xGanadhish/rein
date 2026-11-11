@@ -2,25 +2,26 @@
 .head {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 24px 48px;
-  animation: rise 0.6s var(--ease) both;
-}
-.eyebrow {
-  display: flex;
-  gap: 12px;
-}
-.sample {
-  color: var(--signal-ink);
+  align-items: baseline;
+  gap: 4px 20px;
 }
 .title {
-  margin: 10px 0 0;
+  margin: 0;
   font-family: var(--display);
-  font-weight: 550;
-  font-size: clamp(44px, 6vw, 88px);
-  line-height: 0.92;
-  letter-spacing: -0.05em;
+  font-weight: 600;
+  font-size: clamp(24px, 2.4vw, 32px);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+.where {
+  margin: 0;
+  font-size: 14px;
+  color: var(--mute);
+}
+.sample {
+  margin: 0;
+  font-size: 13px;
+  color: var(--signal-ink);
 }
 
 .seg {
@@ -57,32 +58,48 @@
 
 /* KPI strip */
 .kpis {
-  margin-top: 40px;
+  margin-top: 24px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   border-top: 1px solid var(--ink);
   border-bottom: 1px solid var(--line);
 }
+/* Every tile is inset the same; the first tile of each row sits flush on the left edge. */
 .kpi {
-  padding: 24px;
-  border-right: 1px solid var(--line);
-  animation: rise 0.6s var(--ease) both;
+  padding: 24px 24px 24px 24px;
+  border-left: 1px solid var(--line);
 }
-.kpi:first-child {
+.kpi:nth-child(4n + 1) {
   padding-left: 0;
+  border-left: 0;
 }
-.kpi:last-child {
-  border-right: 0;
-  padding-right: 0;
+@media (max-width: 1100px) {
+  .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .kpi:nth-child(4n + 1) {
+    padding-left: 24px;
+    border-left: 1px solid var(--line);
+  }
+  .kpi:nth-child(odd) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .kpi:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
 }
-.kpi:nth-child(2) {
-  animation-delay: 0.05s;
-}
-.kpi:nth-child(3) {
-  animation-delay: 0.1s;
-}
-.kpi:nth-child(4) {
-  animation-delay: 0.15s;
+@media (max-width: 600px) {
+  .kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .kpi {
+    padding-inline: 0;
+    border-left: 0;
+  }
+  .kpi + .kpi {
+    border-top: 1px solid var(--line);
+  }
 }
 .big {
   margin-top: 8px;
@@ -166,7 +183,6 @@
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 24px;
-  animation: rise 0.6s 0.2s var(--ease) both;
 }
 .panelHead {
   display: flex;
@@ -197,6 +213,7 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  align-items: center;
 }
 .zone {
   position: absolute;
@@ -216,10 +233,9 @@
 }
 .bar {
   position: relative;
+  width: min(56px, 56%);
   background: var(--ink);
   border-radius: 3px 3px 0 0;
-  transform-origin: bottom;
-  animation: grow-y 1s var(--ease) both;
 }
 .bar[data-thin] {
   background: var(--faint);
@@ -522,6 +538,9 @@
 }
 .table tbody tr:hover {
   background: var(--paper);
+}
+.table tr[data-new] td {
+  animation: arrive 1s var(--ease);
 }
 .table tr[data-repeat] td {
   opacity: 0.5;

@@ -82,7 +82,7 @@ export function Calibration({ score, tone }: { score: LedgerScore; tone?: 'night
         <span className="label">Hit rate by stated confidence</span>
       </figcaption>
       <div className={styles.plot}>
-        {score.bands.map((b, i) => {
+        {score.bands.map((b) => {
           const t = TARGET[b.band];
           const thin = b.n < THIN_BAND;
           const hit = b.hitRate === null ? 0 : b.hitRate * 100;
@@ -97,7 +97,7 @@ export function Calibration({ score, tone }: { score: LedgerScore; tone?: 'night
                 className={styles.bar}
                 data-thin={thin || undefined}
                 data-empty={b.hitRate === null || undefined}
-                style={{ height: `${hit}%`, animationDelay: `${0.25 + i * 0.08}s` }}
+                style={{ height: `${hit}%` }}
               >
                 <span className={styles.barValue}>{b.hitRate === null ? '–' : `${Math.round(hit)}%`}</span>
               </div>
