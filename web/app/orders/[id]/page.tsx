@@ -5,6 +5,7 @@ import type { DeskOrderStatus } from '../../../../shared/desk';
 import { Header } from '@/components/Header';
 import { AutoRefresh } from '@/components/orders/AutoRefresh';
 import { ExitAlertButton } from '@/components/orders/ExitAlertButton';
+import { ReceiptStamp } from '@/components/orders/ReceiptStamp';
 import { RefundButton } from '@/components/orders/RefundButton';
 import s from '@/components/orders/receipt.module.css';
 import { publicConfig } from '@/lib/config';
@@ -256,25 +257,28 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
             </div>
 
             <div className={s.stampZone}>
-              {verdict ? (
-                <div className={s.stamp} data-verdict={verdict}>
-                  <span className={s.stampWord}>{verdict}</span>
-                  <span className={s.stampSub}>
-                    {verdict === 'EXIT'
-                      ? past('signing')
-                        ? 'READ TWICE · AGREED'
-                        : 'CONFIRMING'
-                      : status === 'delivered'
-                        ? 'SIGNED · DELIVERED'
-                        : 'SIGNING'}
-                  </span>
-                </div>
-              ) : (
-                <div className={s.stamp} data-verdict="none">
-                  <span className={s.stampWord}>{failed ? LABEL[status].toUpperCase() : 'JUDGING'}</span>
-                  <span className={s.stampSub}>{failed ? 'NO CALL POSTED' : 'THE MODEL IS READING THE VAULT'}</span>
-                </div>
-              )}
+              {/* One component for both branches, so it is already mounted while the order is pending. */}
+              <ReceiptStamp status={status} verdict={verdict ?? 'none'} className={s.stamp} playClassName={s.stampPlay}>
+                {verdict ? (
+                  <>
+                    <span className={s.stampWord}>{verdict}</span>
+                    <span className={s.stampSub}>
+                      {verdict === 'EXIT'
+                        ? past('signing')
+                          ? 'READ TWICE · AGREED'
+                          : 'CONFIRMING'
+                        : status === 'delivered'
+                          ? 'SIGNED · DELIVERED'
+                          : 'SIGNING'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className={s.stampWord}>{failed ? LABEL[status].toUpperCase() : 'JUDGING'}</span>
+                    <span className={s.stampSub}>{failed ? 'NO CALL POSTED' : 'THE MODEL IS READING THE VAULT'}</span>
+                  </>
+                )}
+              </ReceiptStamp>
             </div>
 
             <dl className={s.facts}>
@@ -332,15 +336,12 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           </article>
 
           <section aria-labelledby="prov" className={s.prov}>
-            <div className={s.k} style={{ color: 'var(--night-mute)' }}>
-              Provenance
-            </div>
             <h2 id="prov" className={s.h2}>
               From the vault to the chain, step by step.
             </h2>
             <ol className={s.steps}>
-              {steps.map((st, i) => (
-                <li key={st.title} className={s.step} style={{ animationDelay: `${0.15 + i * 0.12}s` }}>
+              {steps.map((st) => (
+                <li key={st.title} className={s.step}>
                   <span
                     className={s.node}
                     data-done={st.done || undefined}

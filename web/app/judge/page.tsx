@@ -45,13 +45,10 @@ export default async function JudgePage({ searchParams }: { searchParams: Promis
   return (
     <>
       <Header active="judge" />
-      <main className="container" style={{ paddingTop: 'clamp(32px, 4vw, 56px)', paddingBottom: 80 }}>
+      <main className="container" style={{ paddingTop: 'clamp(24px, 3vw, 36px)', paddingBottom: 80 }}>
         <div className={s.head}>
-          <div className={`label ${s.eyebrow}`}>
-            <span>New order</span>
-            {cfg.sample && <span className={s.sample}>· Sample data, payments off</span>}
-          </div>
           <h1 className={s.title}>Which vault worries you?</h1>
+          {cfg.sample && <p className={s.sample}>Sample data, payments off</p>}
         </div>
         <JudgeForm
           menu={menu}

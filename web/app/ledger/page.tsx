@@ -7,14 +7,14 @@ import { TareComparison } from '@/components/ledger/Tare';
 import styles from '@/components/ledger/ledger.module.css';
 import { readDesk } from '@/lib/desk';
 import { publicConfig } from '@/lib/config';
-import { NETWORKS, readBrier, readLedger, type Network } from '@/lib/ledger';
+import { readBrier, readLedger, type Network } from '@/lib/ledger';
 import { readTareScore } from '@/lib/tare';
 
 export const metadata: Metadata = { title: 'Ledger' };
 
 const NETWORK_LABEL: Record<Network, string> = {
-  mainnet: 'Mainnet · Base, Monad',
-  testnet: 'Testnet · Monad testnet, Base Sepolia',
+  mainnet: 'Base, Monad',
+  testnet: 'Monad testnet, Base Sepolia',
 };
 
 export default async function LedgerPage() {
@@ -26,27 +26,11 @@ export default async function LedgerPage() {
   return (
     <>
       <Header active="ledger" />
-      <main className="container" style={{ paddingTop: 'clamp(32px, 4vw, 56px)', paddingBottom: 80 }}>
+      <main className="container" style={{ paddingTop: 'clamp(24px, 3vw, 36px)', paddingBottom: 80 }}>
         <div className={styles.head}>
-          <div>
-            <div className={`label ${styles.eyebrow}`}>
-              <span>Public ledger</span>
-              {result.ok && result.sample && <span className={styles.sample}>· Sample data</span>}
-            </div>
-            <h1 className={styles.title}>Every call, graded.</h1>
-          </div>
-          <nav aria-label="Network" className={styles.seg}>
-            {NETWORKS.map((n) => (
-              <a
-                key={n}
-                href={`/ledger?network=${n}`}
-                className={styles.segItem}
-                aria-current={n === network ? 'page' : undefined}
-              >
-                {NETWORK_LABEL[n]}
-              </a>
-            ))}
-          </nav>
+          <h1 className={styles.title}>Every call, graded.</h1>
+          <p className={styles.where}>{NETWORK_LABEL[network]}</p>
+          {result.ok && result.sample && <p className={styles.sample}>Sample data</p>}
         </div>
 
         {result.ok ? (
