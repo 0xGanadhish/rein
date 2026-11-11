@@ -24,7 +24,7 @@ const TABS: { id: Tab; href: string; label: string }[] = [
   { id: 'how', href: '/how', label: 'How it works' },
 ];
 
-/** The app bar, shared by the landing page and the app. `dark` matches the night pages (receipt, Guardian). */
+/** The app bar, shared by the landing page and the app. `dark` matches the night receipt page. */
 export async function Header({ active, dark = false }: { active?: Tab; dark?: boolean }) {
   const { network } = await publicConfig();
   return (
