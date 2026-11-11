@@ -20,7 +20,7 @@ describe('network switch', () => {
     expect(await publicConfig()).toMatchObject({
       network: 'testnet',
       desk: 'rein-desk.testnet',
-      api: 'https://rein-worker.ganadhish-mardikar-dev.workers.dev',
+      api: 'https://api-testnet.reinfi.xyz',
     });
 
     // The switch links to ?network=mainnet; the middleware keeps the page and sets the cookie.
@@ -32,7 +32,7 @@ describe('network switch', () => {
     expect(await publicConfig()).toMatchObject({
       network: 'mainnet',
       desk: 'rein-desk.near',
-      api: 'https://rein-worker-mainnet.ganadhish-mardikar-dev.workers.dev',
+      api: 'https://api.reinfi.xyz',
     });
 
     vi.stubEnv('REIN_API_URL_MAINNET', 'https://api.reinfi.xyz');

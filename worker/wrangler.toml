@@ -2,6 +2,9 @@ name = "rein-worker"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
+# Served on the project domain; the zone must be on this Cloudflare account. workers.dev stays on during the move.
+routes = [{ pattern = "api-testnet.reinfi.xyz", custom_domain = true }]
+workers_dev = true
 
 [observability]
 enabled = true
@@ -37,6 +40,7 @@ migrations_dir = "migrations"
 # Deploy with `wrangler deploy --env mainnet`; secrets go in with `wrangler secret put <NAME> --env mainnet`.
 [env.mainnet]
 name = "rein-worker-mainnet"
+routes = [{ pattern = "api.reinfi.xyz", custom_domain = true }]
 
 [env.mainnet.triggers]
 crons = ["* * * * *"]

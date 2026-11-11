@@ -6,7 +6,7 @@ Rein sells a signed HOLD, EXIT or MOVE verdict and posts it to an EVM oracle. Br
 
 | Setting | Testnet | Mainnet |
 | --- | --- | --- |
-| Worker | `https://rein-worker.ganadhish-mardikar-dev.workers.dev` | `<placeholder>` — live by 12 Nov |
+| Worker | `https://api-testnet.reinfi.xyz` | `<placeholder>` — live by 12 Nov |
 | NEAR desk | `rein-desk.testnet` | `<placeholder>` — live by 12 Nov |
 | Verdict chains | `monad-testnet`, `base-sepolia` | `monad`, `base` |
 
@@ -42,7 +42,7 @@ Merge this `mcpServers` entry into your **private local** Claude Code configurat
         "REIN_NETWORK": "testnet",
         "REIN_NEAR_ACCOUNT": "agent.<your-account>.testnet",
         "REIN_NEAR_KEY": "ed25519:<your-key>",
-        "REIN_API_URL": "https://rein-worker.ganadhish-mardikar-dev.workers.dev"
+        "REIN_API_URL": "https://api-testnet.reinfi.xyz"
       }
     }
   }
@@ -80,7 +80,7 @@ NEAR escrow is released on delivery; failed posts authorize automatic refunds. F
 For an MCP client supporting streamable HTTP, the testnet route is:
 
 ```text
-https://rein-worker.ganadhish-mardikar-dev.workers.dev/mcp
+https://api-testnet.reinfi.xyz/mcp
 ```
 
 **Live after the next Worker deploy.** Claude Code remote configuration for browsing is:
@@ -90,7 +90,7 @@ https://rein-worker.ganadhish-mardikar-dev.workers.dev/mcp
   "mcpServers": {
     "rein-remote": {
       "type": "http",
-      "url": "https://rein-worker.ganadhish-mardikar-dev.workers.dev/mcp"
+      "url": "https://api-testnet.reinfi.xyz/mcp"
     }
   }
 }
@@ -140,7 +140,7 @@ From the clone root:
 ```sh
 pnpm baseline --check
 pnpm baseline scripts/fixtures/baseline-sample.json
-pnpm baseline https://rein-worker.ganadhish-mardikar-dev.workers.dev/v1/ledger
+pnpm baseline https://api-testnet.reinfi.xyz/v1/ledger
 ```
 
 The last command is a free public read. A URL or a saved Ledger JSON object with `recent` rows produces the same table: N scored and mean Brier error, lower being better. The fixture self-check pins all four results to six decimals and checks that unavailable APY is not interpreted as zero.
