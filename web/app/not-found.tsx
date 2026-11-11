@@ -10,7 +10,7 @@ export default function NotFound() {
     <>
       <Header />
       <main className="container" style={{ paddingTop: 'clamp(32px, 4vw, 56px)', paddingBottom: 80 }}>
-        <header className={s.head}>
+        <header className={s.page}>
           <div className="label">404</div>
           <h1 className={s.title}>No page here.</h1>
           <p className={s.lede}>
