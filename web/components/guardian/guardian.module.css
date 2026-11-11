@@ -201,6 +201,8 @@
 .sliderHead {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
   font-size: 14px;
   font-weight: 600;
 }

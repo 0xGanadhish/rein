@@ -331,7 +331,7 @@ export function GuardianPanel({
           <div className={s.sliders}>
             <label className={s.slider}>
               <span className={s.sliderHead}>
-                Minimum confidence <b>{conf}%</b>
+                <span className="label">Minimum confidence</span> <b>{conf}%</b>
               </span>
               <input
                 className={s.range}
@@ -348,7 +348,7 @@ export function GuardianPanel({
             </label>
             <label className={s.slider}>
               <span className={s.sliderHead}>
-                Call must be fresher than <b>{age} min</b>
+                <span className="label">Call must be fresher than</span> <b>{age} min</b>
               </span>
               <input
                 className={s.range}
