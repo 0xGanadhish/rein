@@ -4,10 +4,11 @@ import { decodeFunctionData, encodeAbiParameters, encodeEventTopics, type Hex, t
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { oracleAbi } from '../src/abis';
 import { gradeDue, type GradeDeps } from '../src/grade';
+import { RESOLVE_WINDOW_S } from '../src/vendor/cadence';
 
 const ORACLE = '0x0000000000000000000000000000000000000c1e';
 const P = 1_793_700_000;
-const DAY = 86_400;
+const OPENS = RESOLVE_WINDOW_S.base;
 
 function resolvedLog(id: bigint, adverse: boolean, reasons: number): Log {
   return {
@@ -77,15 +78,15 @@ describe('gradeDue', () => {
   it('samples_when_window_opens', async () => {
     const s = setup();
     await addPost(1);
-    expect((await gradeDue(env, 'mainnet', P + DAY - 1, s.deps)).base).toMatchObject({ sampled: 0, sent: 0 });
+    expect((await gradeDue(env, 'mainnet', P + OPENS - 1, s.deps)).base).toMatchObject({ sampled: 0, sent: 0 });
     expect(s.sent).toEqual([]);
 
-    expect((await gradeDue(env, 'mainnet', P + DAY, s.deps)).base).toMatchObject({ sampled: 1, sent: 0, failed: 0 });
+    expect((await gradeDue(env, 'mainnet', P + OPENS, s.deps)).base).toMatchObject({ sampled: 1, sent: 0, failed: 0 });
     expect(s.sent).toEqual([{ fn: 'sample', id: 1n }]);
     // The second sample is due no sooner than 5 minutes after the first.
-    expect(await post(1)).toMatchObject({ sampled: 1, resample_at: P + DAY + 300, resolved: 0 });
+    expect(await post(1)).toMatchObject({ sampled: 1, resample_at: P + OPENS + 300, resolved: 0 });
 
-    await gradeDue(env, 'mainnet', P + DAY + 300, s.deps);
+    await gradeDue(env, 'mainnet', P + OPENS + 300, s.deps);
     expect(s.sent).toEqual([
       { fn: 'sample', id: 1n },
       { fn: 'sample', id: 1n },
@@ -96,8 +97,8 @@ describe('gradeDue', () => {
   it('resolves_after_sampling', async () => {
     const s = setup();
     await addPost(2, { sampled: 2 });
-    expect((await gradeDue(env, 'mainnet', P + DAY + 3_599, s.deps)).base).toMatchObject({ sent: 0 });
-    expect((await gradeDue(env, 'mainnet', P + DAY + 3_600, s.deps)).base).toEqual({
+    expect((await gradeDue(env, 'mainnet', P + OPENS + 3_599, s.deps)).base).toMatchObject({ sent: 0 });
+    expect((await gradeDue(env, 'mainnet', P + OPENS + 3_600, s.deps)).base).toEqual({
       sampled: 0,
       sent: 1,
       synced: 0,
@@ -111,7 +112,7 @@ describe('gradeDue', () => {
   it('already_resolved_syncs_without_tx', async () => {
     const s = setup({ resolved: true, adverse: false, reasons: 0 });
     await addPost(3, { sampled: 2 });
-    expect((await gradeDue(env, 'mainnet', P + DAY + 3_600, s.deps)).base).toEqual({
+    expect((await gradeDue(env, 'mainnet', P + OPENS + 3_600, s.deps)).base).toEqual({
       sampled: 0,
       sent: 0,
       synced: 1,
