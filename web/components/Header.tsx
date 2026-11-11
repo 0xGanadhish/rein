@@ -15,13 +15,14 @@ export function Mark() {
   );
 }
 
-export type Tab = 'ledger' | 'judge' | 'guardian' | 'orders' | 'how';
+export type Tab = 'ledger' | 'judge' | 'guardian' | 'orders' | 'how' | 'docs';
 const TABS: { id: Tab; href: string; label: string }[] = [
   { id: 'ledger', href: '/ledger', label: 'Ledger' },
   { id: 'judge', href: '/judge', label: 'Judge' },
   { id: 'guardian', href: '/guardian', label: 'Guardian' },
   { id: 'orders', href: '/orders', label: 'My orders' },
   { id: 'how', href: '/how', label: 'How it works' },
+  { id: 'docs', href: '/docs', label: 'Docs' },
 ];
 
 /** The app bar, shared by the landing page and the app. `dark` matches the night receipt page. */
