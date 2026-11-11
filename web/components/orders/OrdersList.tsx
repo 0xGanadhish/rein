@@ -34,7 +34,11 @@ export function OrdersList({ samplePayer }: { samplePayer: string | null }) {
   const [orders, setOrders] = useState<DeskOrder[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lookup, setLookup] = useState('');
-  const fresh = useNewKeys((orders ?? []).map((o) => String(o.id)));
+  const fresh = useNewKeys(
+    (orders ?? []).map((o) => String(o.id)),
+    orders !== null,
+    payer ?? '',
+  );
 
   useEffect(() => {
     if (!payer) return;
