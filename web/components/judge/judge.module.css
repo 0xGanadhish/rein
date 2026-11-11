@@ -7,7 +7,7 @@
 .sample {
   margin: 0;
   font-size: 13px;
-  color: var(--signal-ink);
+  color: var(--mute);
 }
 .title {
   margin: 0;
@@ -76,7 +76,7 @@
   gap: 6px;
 }
 .chains .hl {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--ink);
 }
 .chainBtn {
@@ -84,7 +84,7 @@
   z-index: 1;
   height: 44px;
   padding: 0 18px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--line);
   background: transparent;
   font: inherit;
@@ -112,7 +112,7 @@
   padding: 0 18px;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   color: var(--mute);
 }
 .search:focus-within {
@@ -158,7 +158,7 @@
   min-height: 56px;
   padding: 14px 16px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: transparent;
   font: inherit;
   color: var(--ink);
@@ -181,7 +181,7 @@
   justify-self: center;
 }
 .opt[aria-checked='true'] .dot {
-  background: var(--signal);
+  background: var(--bone);
   border-color: var(--bone);
 }
 .optName {
@@ -197,6 +197,7 @@
   font-family: var(--mono);
   font-size: 10.5px;
   color: var(--mute);
+  font-variant-numeric: tabular-nums;
 }
 .opt[aria-checked='true'] .optName small {
   color: var(--faint);
@@ -204,12 +205,13 @@
 .optMono {
   font-family: var(--mono);
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 .mirror {
   display: inline-block;
   padding: 3px 6px;
   border: 1px solid currentColor;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 10px;
 }
 .meter {
@@ -220,7 +222,7 @@
 .track {
   flex: 1;
   height: 4px;
-  border-radius: 2px;
+  border-radius: var(--radius-pill);
   background: var(--line);
   overflow: hidden;
 }
@@ -253,8 +255,9 @@
 .card {
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: var(--radius-md);
   padding: 24px;
+  box-shadow: var(--shadow-card);
 }
 .rails {
   position: relative;
@@ -264,7 +267,7 @@
   gap: 8px;
 }
 .rails .hl {
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--ink);
   box-shadow: inset 0 0 0 1px var(--ink);
   background: #fff;
@@ -278,7 +281,7 @@
   min-height: 88px;
   padding: 16px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--paper);
   font: inherit;
   color: var(--ink);
@@ -318,8 +321,10 @@
 .summary {
   background: var(--ink);
   color: var(--night-ink);
-  border-radius: 18px;
+  border-radius: var(--radius-md);
   padding: 24px;
+  border: 1px solid var(--night-line);
+  box-shadow: var(--shadow-night);
 }
 .sumLabel {
   margin: 0;
@@ -346,6 +351,7 @@
   font-family: var(--mono);
   font-size: 11px;
   color: var(--night-mute);
+  font-variant-numeric: tabular-nums;
 }
 .sumList {
   margin: 22px 0 0;
@@ -368,6 +374,7 @@
   margin: 0;
   font-size: 14px;
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 .pay {
   margin-top: 20px;
@@ -378,7 +385,7 @@
   justify-content: center;
   gap: 12px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--night-ink);
   color: var(--ink);
   font: inherit;
@@ -417,7 +424,7 @@
   padding: 14px;
   background: var(--night-2);
   border: 1px solid var(--night-line);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   font-family: var(--mono);
   font-size: 11px;
   line-height: 1.7;

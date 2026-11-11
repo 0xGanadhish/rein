@@ -21,7 +21,7 @@
 .sample {
   margin: 0;
   font-size: 13px;
-  color: var(--signal-ink);
+  color: var(--mute);
 }
 
 .seg {
@@ -30,7 +30,7 @@
   padding: 4px;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 .segItem {
   height: 36px;
@@ -38,7 +38,7 @@
   display: inline-flex;
   align-items: center;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   font: inherit;
   font-size: 13.5px;
@@ -107,6 +107,7 @@
   align-items: baseline;
   gap: 12px;
   flex-wrap: wrap;
+  font-variant-numeric: tabular-nums;
 }
 .num {
   font-family: var(--display);
@@ -133,7 +134,7 @@
   text-transform: uppercase;
   padding: 3px 8px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--ink-2);
 }
 
@@ -141,7 +142,7 @@
   margin-top: 14px;
   display: flex;
   height: 10px;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   gap: 2px;
   background: var(--line-soft);
@@ -181,8 +182,9 @@
   margin: 0;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   padding: 24px;
+  box-shadow: var(--shadow-card);
 }
 .panelHead {
   display: flex;
@@ -235,7 +237,7 @@
   position: relative;
   width: min(56px, 56%);
   background: var(--ink);
-  border-radius: 3px 3px 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 .bar[data-thin] {
   background: var(--faint);
@@ -250,6 +252,7 @@
   font-family: var(--mono);
   font-size: 12px;
   color: var(--bone);
+  font-variant-numeric: tabular-nums;
 }
 .bar[data-thin] .barValue {
   color: var(--ink);
@@ -266,6 +269,7 @@
   text-align: center;
   font-family: var(--mono);
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 .axis small {
   display: block;
@@ -289,7 +293,7 @@
 .swatch {
   width: 12px;
   height: 12px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   background: var(--ink);
 }
 .swatchZone {
@@ -309,9 +313,9 @@
   cursor: crosshair;
 }
 .brierPlot:focus-visible {
-  outline: 2px solid var(--signal);
+  outline: 2px solid var(--cobalt);
   outline-offset: 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 .brierPlot svg {
   display: block;
@@ -375,11 +379,12 @@
   padding: 8px 10px;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-family: var(--mono);
   font-size: 10.5px;
   color: var(--mute);
   pointer-events: none;
+  font-variant-numeric: tabular-nums;
 }
 .brierTip[data-flip] {
   transform: translateX(calc(-100% - 12px));
@@ -399,13 +404,13 @@
 .swatchLine {
   width: 16px;
   height: 2px;
-  border-radius: 1px;
+  border-radius: var(--radius-pill);
   background: var(--ink);
 }
 .swatchEarly {
   width: 12px;
   height: 12px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   background: var(--line-soft);
   border: 1px solid var(--line);
 }
@@ -423,6 +428,7 @@
   border-collapse: collapse;
   font-family: var(--mono);
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 .brierTable :is(th, td) {
   padding: 4px 8px 4px 0;
@@ -524,6 +530,7 @@
   padding: 14px 12px;
   border-top: 1px solid var(--line);
   vertical-align: middle;
+  font-variant-numeric: tabular-nums;
 }
 .table th:first-child,
 .table td:first-child {
@@ -600,7 +607,7 @@
   height: 44px;
   padding: 0 20px;
   border: 1px solid var(--ink);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   font: inherit;
   font-size: 14px;
@@ -654,7 +661,7 @@
   margin-top: 40px;
   padding: 32px;
   border: 1px dashed var(--line);
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   background: var(--paper);
 }
 .error h2 {
@@ -674,6 +681,7 @@
   background: var(--night-3);
   border-color: var(--night-line);
   color: var(--night-ink);
+  box-shadow: var(--shadow-night);
 }
 .panel[data-tone='night'] :global(.label),
 .panel[data-tone='night'] .axis small,
@@ -734,6 +742,7 @@
   text-align: left;
   font-weight: 500;
   vertical-align: top;
+  font-variant-numeric: tabular-nums;
 }
 .compare thead th {
   font-size: 11px;
