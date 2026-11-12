@@ -8,7 +8,7 @@ export const NEAR_AI = {
   headers: { 'Content-Type': 'application/json', 'x-no-aliasing': 'true', 'Accept-Encoding': 'identity' },
   timeoutMs: 20_000,
   /** Published USD micros per million tokens: https://cloud-api.near.ai/v1/models */
-  price: { inputPerMTok: 80_000, outputPerMTok: 500_000 },
+  price: { inputPerMTok: 170_000, outputPerMTok: 1_100_000 },
 } as const;
 
 export class JudgeError extends Error {

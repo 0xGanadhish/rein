@@ -51,7 +51,7 @@ describe('judge', () => {
     await expect(judge(doc, prompt, opts)).rejects.toThrow('signature: HTTP 503');
     expect(await env.DB.prepare('SELECT signing_address, cost_usd_micros FROM judge_calls').first()).toEqual({
       signing_address: 'signature',
-      cost_usd_micros: 37,
+      cost_usd_micros: 79,
     });
   });
   it('sends_exact_prefix_doc_suffix', async () => {
