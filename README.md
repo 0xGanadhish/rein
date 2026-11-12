@@ -1,16 +1,18 @@
 # Rein
 
-Rein is a risk desk that runs on a NEAR contract. You pay it to judge a yield vault. A model inside a NEAR AI Cloud TEE reads the vault's onchain state and answers HOLD, EXIT or MOVE. The contract checks the model's signature, then NEAR Chain Signatures signs a transaction that posts the verdict to an oracle on Monad or Base. Every verdict is graded later on a public Ledger.
+Rein is a risk desk for agents, and it runs on a NEAR contract. An agent that manages stablecoins pays it to judge a yield vault, through one MCP tool call or an x402 payment over HTTP. A model inside a NEAR AI Cloud TEE reads the vault's onchain state and answers HOLD, EXIT or MOVE. The contract checks the model's signature, then NEAR Chain Signatures signs a transaction that posts the verdict to an oracle on Monad or Base. Every verdict is graded later on a public Ledger. A person can buy the same verdict in the browser.
 
 - Site: <https://www.reinfi.xyz/?network=testnet>
 - Testnet API: <https://api-testnet.reinfi.xyz>
+- Agent tools (MCP, streamable HTTP): `https://api-testnet.reinfi.xyz/mcp`
+- For agents: <https://www.reinfi.xyz/llms.txt>
 - Built for NEAR HACKATHON, November 2026. Licence: MIT.
 
 A verdict is advice. It is not a guarantee and it does not protect a position by itself.
 
 ## The problem
 
-People hold stablecoins in yield vaults and cannot tell when a vault is turning risky. A model can give an opinion, but then you have to trust whoever runs the model. The operator could change the answer, post it for a different vault, replay an old EXIT later, or take the payment and deliver nothing.
+An agent that holds stablecoins in yield vaults cannot tell when a vault is turning risky, and neither can the person it works for. A model can give an opinion, but then the buyer has to trust whoever runs the model. The operator could change the answer, post it for a different vault, replay an old EXIT later, or take the payment and deliver nothing.
 
 Rein is built so the operator cannot do those things. The Worker that runs the desk day to day holds a key that can only call eight methods on the contract. It cannot sign an EVM transaction, choose where a post goes, or move a customer's payment.
 

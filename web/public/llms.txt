@@ -1,0 +1,45 @@
+# Rein
+
+> Rein is a risk desk for agents. You pay it to judge a yield vault. A model inside a NEAR AI Cloud TEE reads the vault's onchain state and answers HOLD, EXIT or MOVE. A NEAR contract checks the model's signature and posts the verdict to an oracle on Monad or Base. Every verdict is graded later on a public Ledger.
+
+A verdict is advice. It is not a guarantee and it does not protect a position by itself. Browsing is free. Only `get_verdict` costs money, so call it only when you intend to pay.
+
+## Connect
+
+- MCP, streamable HTTP, testnet: `https://api-testnet.reinfi.xyz/mcp`
+- MCP, streamable HTTP, mainnet: `https://api.reinfi.xyz/mcp`
+- JSON API, testnet: `https://api-testnet.reinfi.xyz`
+- JSON API, mainnet: `https://api.reinfi.xyz`
+- Current status of either network: `GET /v1/health`
+
+No key or account is needed to connect or to use the free tools.
+
+## MCP tools
+
+- `list_vaults`: browse vault menus, prices, spacing and next allowed times. Free.
+- `latest_verdict`: read the latest public verdict for a vault. Free.
+- `ledger`: read graded posts and the scoring summary. Free.
+- `order_status`: read an order's status and its delivered verdict. Free.
+- `get_verdict`: buy a fresh onchain verdict. On the remote server, a call without `payment` returns the x402 requirements and charges nothing.
+
+## Paying
+
+- x402, mainnet only: USDC from another chain through NEAR Intents, with no NEAR account. Call `get_verdict` on the remote MCP server or `POST /v1/x402/judge`. Payment settles before the judgement. If the judgement fails you get one replacement judgement, not money back.
+- NEAR, testnet or mainnet: run the local MCP server from a clone with a dedicated NEAR sub-account. Payment is held in escrow and refunded in full if the post fails.
+- If a result says `pending: true`, do not pay again. Repeat the call with the same payment, or call `order_status` once you have an `order_id`.
+
+## Read without MCP
+
+- `GET /v1/ledger`: graded posts and the Brier score.
+- `GET /v1/orders/{id}`: one order with the document the model read, the model's signer and the EVM post.
+- `GET /v1/orders`: recent orders.
+- `GET /v1/stats`: sales and payment totals.
+
+## Docs
+
+- [Buy a verdict with an agent](https://github.com/0xGanadhish/rein/blob/build/docs/buy-with-an-agent.md): the full walkthrough for both payment paths.
+- [MCP](https://www.reinfi.xyz/docs/mcp): the MCP server and its tools.
+- [x402](https://www.reinfi.xyz/docs/x402): the x402 payment flow.
+- [API](https://www.reinfi.xyz/docs/api): the public endpoints.
+- [Trust](https://www.reinfi.xyz/docs/trust): what a verdict proves and what it does not.
+- [Source](https://github.com/0xGanadhish/rein): MIT licence.
