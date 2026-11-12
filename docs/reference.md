@@ -150,8 +150,8 @@ Startup does not apply migrations. The schema includes call outcomes/token usage
 times, persistent incidents, and the x402 operation/result journal.
 
 **Model cost:** NEAR AI's public [models endpoint](https://cloud-api.near.ai/v1/models) lists
-`z-ai/glm-5.3-flash` at **$0.08 per million input tokens** and **$0.50 per million output tokens**.
-A 244-input/34-output-token completion is about $0.00003652, rounded to 37 USD micros in the call journal.
+`Qwen/Qwen3.6-35B-A3B-FP8` at **$0.17 per million input tokens** and **$1.10 per million output tokens**.
+A 244-input/34-output-token completion is about $0.00007888, rounded to 79 USD micros in the call journal.
 Signature failures and desk-refused answers retain the completion's token cost and failing stage.
 Account credits and cash charges are not reported by token usage: unknown credits/cash cost remain `null`,
 not zero. Calls with missing usage are counted explicitly; the known-cost subtotal is not a complete bill.

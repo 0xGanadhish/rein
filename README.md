@@ -21,7 +21,7 @@ Rein is built so the operator cannot do those things. The Worker that runs the d
 | NEAR piece | What Rein uses it for |
 | --- | --- |
 | Contract `rein-desk` | Takes payment in NEAR or USDC, holds it in escrow, and pays a 70/30 treasury/agent split only when delivery is reported. It refunds in full if the post fails or the deadline passes. |
-| NEAR AI Cloud (TEE) | Runs `z-ai/glm-5.3-flash` and signs each answer. The contract rebuilds the exact request from its own stored prompt, recovers the signer, and refuses anything not signed by an owner-approved TEE key. |
+| NEAR AI Cloud (TEE) | Runs `Qwen/Qwen3.6-35B-A3B-FP8` and signs each answer. The contract rebuilds the exact request from its own stored prompt, recovers the signer, and refuses anything not signed by an owner-approved TEE key. |
 | Chain Signatures (MPC) | Signs the EVM transaction. The contract builds the calldata itself from the verified answer, so the oracle address, vault, verdict and expiry are not the agent's to choose. The oracle accepts posts only from the contract's derived address. |
 | NEAR Intents, through PingPay x402 | Lets an agent on another chain pay in USDC without a NEAR account. Mainnet only. |
 
