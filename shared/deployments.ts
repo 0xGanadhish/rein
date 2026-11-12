@@ -46,7 +46,7 @@ export const DEPLOYMENTS: Record<'mainnet' | 'testnet', Deployment> = {
     desk: 'rein-desk.near',
     api: 'https://api.reinfi.xyz',
     agent: 'agent.rein-desk.near',
-    oracles: { monad: null, base: null },
+    oracles: { monad: '0x6Ef1ca2A0c8B918429b78d8E9C8A8fc5F9970F1F', base: null },
     menu: {
       // Clearstar Earn USDC (Euler Earn) and August USDC V2 (Morpho V2), with Tare's deployed adapters.
       monad: ['0xE1BcA19baA63894D374578320551633320436523', '0x80017bF0f793EBbE9679Cd61ff0e395B62CAbB59'],
