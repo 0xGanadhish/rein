@@ -25,16 +25,24 @@
 .pick {
   height: 36px;
   max-width: 100%;
-  padding: 0 12px;
+  /* Our own chevron, inset from the pill's edge; the native arrow sits flush against the border. */
+  appearance: none;
+  padding: 0 38px 0 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
-  background: var(--paper);
+  background: var(--paper)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2310110f' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    no-repeat right 16px center;
   color: var(--ink);
   font-family: var(--mono);
   font-size: 11px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
+}
+.pick:focus-visible {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 2px;
 }
 .title {
   margin: 14px 0 0;

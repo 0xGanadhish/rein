@@ -10,7 +10,7 @@ import { amount, utcStamp } from '@/lib/format';
 import { shortAddress, vaultName } from '@/lib/vaults';
 import s from './orders.module.css';
 
-const STATUS: Record<DeskOrder['status'], string> = {
+export const STATUS: Record<DeskOrder['status'], string> = {
   open: 'Open',
   exit_pending: 'EXIT pending',
   signing: 'Signing',

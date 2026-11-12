@@ -29,7 +29,7 @@ const TX_EXPLORER: Record<DeskChain, string> = {
   monad: 'https://monadscan.com/tx/',
   'monad-testnet': 'https://testnet.monadscan.com/tx/',
 };
-const NEAR_EXPLORER: Record<Network, string> = {
+export const NEAR_EXPLORER: Record<Network, string> = {
   mainnet: 'https://nearblocks.io/address/',
   testnet: 'https://testnet.nearblocks.io/address/',
 };
