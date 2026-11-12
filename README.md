@@ -1,362 +1,154 @@
 # Rein
 
-A risk desk on a NEAR contract. A customer pays to have a yield vault judged, a NEAR AI TEE model signs its answer, the contract verifies it, and Chain Signatures signs the post to Monad or Base. Verdicts are graded on a public Ledger.
+Rein is a risk desk that runs on a NEAR contract. You pay it to judge a yield vault. A model inside a NEAR AI Cloud TEE reads the vault's onchain state and answers HOLD, EXIT or MOVE. The contract checks the model's signature, then NEAR Chain Signatures signs a transaction that posts the verdict to an oracle on Monad or Base. Every verdict is graded later on a public Ledger.
 
-Work in progress for NEAR HACKATHON.
+- Site: <https://www.reinfi.xyz/?network=testnet>
+- Testnet API: <https://api-testnet.reinfi.xyz>
+- Built for NEAR HACKATHON, November 2026. Licence: MIT.
 
-The first commit vendors code reused from [Tare](https://github.com/0xGanadhish/tare) at `b584c863`, unchanged, under MIT. Everything after it is hackathon work.
+A verdict is advice. It is not a guarantee and it does not protect a position by itself.
 
-## Use Rein from an agent
+## The problem
 
-The private `rein-mcp` workspace package exposes five tools with structured results and a one-line summary:
-`list_vaults` (menus, prices and spacing), `latest_verdict` (latest public vault verdict),
-`get_verdict` (buy and wait), `order_status` (resume an order), and `ledger` (graded posts and scores).
-Free tools never submit a payment. Before buying, `get_verdict` checks the menu, kill switch and visible post
-spacing. Desk admission remains authoritative if the public Ledger is behind.
+People hold stablecoins in yield vaults and cannot tell when a vault is turning risky. A model can give an opinion, but then you have to trust whoever runs the model. The operator could change the answer, post it for a different vault, replay an old EXIT later, or take the payment and deliver nothing.
 
-An order wait is capped at four minutes; `{ pending: true, order_id, status }` resumes with `order_status`.
-While an x402 payment is still settling, `{ pending: true, payment_ref, order_id: null }` means call
-`get_verdict` again with the same payment; that payment is not charged twice.
-Verdict records contain the chain, vault, HOLD/EXIT/MOVE answer, confidence/risk, available proof links and grade.
-Proof fields that the receipt does not expose remain `null`.
+Rein is built so the operator cannot do those things. The Worker that runs the desk day to day holds a key that can only call eight methods on the contract. It cannot sign an EVM transaction, choose where a post goes, or move a customer's payment.
 
-Local stdio runs from a clone with `pnpm --silent --filter rein-mcp start` (`--silent` keeps pnpm's banner off stdout, which carries the MCP stream). Configure `REIN_NETWORK`
-(`testnet` or `mainnet`), `REIN_NEAR_ACCOUNT`, and `REIN_NEAR_KEY` in the MCP client's environment;
-never send the key in a tool argument. `REIN_API_URL` optionally overrides the network's public API.
-The network selects the desk and unsigned NEAR RPC endpoint. Signing is lazy: browsing never parses or uses
-the key. A paid call attaches the current `price_near` to one `request_judgement` call.
-Keys and original signing exceptions are excluded from reported errors.
+## What NEAR does
 
-`POST /v1/orders/:id/nudge` advances one order under the cron's chain lease and returns `{ status }`.
-Unknown orders return JSON 404; terminal orders do not call the model. The public route shares the quote
-per-IP limit (JSON 429 with `Retry-After: 60`); only POST is allowed.
+| NEAR piece | What Rein uses it for |
+| --- | --- |
+| Contract `rein-desk` | Takes payment in NEAR or USDC, holds it in escrow, and pays a 70/30 treasury/agent split only when delivery is reported. It refunds in full if the post fails or the deadline passes. |
+| NEAR AI Cloud (TEE) | Runs `z-ai/glm-5.3-flash` and signs each answer. The contract rebuilds the exact request from its own stored prompt, recovers the signer, and refuses anything not signed by an owner-approved TEE key. |
+| Chain Signatures (MPC) | Signs the EVM transaction. The contract builds the calldata itself from the verified answer, so the oracle address, vault, verdict and expiry are not the agent's to choose. The oracle accepts posts only from the contract's derived address. |
+| NEAR Intents, through PingPay x402 | Lets an agent on another chain pay in USDC without a NEAR account. Mainnet only. |
 
-Remote MCP uses the Worker's `/mcp` endpoint with stateless streamable HTTP. Each POST gets a fresh server;
-there is no session ID. It shares the nudge/quote per-IP limit and rejects other methods with JSON 405.
-The endpoint becomes available with the next Worker deployment; adding the code does not deploy it.
+## Try it
 
-In remote mode, `get_verdict` without `payment` returns the existing x402 `accepts` requirements. Pass the
-encoded x402 payment as `payment` to use the same in-process payment handler as `/v1/x402/judge`.
-Once an order ID exists, the tool nudges it and polls the desk, sending progress notifications on status changes
-when the MCP client supplies a progress token. Delivery returns the same verdict record as local mode.
-Remote mode never accepts a NEAR signing key. x402 payments retain the existing upfront-payment and one-use
-retry-credit policy; they are not NEAR escrow refunds.
+Steps 1 to 5 need no wallet, no key and no funds.
 
-## Desk invariants
+1. **Open a delivered order.** Go to <https://www.reinfi.xyz/orders/20?network=testnet>. See a HOLD verdict and a "Verify this order" section that links the NEAR order, the exact document the model read, the TEE signer, and the Monad testnet transaction.
+2. **Read the Ledger.** Run `curl https://api-testnet.reinfi.xyz/v1/ledger`. See `posts`, the `score` object with `n` and `brier`, and `recent` rows with `resolved`, `adverse` and `signer`. The same data is at <https://www.reinfi.xyz/ledger?network=testnet>.
+3. **List the agent tools.** Run:
 
-The desk verifies the model's signed answer against an owner-approved prompt and signer. Documents must belong to
-the order, be dated between its creation and the current block time, and fit the policy's freshness window.
-`fulfil` and `confirm_exit` stop when the order's signing deadline is reached.
+   ```sh
+   curl -s -X POST https://api-testnet.reinfi.xyz/mcp \
+     -H 'content-type: application/json' \
+     -H 'accept: application/json, text/event-stream' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+   ```
 
-The order flow is:
+   See five tools: `list_vaults`, `latest_verdict`, `get_verdict`, `order_status` and `ledger`.
+4. **Verify a real TEE signature offline.** Clone the repository, then from `near/` run `cargo test -p desk --lib real_fixture_verifies`. See `1 passed`. The test feeds a recorded NEAR AI request, response and signature from `near/desk/tests/fixtures/near-ai-1.json` through the contract's own verification code, with no network.
+5. **Compare Rein with simple forecasts.** From the repository root run `pnpm install`, then `pnpm baseline --check`. See `--check PASS` and a four-row table. Then run `pnpm baseline https://api-testnet.reinfi.xyz/v1/ledger` to score the live testnet Ledger the same way. This needs Node 22.6 or newer.
+6. **Buy a verdict with an agent.** Follow [docs/buy-with-an-agent.md](docs/buy-with-an-agent.md). You need a NEAR testnet account with about 0.2 NEAR. An MCP client such as Claude Code calls `get_verdict`, pays 0.1 NEAR, and gets the verdict and its proof links back in one tool call. Order 20 above was bought this way and took 49 seconds.
+7. **Buy one in the browser.** Open <https://www.reinfi.xyz/judge?network=testnet>, connect a NEAR testnet wallet, pick a vault and pay. See the order move from open to delivered, then open its receipt.
 
-```text
-open → exit_pending (EXIT only) → signing → signed → delivered
-open / exit_pending → rejected / refunded
-signed → post_failed / refunded
-```
+## Follow the proof for one order
 
-HOLD and MOVE go directly from `open` to `signing`. A failed MPC request restores the previous state. The first
-signing snapshots its oracle address and gas limit; a policy change while MPC is in flight cannot change the
-transaction being signed. Re-signing changes only nonce and fees, preserves the reading's expiry and target, and
-is refused under the kill switch or after expiry.
+Order 20 on testnet, bought by the agent account `agent-rein.testnet`:
 
-Rein's oracle accepts
-`post(address,uint8,uint16,uint16,bytes32,uint64 validUntil)`. A `stateHash` can be posted only once
-(`StateAlreadyPosted`); a post past `validUntil` fails with `PostExpired`. The expiry is fixed by the desk for
-the signed reading, not chosen by the agent.
+| Stage | What to check | Where |
+| --- | --- | --- |
+| Payment and order | 0.1 NEAR from `agent-rein.testnet`, status `delivered` | `curl https://api-testnet.reinfi.xyz/v1/orders/20` |
+| Document | The `doc` string the model read. Its keccak256 is the posted `state_hash`, `0x561e…ef1d` | Same response, `posts[0].doc` and `posts[0].state_hash` |
+| Model signature | Signing address `0x3b753b4406613c5e70ae640508632b600424fa0c`, the TEE key in `attestations/` | Same response, `judge_calls[0].signing_address` |
+| EVM post | Sent to oracle `0x16b998475d3c2b7FB5b794406701167039fD841A` by the desk's derived address, `0xfe48d719c50092cda5e6c7be54e91fe1acc39985` | [Monad testnet transaction](https://testnet.monadscan.com/tx/0x0ee3d834cbd160619ad0cf19c39f436c4b5e029dc0dd91720c709e76b8138510) |
+| Grade | `resolved: true`, `adverse: false` one hour later | `curl https://api-testnet.reinfi.xyz/v1/ledger`, the row with `order_id: 20` |
 
-### Delivery, refunds and liabilities
+## Attacks the contracts refuse
 
-- Escrow stays in the desk while an order is `signed`. The 70/30 treasury/agent split happens only on
-  `report_delivery(order_id, tx_hash, gas_wei)`. Delivery and its actual receipt fee are recorded atomically;
-  a second report is refused and cannot count gas or pay the split twice.
-- `fail_post(order_id, tx_hash, gas_wei, reason)` is agent-only and accepts only `signed` orders. It makes
-  `post_failed` final, removes the stored signed transaction, frees the vault and authorizes a full refund.
-- Anyone can refund an open order after its deadline, or immediately under the kill switch. A signed order
-  can be refunded only when `now > valid_until + deadline_s`; the kill switch does not shorten that grace.
-  Signing and finished orders cannot be refunded, and `reject` cannot close a signed order.
-- Failed order-refund and split transfers remain liabilities: `stats.owed` is USDC and `stats.owed_near` is yoctoNEAR.
-  Outstanding transfers remain counted until their callbacks succeed. `claim_owed(account)` retries both
-  currencies owed to that account. Changing the USDC token is refused while paid orders are open or USDC is owed.
-- Gas reports use the fee actually paid, including any L1 fee, rather than treating the transaction's gas limit
-  as its cost on every chain.
+Each of these was run against the live testnet deployment. The output is committed.
 
-**Trust and recovery limits:** the desk trusts the agent's delivery/failure reports and fee amounts; it does not
-verify EVM receipt proofs. If a post lands but delivery is not reported before expiry plus grace, the customer
-could receive both the post and a refund through the desk's public refund path. Worker recovery cannot prevent
-that during an extended outage, and relies on RPC receipt/state visibility rather than receipt proofs.
+| Attack | Result | Log |
+| --- | --- | --- |
+| Change one character of the model's answer | `unknown signer` | [docs/tamper.log](docs/tamper.log) |
+| Sign the answer with a different key | `unknown signer` | [docs/tamper.log](docs/tamper.log) |
+| Replay a real signed reading on another order | `wrong order` | [docs/tamper.log](docs/tamper.log) |
+| Corrupt the signature's recovery byte | `bad signature` | [docs/tamper.log](docs/tamper.log) |
+| Post the same verdict to the oracle twice | `StateAlreadyPosted` | [docs/replay.log](docs/replay.log) |
+| Post a held verdict after its expiry | `PostExpired` | [docs/replay.log](docs/replay.log) |
+| Open 140 orders on one vault in 16.5 seconds from 20 keys | 1 order opened, 139 refused | [docs/burst-replay.log](docs/burst-replay.log) |
 
-### Worker recovery
+## What is live
 
-- Deploy a desk exposing `next_order_id()` and apply `worker/migrations/0003_journal.sql` before running this
-  Worker version. The migration adds broadcast intent and pending-nonce ownership; it is not applied by startup.
-- Every signed attempt is journaled before broadcast. Recovery checks earlier attempts' receipts before
-  replacing a nonce or failing a post. Settlement sums all observed mined attempts, including reverted
-  replacements and L1 fees, once per transaction hash.
-- A reverted post fails through `fail_post`. An expired post with no receipt waits **30 seconds** past
-  `valid_until`, then rechecks its receipt and the signed transaction's oracle `statePosted` mapping before failure.
-  No new broadcast or re-sign is attempted after the Worker's clock crosses expiry.
-- A positively observed posted state is retained durably. If the successful receipt is not yet available,
-  the Worker alerts and leaves the order pending rather than refunding a customer who received the post.
-  Lost settlement responses are resolved by reading the desk's final status; gas and split settlement occur once.
-- EXIT confirmation uses the desk policy's minimum/maximum window. Missing or too-early first readings do not
-  trigger a paid model call; lapsed readings resume through the desk's open-order view.
-- Per-network/chain cursors rotate bounded scans independently of waiting orders. Pruned gaps are crossed using
-  `next_order_id`; unverified gaps remain revisitable. Chain leases renew every third of their TTL during work.
-  Each runner merges chain-filtered `open_orders(20)` with its scan, deduplicating orders and prioritizing selected
-  active work. A full runner reserves nine slots for scan progress and one for the fast path; spare capacity is shared.
-- Mirroring repairs at most 50 late-document post links per chain per pass, preserving existing grading.
-- NEAR mutations rebuild only after an explicit `InvalidNonce` rejection, at most five attempts. Mutation
-  transport retries are disabled, so an ambiguous lost response is not silently replayed as a new transaction.
+As of 12 November 2026.
 
-### Guardian exit worker
+| Part | Status |
+| --- | --- |
+| Testnet desk `rein-desk.testnet`, posting to Monad testnet and Base Sepolia | Live. 21 orders opened, 19 delivered, 2 rejected and refunded |
+| Site, public API and remote MCP free tools | Live on testnet |
+| Agent purchase through local MCP | Done on testnet (order 20) |
+| Grading | Live on testnet. 19 posts, 7 scored calls |
+| Mainnet desk `rein-desk.near` and the Monad and Base oracles | Not deployed yet |
+| x402 purchases | Code merged. Mainnet only, so no live purchase yet |
+| Guardian automatic exits | Code merged and switched off. No live exit yet |
+| MOVE quote and cross-chain top-up | Code merged. Not tried live |
+| EXIT push alerts | Code merged and switched off |
 
-Automatic exits are **disabled by default** (`GUARDIANS = "{}"`). Deploy GuardianV2 on Rein's oracle,
-approve the menu vaults, and apply migrations through `worker/migrations/0007_exits.sql` before enabling them.
-Set the Worker's `GUARDIANS` JSON by EVM chain, for example
-`{"base":{"address":"<deployed Guardian address>","fromBlock":"<deployment block>"}}`.
-Use decimal strings for deployment blocks. The existing `EXECUTOR_KEY` signs exits as well as grading
-transactions; fund it with native gas on every enabled chain and configure that chain's RPC and oracle.
-No Cloudflare Queue binding or additional secret is needed.
+Testnet addresses:
 
-- Each newly mirrored EXIT durably queues its chain and verdict ID before the mirror cursor advances.
-  Guardian `Enabled` logs discover owners from the deployment block; current onchain rules, confidence,
-  freshness, enable time, verdict floor and latest verdict are checked before simulation and signing.
-  Disabled owners and unmet thresholds never send an exit. Guardian always pays the owner.
-- Each cron pass (also an authenticated kick) runs exits **after** grading, orders and watch work.
-  Per chain it scans at most 2,000 blocks, fans out at most four verdicts × 20 owners, and processes at most
-  four due jobs. Initial log indexing must catch up before verdict fan-out starts.
-- Signed bytes and their transaction hash are committed before broadcast. A lost response or restart
-  checks the same receipt or rebroadcasts identical bytes, never a replacement exit. Pending signed exits
-  reserve that chain's executor nonce; grading on that chain waits for settlement. An indefinitely
-  unmined transaction therefore requires operator attention rather than unsafe nonce replacement.
-- Receipt fees, including reverted attempts and reported L1 fees, are inserted once into `executor_fees`
-  with `kind = 'exit'`. Existing Ledger gas and margin fields retain their meaning.
-- A partial receipt atomically stores `remaining_shares` and a follow-up due **30 seconds later**.
-  The one-minute cron processes it on the next eligible tick, not necessarily at exactly 30 seconds.
-  Follow-ups reuse the same verdict and recheck authorization; stale or superseded verdicts stop them.
-  A full exit does not requeue. Each signed attempt remains in `exit_attempts`; `exits.assets` is the latest
-  receipt's assets, not a cumulative total.
-- Simulation cannot pin the verdict at mining: Guardian uses the latest verdict. If a newer verdict wins
-  that race, the Worker counts the transaction fee but does not report it as confirmation of the old verdict.
+| Chain | Rein oracle | Example menu vault (rmSTEAK mirror) |
+| --- | --- | --- |
+| Monad testnet | `0x16b998475d3c2b7FB5b794406701167039fD841A` | `0xA32cF682DA4A62c056fD631eE91dfE3C713EF1DB` |
+| Base Sepolia | `0xd535a4068265b383976d92718e3E650b5183b6Ab` | `0x7B1D9003983c0B55B8b15aA37e7E188Ce6AabdC8` |
 
-Before turning on the web's `EXIT_WORKER_LIVE` flag, the matching deployed contracts, vault approvals,
-funded executor, configuration and migration must be live, log indexing must be caught up, and the running
-cron must have demonstrated an opted-in exit with funds reaching the owner and receipt/gas records in D1.
-Code availability alone is not automatic protection; partial exits can leave funds locked.
+All deployed addresses are in [shared/deployments.ts](shared/deployments.ts). The testnet vaults are Rein's own mirror vaults on mock USDC.
 
+## How good the verdicts are
 
-### Ledger, inputs and operational health
+The Ledger scores each verdict's risk forecast against what happened to the vault afterwards, using the Brier score, where lower is better. On the live testnet Ledger on 12 November:
 
-Apply migrations through `worker/migrations/0007_exits.sql` before deploying this Worker.
-Startup does not apply migrations. The schema includes call outcomes/token usage, receipt fees, grading
-times, persistent incidents, and the x402 operation/result journal.
+| Forecast | Calls scored | Brier |
+| --- | ---: | ---: |
+| Rein | 7 | 0.116 |
+| Fixed rule: EXIT if utilization is at least 95% or liquidity is under 2% | 7 | 0.124 |
+| Base rate, known only in hindsight | 7 | 0.204 |
+| Coin flip | 7 | 0.250 |
 
-**Model cost:** NEAR AI's public [models endpoint](https://cloud-api.near.ai/v1/models) lists
-`z-ai/glm-5.3-flash` at **$0.08 per million input tokens** and **$0.50 per million output tokens**.
-A 244-input/34-output-token completion is about $0.00003652, rounded to 37 USD micros in the call journal.
-Signature failures and desk-refused answers retain the completion's token cost and failing stage.
-Account credits and cash charges are not reported by token usage: unknown credits/cash cost remain `null`,
-not zero. Calls with missing usage are counted explicitly; the known-cost subtotal is not a complete bill.
+Seven calls on mirror vaults is far too few to show the model beats a fixed rule. The table is here so anyone can rerun it as the sample grows.
 
-`GET /v1/stats` and `/v1/ledger.business` retain their existing fields and add:
+## Trust limits
 
-- `settled_revenue`: NEAR/USDC split totals from the desk, credited only at delivery; this is earned revenue,
-  not proof that payout transfers succeeded. Separate `x402_usdc` counts each settled payment once,
-  only after its original or replacement judgement is delivered.
-- `opened_orders`: mirrored count/amounts and authoritative gross accepted escrow in `desk_gross`.
-- `refunds`: authorized order count and mirrored refund amounts, separate from `paid_amounts: null`.
-  The desk exposes aggregate owed balances, not a refund-versus-split payout breakdown.
-- `unpaid_liabilities`: USDC and yoctoNEAR still owed, including in-flight and failed transfers.
-  `x402_credit_usdc` is the face value of unredeemed one-use judgement credits; it is not a cash refund.
-  `x402_pending_usdc` covers settled purchases whose judgement is still pending.
-- `gas_per_chain`: `desk_wei`, journal `observed_wei`, `executor_wei`, `reverted_wei`, `cost_wei`,
-  and `cost_is_lower_bound`. Post fees overlap desk totals, so their maximum, not their sum, is used;
-  executor sample/resolve/exit fees are added separately. Historic/unobserved receipts can make this a lower bound.
-- `inference`: `underlying_cost_usd_micros`, `known_cost_usd_micros`, `credits_usd_micros`,
-  `cash_cost_usd_micros`, and `calls_with_unknown_usage`.
-- `margin`: partial `usdc_less_inference_micros`, separate `near_yocto`, and `includes_native_gas: false`.
-  `positive_margin` is `null`, with `margin_unavailable_reason`: native-token USD valuations and measured
-  NEAR transaction fees are unavailable. No native fee is silently valued at zero.
-- `self_funding: false` and `self_funding_reason`: USDC/NEAR receipts do not automatically replenish
-  EVM native gas, even when a partial currency margin is positive.
-- `x402_unsettled_usdc`: desk-reported x402 amounts without a confirmed payment-journal settlement,
-  excluded from earned revenue. A settled but undelivered purchase is deferred, not earned revenue.
-- `per_order_margin`: `order_id`, `chain`, `status`, delivery-only `revenue`, `judge_cost_usd_micros`,
-  measured `gas_wei`, the currency-vector `margin` (`usdc_less_inference_micros`, `near_yocto`,
-  `native_gas_wei`, `near_gas_yocto: null`), `positive_margin`, `margin_unavailable_reason`, and `x402_settled`.
-  Linked sample/resolve/exit fees are included; unlinked executor fees remain in chain totals.
-  Only the newest 200 orders (descending order ID) are returned; `per_order_margin_truncated` reports
-  whether older orders were omitted. All totals still cover every order.
+- A TEE signature proves which model produced an answer from which document. It does not prove the document's inputs were true. The Worker reads vault state over RPC and the contract cannot check it.
+- The owner approves the model signers and the prompt, and the oracle trusts one attester address. Those are trust boundaries.
+- The contract trusts the agent's delivery and failure reports and the gas fee it reports. It does not verify EVM receipt proofs.
+- If a post lands but the Worker stays down past the post's expiry plus a grace period, a customer could get both the post and a refund.
+- Confidence is not calibrated accuracy. The Ledger scores the risk forecast, not the confidence.
+- "Adverse" is measured from asset decline and outflows. It is a proxy, not proof that a depositor lost money.
+- x402 payments settle before the judgement and are not escrowed. If the judgement fails, the buyer gets one replacement judgement, not money back.
+- Guardian exits need the owner to opt in, a fresh verdict, enough vault liquidity and a funded executor. A partial exit can leave funds in the vault.
 
-Ledger `recent` entries add `grading_quality`, `grade_due_s`, `resolved_at`, and `grading_time_unknown`.
-Quality labels are independent: `unresolved` means due but not resolved; `late` means the chain resolution
-timestamp is more than one cron interval (60 seconds) after due; `degraded` means fewer than two locally
-observed samples on a sampling chain when due. No-sampling testnets are not degraded for lacking samples.
-Old grades without a recorded chain timestamp have `grading_time_unknown: true`, not an invented timestamp.
-Samples taken by other callers are not reconstructed by the local sample counter.
+## Tests
 
-Vault RPC reads are pinned to one block number per reading, including the vault name and mirror APY/utilization.
-In `rein-v1` docs, `apy_bps` and `apy_bps_prev` accept an integer or `na`; `na` means unavailable, never zero.
-A missing previous snapshot also stays unavailable. The input checker accepts `na` without claiming that
-APY was checked against the oracle: only price, assets and liquidity have oracle snapshots.
-The desk's document validator parses order/chain/vault/time, not APY, so this needs no contract parser change.
-Before the next deployment, install the exact `JUDGE_PROMPT` bytes from `shared/judgePrompt.ts` with the owner's
-`set_prompt` call. Its added instruction forbids interpreting unavailable APY as zero or an APY change.
-The Worker continues to fetch the onchain prompt; nothing here deploys or changes it remotely.
+Run on 12 November 2026:
 
-Each tick still advances at most ten orders per chain with the existing rotating
-scan/active-order merge; cron mirrors and grades before processing orders so a paid-order backlog cannot
-delay that invocation's grading.
+| Suite | Command | Result |
+| --- | --- | --- |
+| Desk contract, unit | `cargo test -p desk --lib` from `near/` | 37 passed |
+| Worker | `pnpm -C worker test` | 103 passed |
+| Web | `pnpm -C web test` | 34 passed |
+| MCP server | `pnpm -C mcp test` | 4 passed |
+| Oracle, Guardian and adapters | `forge test` from `evm/` | 14 passed, 2 skipped because they need a Base fork |
+| Baseline self-check | `pnpm baseline --check` | Pass |
 
-`GET /v1/health` retains balances/allowance/flags and adds:
+Three more suites need extra setup and were not rerun on that date: the desk's 63 sandbox tests (they need the three wasm builds), the Base fork tests, and the browser tests. [docs/reference.md](docs/reference.md#local-verification) has their commands.
 
-- `last_cron_s`: completion of the last successful scheduled pass, not a manual kick. Missing or older
-  than 180 seconds is `stale_cron` (one-minute cadence, two missed intervals tolerated).
-- `last_delivery_s`: latest first-mirrored delivered-order observation; it can lag delivery until mirroring.
-- `oldest_stuck_order`: oldest `signing` order past `created_s + deadline_s`, or `signed` order past
-  `valid_until + deadline_s`. These use the desk's signing deadline and public signed-refund grace.
-- `pending_refunds`: count/amounts currently eligible for public refunds, not proof of unpaid authorized
-  transfers. Open/EXIT-pending orders obey deadline/kill; signed orders always wait expiry plus grace.
-  Signing orders are flagged as stuck but are not publicly refundable.
-- `key_permissions`: actual key receiver, methods and full-access status. Health checks the desk receiver,
-  allowance and every Worker mutation method, including `fail_post`; full access and unrestricted method lists
-  are flagged instead of silently treated as correctly scoped keys.
-- `incidents`: the latest 100 persisted episodes, each with `id`, `network`, `flag`, `first_seen`, `last_seen`,
-  `occurrences`, and `resolved_at`. Repeated observations update the active episode. A readable healthy
-  evaluation closes absent conditions, retaining history; recurrence starts a new episode. Unreadable
-  evaluations do not declare previous conditions recovered. Cron and health requests both evaluate incidents.
+## Built with
 
+- **NEAR:** Rust and `near-sdk` for the desk contract; `@near-js/accounts`, `crypto`, `providers` and `signers` in the Worker and MCP server.
+- **EVM:** Solidity and Foundry, with OpenZeppelin contracts and `forge-std` vendored in `evm/lib`.
+- **Worker:** TypeScript and Hono on Cloudflare Workers, with D1.
+- **Web:** Next.js and React.
+- **Shared:** `viem` for EVM encoding and hashing, `@modelcontextprotocol/sdk` for the MCP server, Vitest and Playwright for tests.
 
-### Chains
+Exact versions are pinned in the lockfiles.
 
-| NEAR desk network | EVM chain | Chain ID | Default post gas limit |
-|---|---|---:|---:|
-| Testnet | Monad testnet | 10143 | 400,000 |
-| Testnet | Base Sepolia | 84532 | 400,000 |
-| Mainnet | Monad | 143 | 1,000,000 |
-| Mainnet | Base | 8453 | 1,000,000 |
+**Reused code.** The first commit vendors the risk oracle, the vault adapters and the grading code from [Tare](https://github.com/0xGanadhish/tare) at `b584c863`, under MIT. Tare is my earlier project on Monad and was written before this hackathon. Everything after that commit is hackathon work, including the NEAR contract, the Worker, the MCP server, the site, and the oracle's replay and expiry checks.
 
-Both testnets use their own mock USDC and mirror vaults, a one-hour resolution window and no sampling.
-Base Sepolia uses the same fee cap as Base. Worker RPC settings include `RPC_BASE_SEPOLIA`; oracle addresses
-must be configured after deployment. Adding chain support does not deploy or fund anything.
+## More detail
 
-## API
-
-Routing uses Hono. Errors return `{"error":"<message>"}` with `content-type: application/json`,
-including 404 and 405; 405 retains `Allow`. Unexpected exceptions are logged with the request path
-and return 500 `{"error":"internal error"}`, never a stack trace. The x402 payment endpoint retains
-its protocol-specific response bodies and headers. Failed quote/status upstream responses use the
-same error shape; successful status responses still pass through.
-
-- `POST /v1/kick`: bearer-token middleware requires `Authorization: Bearer <KICK_TOKEN>`; missing or
-  incorrect tokens return 401, and an unset secret disables kicks.
-- `POST /v1/quote`: rate-limit middleware runs before parsing or initializing payment dependencies.
-  The Workers Rate Limiting binding allows 10 requests per 60 seconds, keyed on `CF-Connecting-IP`;
-  missing headers share the `unknown` bucket. Limits are approximate and local to each Cloudflare
-  location, not a strict global quota. Denials return 429 with `Retry-After: 60`.
-- `POST /v1/x402/judge`: x402 v2 quote/deposit flow, described below. Quote creation uses the same rate-limit
-  binding with a separate `x402:<IP>` bucket; replay and credit redemption do not request a new quote.
-- `GET /v1/ledger`, `/v1/orders/:id` (numeric ID), `/v1/quote/status`, `/v1/stats`, and `/v1/health`:
-  public reads without those guards. HEAD remains unsupported.
-
-Apply migrations through `worker/migrations/0007_exits.sql` before deploying. Migration `0005` removes
-the obsolete D1 limiter table; `0006` adds payment operations and judgement attempts; `0007` adds durable exits.
-The binding is configured in `worker/wrangler.toml`, with observability enabled.
-
-### x402 judgement purchases
-
-This path is **mainnet only** (Monad or Base judgements). It implements PingPay's
-[x402 integration](https://pingpay.gitbook.io/docs/pingpay-api/agent-pay-facilitator/x402-integration)
-and the [near-intents proposal](https://github.com/x402-foundation/x402/pull/3370):
-`scheme: "exact"`, `extra.assetTransferMethod: "near-intents"`, `extra.paymentFlow: "upfront"`.
-The facilitator is `https://pay.pingpay.io/agentpay/x402`, authenticated by the Worker secret
-`PINGPAY_API_KEY` in `X-Api-Key`. Configure the PingPay organization's destination to match
-the desk policy's `treasury` and `usdc_token`; the Worker rejects offers with a different destination.
-No additional treasury variable is needed. In protocol terms, unquoted `payTo` is empty and quoted
-`payTo` is the 1Click deposit address; **the treasury is `extra.destination.recipient`, never the agent**.
-
-1. `POST /v1/x402/judge` with `{"chain":"monad","vault":"0x..."}` returns 402 with an unquoted
-   `accepts[]` and the same body encoded in `PAYMENT-REQUIRED`. Each purchase's `resource.url`
-   includes its chain and lowercase vault as query parameters.
-2. Retry with `PAYMENT-SIGNATURE` containing base64 x402 v2 JSON: `resource`, the chosen unquoted
-   `accepted` entry, and `payload: {"type":"quote","refundTo":"<origin-chain address>"}`.
-   Optional `slippageTolerance` is in basis points. Before quoting, the Worker calls the desk's
-   read-only `check_x402_request`: menu, active order, spacing, caps and kill switch use the same
-   admission code as order creation. Refused requests return 422 and burn no claim.
-3. `/verify` commits no funds. The second 402 carries quoted `payTo`, `amount`, `operationToken`,
-   `refundDeadline`, and a `depositMemo` where required. Persist these privately before depositing.
-   Send funds on the advertised origin network; this starts the swap automatically.
-4. Retry with the **original unquoted** `accepted` entry and `payload: {"type":"deposit",
-   "operationToken":"...","depositAddress":"...","txHash":"..."}`; include `depositMemo` if quoted.
-   The Worker calls `/settle` with its recorded terms, then starts the judgement only after success.
-   Pending operations return 202; retry the same payment, do not fund a new quote.
-   A rejected deposit proof does not burn the operation: correct the proof and retry with the same token.
-   Terminal swap-failure/refund receipts are stored and replayed unchanged.
-5. Delivery returns 200 with `orderId`, `signedTx`, and `verdict`. If an external broadcaster supplied
-   the transaction, `signedTx` can be null and the verdict comes from the oracle mirror.
-   `PAYMENT-RESPONSE` carries the settlement receipt. D1 stores the result, and subsequent presentations
-   of the same operation return it without another settlement or judgement, even after a restart.
-   Cron reconciles completed judgements independently of the HTTP connection. Pending operations do not
-   crowd completed ones out of its bounded batch; mirrored outcomes also survive desk order pruning.
-
-**Upfront means paid before judgement, not a hold captured on delivery.** A failed onchain post,
-rejected/refunded desk order, or policy refusal after successful settlement returns an application error
-with `creditAvailable: true`. No money moves back. The quote-time admission check is not a reservation:
-another order or a policy change can win the race while payment completes.
-
-Redeem a credit by sending the same deposit payment with `{"chain":"monad","vault":"0x...",
-"redeemCredit":true}`. The credit buys **one replacement judgement of the original chain/vault**,
-without another PingPay settlement. Ordinary retries replay the saved failure rather than spending
-the credit. A refusal at the redemption preflight leaves it available; once the replacement attempt
-starts, the credit is consumed. Failure of that attempt returns `creditAvailable: false` and does not
-mint another credit. Concurrent redemptions cannot create additional attempts.
-
-Deploy a desk with `check_x402_request` and idempotent `submit_x402_request` before enabling this Worker.
-The latter retains attempt references after order pruning, so an accepted NEAR call whose response was
-lost cannot create another order. Its receipt storage uses a separate prefix without changing the
-serialized desk-state layout. The Worker stores the provider instrument identity (origin network,
-deposit address and memo), quote terms, settlement receipt, attempt IDs and result in D1. Treat the
-operation token as a bearer credential; it is not included in application results or settlement receipts.
-
-The CLI helper never deposits funds:
-
-```sh
-node --experimental-strip-types scripts/x402-buyer.ts <worker-url> monad <vault> [payment-signature]
-node --experimental-strip-types scripts/x402-buyer.ts <worker-url> monad <vault> <payment-signature> --redeem-credit
-```
-
-Live confirmation is still required for the organization's treasury routing, actual receipts, quote/token
-expiry, and swap-failure refunds/fees. A successful swap is not reversed when a Rein judgement fails.
-
-
-## Local verification
-
-Build release wasm in each of `near/desk`, `near/mocks/ft` and
-`near/mocks/signer` with `cargo near build non-reproducible-wasm`, then run:
-
-```sh
-# From near/
-cargo test -p desk -- --test-threads=2
-
-# From the repository root
-node --experimental-strip-types scripts/desk-vectors.ts
-pnpm -C worker test --maxWorkers=2
-pnpm -C worker typecheck
-
-# From evm/
-forge test --threads 2
-forge test --match-contract Fork --fork-url https://mainnet.base.org --threads 2
-```
-
-The vectors compare calldata, unsigned and signed EIP-1559 transactions, and signing hashes against viem on
-all four chains. Fork checks depend on live vault state, including deposit caps and available liquidity.
-The desk's optimized wasm limit is **300,000 bytes**:
-
-```sh
-# From near/; output is temporary and not committed
-wasm-opt -Oz --enable-bulk-memory --enable-sign-ext --enable-mutable-globals \
-  target/near/desk/desk.wasm -o /tmp/rein-desk.wasm
-wc -c /tmp/rein-desk.wasm
-```
+- [docs/reference.md](docs/reference.md): order states, refunds, Worker recovery, the Ledger and health fields, the API and the x402 flow.
+- [docs/buy-with-an-agent.md](docs/buy-with-an-agent.md): the agent buyer walkthrough.
+- [docs/vaults.md](docs/vaults.md): which Base vaults Rein can grade, and why.
+- [CONTRIBUTING.md](CONTRIBUTING.md): branches and code quality commands.

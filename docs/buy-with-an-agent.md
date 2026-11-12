@@ -6,11 +6,11 @@ Rein sells a signed HOLD, EXIT or MOVE verdict and posts it to an EVM oracle. Br
 
 | Setting | Testnet | Mainnet |
 | --- | --- | --- |
-| Worker | `https://api-testnet.reinfi.xyz` | `<placeholder>` — live by 12 Nov |
-| NEAR desk | `rein-desk.testnet` | `<placeholder>` — live by 12 Nov |
+| Worker | `https://api-testnet.reinfi.xyz` | `https://api.reinfi.xyz`, not deployed yet |
+| NEAR desk | `rein-desk.testnet` | `rein-desk.near`, not deployed yet |
 | Verdict chains | `monad-testnet`, `base-sepolia` | `monad`, `base` |
 
-Local MCP runs from a clone, not a published npm package. Remote `/mcp` is **live after the next Worker deploy**; the URL below is not a claim that it is deployed today. x402 is mainnet only: a testnet remote server can expose free tools, but cannot sell testnet x402 verdicts.
+Local MCP runs from a clone, not a published npm package. Remote `/mcp` is live on the testnet Worker. x402 is mainnet only: a testnet remote server can expose free tools, but cannot sell testnet x402 verdicts.
 
 ## A. Local MCP: pay from your own NEAR sub-account
 
@@ -83,7 +83,7 @@ For an MCP client supporting streamable HTTP, the testnet route is:
 https://api-testnet.reinfi.xyz/mcp
 ```
 
-**Live after the next Worker deploy.** Claude Code remote configuration for browsing is:
+Claude Code remote configuration for browsing is:
 
 ```json
 {
@@ -96,7 +96,7 @@ https://api-testnet.reinfi.xyz/mcp
 }
 ```
 
-For a paid mainnet call, replace the URL with `<placeholder>/mcp` — **live by 12 Nov**. Select a vault from `list_vaults` on `monad` or `base`, not a testnet mirror. Remote mode never needs or accepts your NEAR signing key.
+For a paid mainnet call, replace the URL with `https://api.reinfi.xyz/mcp` once the mainnet Worker is deployed. Select a vault from `list_vaults` on `monad` or `base`, not a testnet mirror. Remote mode never needs or accepts your NEAR signing key.
 
 1. Call `get_verdict` without `payment`, for example:
 
@@ -125,7 +125,7 @@ node --experimental-strip-types scripts/x402-buyer.ts <worker-url> monad <vault>
 node --experimental-strip-types scripts/x402-buyer.ts <worker-url> monad <vault> <payment-signature> --redeem-credit
 ```
 
-Use `<placeholder>` for the mainnet Worker until it is **live by 12 Nov**, and a current mainnet menu vault. Omit the optional payment signature to see the 402 requirements. Supply the base64 quote payment to see deposit terms, then use your wallet to fund them and supply the deposit payment to see settlement/delivery or a pending response. The helper **never deposits funds**. Keep operation tokens and deposit proofs private.
+Use `https://api.reinfi.xyz` once the mainnet Worker is deployed, and a current mainnet menu vault. Omit the optional payment signature to see the 402 requirements. Supply the base64 quote payment to see deposit terms, then use your wallet to fund them and supply the deposit payment to see settlement/delivery or a pending response. The helper **never deposits funds**. Keep operation tokens and deposit proofs private.
 
 The second command explicitly spends an available one-use credit on the **original chain/vault**, without another settlement. A replacement failure does not mint another credit. Do not redeem merely because a request is still pending.
 
