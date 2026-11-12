@@ -69,6 +69,8 @@ class Fakes {
   pendingSettlement = false;
   terminalRefund = false;
   loseSubmission = false;
+  /** Offers PingPay lists beside REQUIREMENTS, as its live list of about 200 origin assets does. */
+  extraOffers: (typeof REQUIREMENTS)[] = [];
 
   deps(): PaymentDeps {
     return {
@@ -87,7 +89,8 @@ class Fakes {
         this.providerCalls.push(url);
         if (new Headers(init?.headers).get('X-Api-Key') !== 'test-only-pingpay')
           return new Response(null, { status: 401 });
-        if (url === `${PINGPAY.base}/offers?amountOut=1000000`) return Response.json({ accepts: [REQUIREMENTS] });
+        if (url === `${PINGPAY.base}/offers?amountOut=1000000`)
+          return Response.json({ accepts: [...this.extraOffers, REQUIREMENTS] });
         if (
           body?.x402Version !== 2 ||
           body.paymentPayload?.resource?.url !== RESOURCE ||
@@ -413,6 +416,20 @@ describe('payments', () => {
     expect(bad.status).toBe(402);
     expect(await bad.json()).toMatchObject({ error: 'refund_address_required' });
     expect(f.settlements).toBe(0);
+  });
+
+  it('payment_required_header_fits_with_hundreds_of_offers', async () => {
+    const f = new Fakes();
+    f.extraOffers = Array.from({ length: 215 }, (_, i) => ({
+      ...REQUIREMENTS,
+      network: `eip155:${1000 + i}`,
+      asset: `0x${i.toString(16).padStart(40, '0')}`,
+    }));
+    const res = await judge(f);
+    expect(res.status).toBe(402);
+    const header = res.headers.get('PAYMENT-REQUIRED')!;
+    expect(header.length).toBeLessThan(8192);
+    expect(JSON.parse(atob(header)).accepts).toEqual([REQUIREMENTS]);
   });
 
   it('x402_verify_order_settle', async () => {

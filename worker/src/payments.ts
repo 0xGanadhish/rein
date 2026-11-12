@@ -224,8 +224,23 @@ async function offers(env: Env, deps: PaymentDeps, policy: DeskPolicy): Promise<
       r.extra.destination.asset.replace(/^nep141:/, '') === policy.usdc_token,
   );
   if (!matching.length) throw new Error('PingPay offers do not match treasury and USDC policy');
-  return matching;
+  // PingPay lists about 200 origin assets; all of them in PAYMENT-REQUIRED is ~120 KB, past client header limits.
+  const listed = new Set([`nep141:${policy.usdc_token}`, ...OFFERED_ORIGINS]);
+  const offered = matching.filter((r) => listed.has(r.asset.toLowerCase()));
+  if (!offered.length) throw new Error('PingPay offers include none of the listed origins');
+  return offered;
 }
+
+/** Origins named in the 402: wNEAR and native USDC on the chains agents most often hold it on. */
+const OFFERED_ORIGINS = [
+  'nep141:wrap.near',
+  '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // Ethereum
+  '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', // Base
+  '0xaf88d065e77c8cc2239327c5edb3a432268e5831', // Arbitrum
+  '0x0b2c639c533813f4aa9d7837caf62653d097ff85', // Optimism
+  '0x754704bc059f8c67012fed69bc8a327a5aafb603', // Monad
+  'epjfwdd5aufqssqem2qn1xzybapc8g4weggkzwytdt1v', // Solana, lowercased like the others for the comparison
+];
 
 /** x402 v2 upfront payment; only delivery earns revenue. Failed paid attempts become a one-use credit. */
 export async function x402Judge(request: Request, env: Env, deps: PaymentDeps): Promise<Response> {

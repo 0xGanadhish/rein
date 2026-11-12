@@ -4,13 +4,14 @@ import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import type { DeskOrder, DeskPolicy } from '../../shared/desk';
 import { handle, type ApiDeps } from '../src/api';
 import * as payments from '../src/payments';
+import { DEPLOYMENTS } from '../../shared/deployments';
 
 const vault = '0x00000000000000000000000000000000000000aa';
 const accepts = [
   {
     scheme: 'exact',
     network: 'eip155:8453',
-    asset: 'usdc',
+    asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
     amount: '',
     payTo: '',
     maxTimeoutSeconds: 300,
@@ -142,7 +143,7 @@ it('stubbed_x402_result_becomes_verdict_record', async () => {
     risk_bps: 8000,
     reasons: ['share price fell'],
     posted_tx: null,
-    oracle: null,
+    oracle: DEPLOYMENTS.mainnet.oracles.monad,
     state_hash: '0x123',
     valid_until: null,
     explorer_url: null,
