@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import s from './landing.module.css';
 
 /** Sets data-tab-hidden on <html> so CSS loops (the ticker) pause while the tab is in the background. */
@@ -19,6 +19,44 @@ export function TabVisibility() {
     };
   }, []);
   return null;
+}
+
+/** How long the load intro runs, in ms. Matches the last delay in the .intro rules. */
+const INTRO_MS = 2600;
+
+/**
+ * The load intro: a bone screen where the mark draws itself, then lifts. It is plain CSS, so it plays without scripts.
+ * A mount later than the intro's length is an in-app navigation back to the landing page, and renders nothing.
+ */
+export function Intro({ children }: { children: ReactNode }) {
+  const [skip, setSkip] = useState(false);
+  useLayoutEffect(() => {
+    if (performance.now() > INTRO_MS) setSkip(true);
+  }, []);
+  if (skip) return null;
+  return (
+    <div className={s.intro} aria-hidden="true">
+      {children}
+    </div>
+  );
+}
+
+/** The landing footer. Its line draws each time it scrolls into view; before scripts run it rests drawn. */
+export function Footer({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLElement>(null);
+  const [seen, setSeen] = useState(true);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setSeen(!!e?.isIntersecting), { threshold: 0.25 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <footer ref={ref} className={s.footer} data-in={seen ? '' : undefined}>
+      {children}
+    </footer>
+  );
 }
 
 /** "3m 12s", "2h 05m", "8d 4h": coarser as the gap grows, so the text only changes when it has to. */
