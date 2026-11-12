@@ -55,7 +55,7 @@ NEAR_NETWORK = "mainnet"
 DESK_ACCOUNT = "rein-desk.near"
 AGENT_ACCOUNT = "agent.rein-desk.near"
 AGENT_KEY_ALLOWANCE = "2000000000000000000000000"
-GUARDIANS = "{}"
+GUARDIANS = "{\"base\":{\"address\":\"0xe941433777B80eB559BaA2929C5b332e6E49a7d3\",\"fromBlock\":\"56623990\"}}"
 
 [[env.mainnet.d1_databases]]
 binding = "DB"
