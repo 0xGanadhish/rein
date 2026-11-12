@@ -27,3 +27,19 @@ export async function view<T>(network: Network, contract: string, method: string
   if (!body.result?.result) throw new Error(`${method}: ${body.error?.message ?? `HTTP ${res.status}`}`);
   return JSON.parse(new TextDecoder().decode(new Uint8Array(body.result.result))) as T;
 }
+
+/** An account's spendable NEAR in yoctoNEAR, or null when the account doesn't exist. */
+export async function nearBalance(network: Network, account: string): Promise<string | null> {
+  const res = await fetch(NEAR_RPC[network], {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 'rein',
+      method: 'query',
+      params: { request_type: 'view_account', finality: 'final', account_id: account },
+    }),
+  });
+  const body = (await res.json()) as { result?: { amount?: string } };
+  return body.result?.amount ?? null;
+}

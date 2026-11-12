@@ -153,28 +153,170 @@
   right: 0;
   top: 46px;
   z-index: 30;
-  min-width: 160px;
+  width: min(340px, calc(100vw - 32px));
   padding: 6px;
   background: var(--paper);
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   box-shadow: 0 20px 40px -20px rgba(16, 17, 15, 0.4);
+  font-size: 13px;
 }
-.menu button {
+.menu a {
+  color: inherit;
+}
+.k {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+.wHead,
+.wSection {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+.wSection {
+  border-top: 1px solid var(--line-soft);
+}
+.wName {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.wLinks {
+  display: flex;
+  gap: 8px;
+}
+.wLinks button,
+.wLinks a {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.wLinks button:hover,
+.wLinks a:hover {
+  background: var(--line-soft);
+}
+.wBalances {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.wBalances div {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bone);
+}
+.wBalances b {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.wBalances span {
+  font-size: 11px;
+  color: var(--mute);
+}
+.wNote {
+  margin: 0;
+  color: var(--mute);
+}
+.wStats {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 12px;
+  margin: 0;
+}
+.wStats dt {
+  font-size: 11px;
+  color: var(--mute);
+}
+.wStats dd {
+  margin: 2px 0 0;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.wOrders {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.wOrders a {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 8px;
+  margin: 0 -8px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+}
+.wOrders a:hover {
+  background: var(--line-soft);
+}
+.wId {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--mute);
+}
+.wVault {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wStatus {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+.wStatus[data-status='delivered'] {
+  color: var(--ink);
+}
+.wStatus[data-status='rejected'],
+.wStatus[data-status='post_failed'] {
+  color: var(--signal-ink);
+}
+.wAll {
+  justify-self: start;
+  font-size: 13px;
+  font-weight: 550;
+}
+.wDisconnect {
   width: 100%;
   height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+  padding: 0 12px;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-top: 1px solid var(--line-soft);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   background: transparent;
   font: inherit;
   font-size: 14px;
-  text-align: left;
-  padding: 0 12px;
+  color: var(--signal-ink);
   cursor: pointer;
-  color: inherit;
 }
-.menu button:hover {
+.wDisconnect:hover {
   background: var(--line-soft);
 }
 @media (max-width: 760px) {
