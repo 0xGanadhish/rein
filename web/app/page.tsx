@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { Header, Mark } from '@/components/Header';
 import s from '@/components/landing/landing.module.css';
-import { Heartbeat, Instrument, TabVisibility, type HeroCall } from '@/components/landing/Live';
+import { Footer, Heartbeat, Instrument, Intro, TabVisibility, type HeroCall } from '@/components/landing/Live';
 import { Calibration } from '@/components/ledger/Summary';
 import { NETWORK_CHAINS, readDesk } from '@/lib/desk';
 import { amount, duration, utcStamp, bpsPct } from '@/lib/format';
@@ -160,10 +160,19 @@ export default async function Landing() {
     .sort((a, b) => (b.snap?.tvlUsd ?? 0) - (a.snap?.tvlUsd ?? 0));
   const baseCount = rows.filter((r) => r.chain === 'base').length;
   const watched = rows.length;
+  const chainNames = chains
+    .map((c) =>
+      c === 'monad-testnet' ? 'Monad testnet' : c === 'base-sepolia' ? 'Base Sepolia' : c === 'base' ? 'Base' : 'Monad',
+    )
+    .join(', ');
 
   return (
     <div className={s.page}>
       <TabVisibility />
+      <Intro>
+        <Mark />
+        <span className={s.introCap}>Desk opening</span>
+      </Intro>
       <Header />
 
       <section id="top" className={`container ${s.hero}`}>
@@ -181,17 +190,7 @@ export default async function Landing() {
           </span>
           <span>
             Risk calls for yield vaults · NEAR →{' '}
-            {chains
-              .map((c) =>
-                c === 'monad-testnet'
-                  ? 'Monad testnet'
-                  : c === 'base-sepolia'
-                    ? 'Base Sepolia'
-                    : c === 'base'
-                      ? 'Base'
-                      : 'Monad',
-              )
-              .join(', ')}
+            {chainNames}
           </span>
         </div>
         <h1 className={s.h1}>
@@ -571,26 +570,51 @@ export default async function Landing() {
         </div>
       </section>
 
-      <footer className={s.footer}>
-        <div className={`container ${s.footInner}`}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--ink)' }}>
-            <Mark />
-            <span className={s.word} style={{ fontSize: 18 }}>
-              rein
-            </span>
-            <span style={{ color: 'var(--mute)', marginLeft: 8 }}>A risk desk on NEAR.</span>
+      <Footer>
+        <div className="container">
+          <div className={s.footTop}>
+            <p className={s.footSay}>
+              Calls can be wrong. The Ledger shows <em>how often.</em>
+            </p>
+            <nav className={s.footCol} aria-label="Desk">
+              <h3>Desk</h3>
+              <Link href="/judge">Judge a vault</Link>
+              <Link href="/guardian">Arm Guardian</Link>
+              <Link href="/ledger">Ledger</Link>
+              <Link href="/orders">My orders</Link>
+            </nav>
+            <nav className={s.footCol} aria-label="Proof">
+              <h3>Proof</h3>
+              <Link href="/how">How it works</Link>
+              <Link href="/docs">Docs</Link>
+              <a href="https://github.com/0xGanadhish/rein">GitHub</a>
+            </nav>
+            <div className={s.footCol}>
+              <h3>Status</h3>
+              <p className={s.footStat}>
+                <b>Desk open</b>
+                <br />
+                watching {watched} vaults
+                <br />
+                NEAR → {chainNames}
+              </p>
+            </div>
           </div>
-          <div className={s.footLinks}>
-            <Link href="/ledger">Ledger</Link>
-            <Link href="/orders">My orders</Link>
-            <Link href="/how">How it works</Link>
-            <a href="https://github.com/0xGanadhish/rein">GitHub</a>
+          {/* The mark, stretched edge to edge. */}
+          <div className={s.reins} aria-hidden="true">
+            <i />
+            <b />
+            <i />
           </div>
-          <p className={s.disclaimer}>
-            Rein publishes risk signals, not financial advice. Calls can be wrong; the Ledger shows how often.
-          </p>
+          <div className={s.footFine}>
+            <p>Rein publishes risk signals, not financial advice.</p>
+            <p>A risk desk on NEAR.</p>
+          </div>
         </div>
-      </footer>
+        <span className={s.footGiant} aria-hidden="true">
+          rein
+        </span>
+      </Footer>
     </div>
   );
 }
