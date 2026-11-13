@@ -1,5 +1,6 @@
 import type { DeskChain, DeskOrder, DeskPolicy } from '../../shared/desk';
 import { DEPLOYMENTS } from '../../shared/deployments';
+import { armTxs, depositTxs, disarmTxs, type UnsignedTx } from '../../shared/guardianTx';
 import type { McpToolSet, Payer, ReinReader, ToolContext, ToolResult, VerdictRecord } from './types';
 
 const CHAINS: DeskChain[] = ['monad-testnet', 'monad', 'base', 'base-sepolia'];
@@ -99,7 +100,58 @@ export function makeTools(
       description: 'Read public graded posts and the scoring summary for free.',
       properties: { chain: chainSchema, limit: { type: 'integer', minimum: 1, maximum: 200 } },
     },
+    {
+      name: 'guardian_transactions',
+      description:
+        'Build unsigned transactions to deposit into a vault and arm or disarm Guardian. Your wallet signs; Rein never holds funds.',
+      properties: {
+        action: { type: 'string', enum: ['deposit', 'arm', 'disarm'] },
+        chain: { type: 'string', enum: ['base', 'monad'] },
+        vault: vaultSchema,
+        owner: vaultSchema,
+        amount_usdc: { type: 'string' },
+        shares: { type: 'string', pattern: '^[0-9]+$' },
+        min_confidence_bps: { type: 'integer', minimum: 8000, maximum: 9900 },
+        max_age_s: { type: 'integer', minimum: 60, maximum: 3600 },
+      },
+      required: ['action', 'chain', 'vault'],
+    },
   ];
+  function guardianTransactions(args: Record<string, unknown>): ToolResult {
+    const chain = args.chain;
+    if (chain !== 'base' && chain !== 'monad') throw new Error('chain must be base or monad');
+    const address = (v: unknown, what: string) => {
+      if (typeof v !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(v)) throw new Error(`${what} address required`);
+      return v as `0x${string}`;
+    };
+    const vault = address(args.vault, 'vault');
+    let transactions: UnsignedTx[];
+    if (args.action === 'deposit') {
+      const owner = address(args.owner, 'owner');
+      transactions = depositTxs({ chain, vault, owner, amount: String(args.amount_usdc ?? '') });
+    } else if (args.action === 'arm') {
+      if (typeof args.shares !== 'string' || !/^\d+$/.test(args.shares))
+        throw new Error('shares must be a whole number');
+      transactions = armTxs({
+        chain,
+        vault,
+        shares: BigInt(args.shares),
+        minConfidenceBps: Number(args.min_confidence_bps),
+        maxAgeS: Number(args.max_age_s),
+      });
+    } else if (args.action === 'disarm') {
+      transactions = disarmTxs({ chain, vault });
+    } else throw new Error('action must be deposit, arm or disarm');
+    return result(
+      {
+        chain,
+        guardian: DEPLOYMENTS.mainnet.guardians[chain] ?? null,
+        transactions,
+        note: "Send these in order from the owner's wallet. For arm, pass the shares you hold after the deposit mines.",
+      },
+      `${transactions.length} unsigned transaction(s): ${transactions.map((t) => t.summary).join('; ')}.`,
+    );
+  }
   async function recent(chain?: DeskChain): Promise<Post[]> {
     const payload = (await reader.ledger(chain, 200)) as { recent: Post[] };
     return payload.recent.filter((p) => !chain || p.chain === chain);
@@ -124,6 +176,7 @@ export function makeTools(
         );
   }
   async function run(name: string, args: Record<string, unknown>, context?: ToolContext): Promise<ToolResult> {
+    if (name === 'guardian_transactions') return guardianTransactions(args);
     const chain = args.chain as DeskChain | undefined;
     if (chain !== undefined && !CHAINS.includes(chain)) throw new Error('Invalid chain');
     const vault = typeof args.vault === 'string' ? args.vault.toLowerCase() : '';
