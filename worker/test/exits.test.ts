@@ -171,3 +171,22 @@ it('pending_exit_receipt_is_not_starved_by_queued_owners', async () => {
   expect(await row()).toMatchObject({ status: 'confirmed', next_at: null });
   expect(s.sent.filter((raw) => raw === '0x1234')).toEqual(['0x1234']);
 });
+
+it('enabled_scan_pages_within_rpc_range_and_catches_up', async () => {
+  const { deps } = setup();
+  const ranges: [bigint, bigint][] = [];
+  await runExits(env, 'mainnet', {
+    ...deps,
+    guardian: (chain) => (chain === 'base' ? { address: '0x00000000000000000000000000000000000000ee', fromBlock: 1n } : null),
+    head: async () => 95n,
+    enables: async (_chain, from, to) => {
+      ranges.push([from, to]);
+      return [];
+    },
+  });
+  expect(ranges.every(([from, to]) => to - from + 1n <= 10n)).toBe(true);
+  expect(ranges.at(-1)?.[1]).toBe(95n);
+  expect(await env.DB.prepare("SELECT next_block FROM guardian_scans WHERE chain = 'base'").first()).toEqual({
+    next_block: 96,
+  });
+});

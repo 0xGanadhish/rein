@@ -21,7 +21,10 @@ import { NETWORK_CHAINS } from './deskTypes';
 import { rpcFor, type Env, type NearNetwork } from './env';
 
 export const PARTIAL_FOLLOWUP_S = 30;
-const BLOCK_PAGE = 2_000n;
+// eth_getLogs block-range caps: rpc.monad.xyz rejects more than 100 blocks; Alchemy's free tier allows 10.
+const BLOCK_PAGE: Record<DeskChain, bigint> = { monad: 100n, 'monad-testnet': 100n, base: 10n, 'base-sepolia': 10n };
+// Pages per run, enough to outpace block production (Monad ≈150/min, Base 30/min) and work down a backlog.
+const MAX_SCAN_PAGES = 30;
 const OWNER_PAGE = 20;
 const VERDICT_PAGE = 4;
 const JOBS_PER_CHAIN = 4;
@@ -235,10 +238,12 @@ export async function runExits(
         .first<{ guardian: string; next_block: number }>();
       if (saved && saved.guardian !== config.address.toLowerCase())
         throw new Error('Guardian deployment changed; use a separate database');
-      const from = saved ? BigInt(saved.next_block) : config.fromBlock;
+      let from = saved ? BigInt(saved.next_block) : config.fromBlock;
       const head = await deps.head(chain);
-      const to = from + BLOCK_PAGE - 1n < head ? from + BLOCK_PAGE - 1n : head;
-      if (from <= to) {
+      const page = BLOCK_PAGE[chain];
+      let to = from - 1n;
+      for (let pages = 0; pages < MAX_SCAN_PAGES && from <= head; pages++, from = to + 1n) {
+        to = from + page - 1n < head ? from + page - 1n : head;
         const owners = await deps.enables(chain, from, to);
         await db.batch([
           ...owners.map((o) =>
