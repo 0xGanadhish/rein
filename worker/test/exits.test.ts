@@ -178,15 +178,15 @@ it('enabled_scan_pages_within_rpc_range_and_catches_up', async () => {
   await runExits(env, 'mainnet', {
     ...deps,
     guardian: (chain) => (chain === 'base' ? { address: '0x00000000000000000000000000000000000000ee', fromBlock: 1n } : null),
-    head: async () => 95n,
+    head: async () => 2_500n,
     enables: async (_chain, from, to) => {
       ranges.push([from, to]);
       return [];
     },
   });
-  expect(ranges.every(([from, to]) => to - from + 1n <= 10n)).toBe(true);
-  expect(ranges.at(-1)?.[1]).toBe(95n);
+  expect(ranges.every(([from, to]) => to - from + 1n <= 1_000n)).toBe(true);
+  expect(ranges.at(-1)?.[1]).toBe(2_500n);
   expect(await env.DB.prepare("SELECT next_block FROM guardian_scans WHERE chain = 'base'").first()).toEqual({
-    next_block: 96,
+    next_block: 2_501,
   });
 });

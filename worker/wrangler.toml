@@ -55,9 +55,7 @@ NEAR_NETWORK = "mainnet"
 DESK_ACCOUNT = "rein-desk.near"
 AGENT_ACCOUNT = "agent.rein-desk.near"
 AGENT_KEY_ALLOWANCE = "2000000000000000000000000"
-# Base Guardian 0xe941433777B80eB559BaA2929C5b332e6E49a7d3 is deployed but not watched: Base makes 5 blocks/s
-# and the Base RPC allows 10 blocks per eth_getLogs, so the Enabled scan cannot keep up.
-GUARDIANS = "{\"monad\":{\"address\":\"0x9BF96419e891A8509C8D49d5ec92AA730eBCC0FF\",\"fromBlock\":\"121835622\"}}"
+GUARDIANS = "{\"monad\":{\"address\":\"0x9BF96419e891A8509C8D49d5ec92AA730eBCC0FF\",\"fromBlock\":\"121835622\"},\"base\":{\"address\":\"0xe941433777B80eB559BaA2929C5b332e6E49a7d3\",\"fromBlock\":\"56623990\"}}"
 
 [[env.mainnet.d1_databases]]
 binding = "DB"
