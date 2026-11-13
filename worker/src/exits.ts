@@ -5,6 +5,7 @@ import {
   createPublicClient,
   createWalletClient,
   encodeFunctionData,
+  fallback,
   http,
   isAddress,
   keccak256,
@@ -21,9 +22,14 @@ import { NETWORK_CHAINS } from './deskTypes';
 import { rpcFor, type Env, type NearNetwork } from './env';
 
 export const PARTIAL_FOLLOWUP_S = 30;
-// eth_getLogs block-range caps: rpc.monad.xyz rejects more than 100 blocks; Alchemy's free tier allows 10.
-const BLOCK_PAGE: Record<DeskChain, bigint> = { monad: 100n, 'monad-testnet': 100n, base: 10n, 'base-sepolia': 10n };
-// Pages per run, enough to outpace block production (Monad ≈150/min, Base 30/min) and work down a backlog.
+// eth_getLogs block-range caps: rpc.monad.xyz rejects more than 100 blocks. Base scans use LOG_RPCS, which all
+// serve 1,000; the configured Base RPC (Alchemy's free tier) allows only 10, too few at Base's 5 blocks a second.
+const BLOCK_PAGE: Record<DeskChain, bigint> = { monad: 100n, 'monad-testnet': 100n, base: 1_000n, 'base-sepolia': 10n };
+// Public endpoints for the Enabled scan, tried in order; one that refuses or rate-limits hands over to the next.
+const LOG_RPCS: Partial<Record<DeskChain, string[]>> = {
+  base: ['https://base-rpc.publicnode.com', 'https://gateway.tenderly.co/public/base', 'https://base.gateway.tenderly.co'],
+};
+// Pages per run, enough to outpace block production and work down a backlog.
 const MAX_SCAN_PAGES = 30;
 const OWNER_PAGE = 20;
 const VERDICT_PAGE = 4;
@@ -101,7 +107,14 @@ export function realExitDeps(env: Env): ExitDeps {
     guardian,
     head: (chain) => client(chain).getBlockNumber(),
     async enables(chain, fromBlock, toBlock) {
-      const logs = await client(chain).getLogs({
+      const urls = LOG_RPCS[chain];
+      const logs = await (urls
+        ? createPublicClient({
+            chain: CHAINS[chain],
+            transport: fallback(urls.map((url) => http(url, { retryCount: 0, timeout: 5_000 }))),
+          })
+        : client(chain)
+      ).getLogs({
         address: address(chain),
         event: guardianAbi.find((e) => e.type === 'event' && e.name === 'Enabled')!,
         fromBlock,
