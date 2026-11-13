@@ -145,19 +145,16 @@ On mainnet, Rein has so far done worse than a coin flip and worse than the fixed
 
 ## Tests
 
-Run on 13 November 2026 unless noted:
+| Suite | Command |
+| --- | --- |
+| Desk contract | `cargo test -p desk --lib` from `near/` |
+| Worker | `pnpm -C worker test` |
+| Web | `pnpm -C web test` |
+| MCP server | `pnpm -C mcp test` |
+| Oracle, Guardian and adapters | `forge test --no-match-contract Fork` from `evm/` |
+| Baseline self-check | `pnpm baseline --check` |
 
-| Suite | Command | Result |
-| --- | --- | --- |
-| Desk contract, unit | `cargo test -p desk --lib` from `near/` | 37 passed (12 November) |
-| Worker | `pnpm -C worker test` | 105 passed |
-| Web | `pnpm -C web test` | 39 passed |
-| MCP server and Guardian transaction builder | `pnpm -C mcp test` | 12 passed |
-| Oracle, Guardian and adapters | `forge test --no-match-contract Fork` from `evm/` | 14 passed |
-| Guardian on live Base state | `forge test --match-contract ForkGuardianTest --fork-url <Base RPC>` from `evm/` | 41 passed, 1 skipped by design |
-| Baseline self-check | `pnpm baseline --check` | Pass |
-
-The desk's 63 sandbox tests (they need the three wasm builds) and the browser tests were not rerun on that date. [docs/reference.md](docs/reference.md#local-verification) has their commands.
+[docs/reference.md](docs/reference.md#local-verification) has the sandbox, fork and browser tests.
 
 ## Built with
 
