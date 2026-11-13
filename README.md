@@ -2,6 +2,8 @@
 
 Rein is a risk desk for agents, and it runs on a NEAR contract. An agent that manages stablecoins pays it to judge a yield vault, through one MCP tool call or an x402 payment over HTTP. A model inside a NEAR AI Cloud TEE reads the vault's onchain state and answers HOLD, EXIT or MOVE. The contract checks the model's signature, then NEAR Chain Signatures signs a transaction that posts the verdict to an oracle on Monad or Base. Every verdict is graded later on a public Ledger. A person can buy the same verdict in the browser.
 
+Guardian is an optional contract on Monad and Base that acts on a verdict. A depositor sets a rule: a minimum confidence and a maximum verdict age. When a fresh EXIT on their vault meets the rule, anyone can call `exit`, and the position is redeemed straight back to its owner. Guardian never holds funds.
+
 - Site: <https://www.reinfi.xyz> (mainnet; add `?network=testnet` for testnet)
 - API: <https://api.reinfi.xyz> (mainnet), <https://api-testnet.reinfi.xyz> (testnet)
 - Agent tools (MCP, streamable HTTP): `https://api.reinfi.xyz/mcp` and `https://api-testnet.reinfi.xyz/mcp`
@@ -12,6 +14,30 @@ Rein is a risk desk for agents, and it runs on a NEAR contract. An agent that ma
 A verdict is advice. It is not a guarantee and it does not protect a position by itself.
 
 ![Rein's home page on mainnet](docs/images/home.png)
+
+## How one order flows
+
+```mermaid
+sequenceDiagram
+    participant B as Buyer (agent or person)
+    participant D as rein-desk (NEAR contract)
+    participant W as Worker
+    participant T as Model in NEAR AI Cloud TEE
+    participant M as Chain Signatures (MPC)
+    participant O as Rein oracle (Monad or Base)
+    participant G as Guardian
+    B->>D: Pay in NEAR or USDC, order opens in escrow
+    W->>T: Vault state, read over RPC
+    T-->>W: Signed HOLD, EXIT or MOVE
+    W->>D: Submit the signed answer
+    D->>M: Check the signer, build the calldata, ask for a signature
+    M-->>D: Signed EVM transaction
+    W->>O: Broadcast the post
+    W->>D: Report delivery, escrow pays out
+    O-->>G: A fresh EXIT that meets an owner's rule allows exit
+```
+
+Each post is graded later on the Ledger. An x402 buyer pays over HTTP instead of calling the contract; the rest is the same.
 
 ## The problem
 
@@ -30,7 +56,7 @@ Rein is built so the operator cannot do those things. The Worker that runs the d
 
 ## Try it
 
-Steps 1 to 5 need no wallet, no key and no funds.
+Steps 1 to 6 need no wallet, no key and no funds.
 
 1. **Open a delivered order.** Go to <https://www.reinfi.xyz/orders/20?network=testnet>. See a HOLD verdict and a "Verify this order" section that links the NEAR order, the exact document the model read, the TEE signer, and the Monad testnet transaction.
 2. **Read the Ledger.** Run `curl https://api-testnet.reinfi.xyz/v1/ledger`. See `posts`, the `score` object with `n` and `brier`, and `recent` rows with `resolved`, `adverse` and `signer`. The same data is at <https://www.reinfi.xyz/ledger?network=testnet>.
@@ -46,8 +72,8 @@ Steps 1 to 5 need no wallet, no key and no funds.
    See six tools: `list_vaults`, `latest_verdict`, `get_verdict`, `order_status`, `ledger` and `guardian_transactions`.
 4. **Verify a real TEE signature offline.** Clone the repository, then from `near/` run `cargo test -p desk --lib real_fixture_verifies`. See `1 passed`. The test feeds a recorded NEAR AI request, response and signature from `near/desk/tests/fixtures/near-ai-1.json` through the contract's own verification code, with no network.
 5. **Compare Rein with simple forecasts.** From the repository root run `pnpm install`, then `pnpm baseline --check`. See `--check PASS` and a four-row table. Then run `pnpm baseline https://api-testnet.reinfi.xyz/v1/ledger` to score the live testnet Ledger the same way. This needs Node 22.6 or newer.
-6. **Buy a verdict with an agent.** Follow [docs/buy-with-an-agent.md](docs/buy-with-an-agent.md). You need a NEAR testnet account with about 0.2 NEAR. An MCP client such as Claude Code calls `get_verdict`, pays 0.1 NEAR, and gets the verdict and its proof links back in one tool call. Order 20 above was bought this way and took 49 seconds.
-7. **Follow a mainnet Guardian exit.** Run `curl https://api.reinfi.xyz/v1/orders/13`. See an EXIT at 8500 bps on Monad's Clearstar USDC vault, then follow the table below to the exit transaction that returned the position to its owner.
+6. **Follow a mainnet Guardian exit.** Run `curl https://api.reinfi.xyz/v1/orders/13`. See an EXIT at 8500 bps on Monad's Clearstar USDC vault, then follow the table below to the exit transaction that returned the position to its owner.
+7. **Buy a verdict with an agent.** Follow [docs/buy-with-an-agent.md](docs/buy-with-an-agent.md). You need a NEAR testnet account with about 0.2 NEAR. An MCP client such as Claude Code calls `get_verdict`, pays 0.1 NEAR, and gets the verdict and its proof links back in one tool call. Order 20 above was bought this way and took 49 seconds.
 8. **Buy one in the browser.** Open <https://www.reinfi.xyz/judge?network=testnet>, connect a NEAR testnet wallet, pick a vault and pay. See the order move from open to delivered, then open its receipt.
 
    ![Picking a vault to judge on the Judge page](docs/images/judge.png)
@@ -82,7 +108,7 @@ Each of these was run against the live testnet deployment. The output is committ
 | Replay a real signed reading on another order | `wrong order` | [docs/tamper.log](docs/tamper.log) |
 | Corrupt the signature's recovery byte | `bad signature` | [docs/tamper.log](docs/tamper.log) |
 | Post the same verdict to the oracle twice | `StateAlreadyPosted` | [docs/replay.log](docs/replay.log) |
-| Post a held verdict after its expiry | `PostExpired` | [docs/replay.log](docs/replay.log) |
+| Post a signed verdict after its expiry | `PostExpired` | [docs/replay.log](docs/replay.log) |
 | Open 140 orders on one vault in 16.5 seconds from 20 keys | 1 order opened, 139 refused | [docs/burst-replay.log](docs/burst-replay.log) |
 
 ## What is live
@@ -91,35 +117,35 @@ As of 13 November 2026.
 
 | Part | Status |
 | --- | --- |
-| Mainnet desk `rein-desk.near`, posting to Monad and Base | Live. 14 orders: 8 delivered, 6 rejected and refunded automatically |
+| Mainnet desk `rein-desk.near`, posting to Monad and Base | Live. 14 orders: 8 delivered, 6 rejected (explained below) |
 | Testnet desk `rein-desk.testnet`, posting to Monad testnet and Base Sepolia | Live. 23 orders |
 | Site, public API and remote MCP | Live on both networks |
 | Agent purchase through MCP | Done on testnet (order 20) |
 | x402 purchase through PingPay | Done on mainnet (order 1, Monad August USDC V2). A forced failure has not been tried |
 | Guardian automatic exits | Live on Monad and Base. One live exit on Monad (order 13) |
 | Deposit and arm Guardian from the site | Live on Base and Monad, at `/guardian` |
-| MOVE quote after an exit | Code live. Not tried live |
+| MOVE quote after an exit, to send the returned USDC elsewhere | Code live. Not tried live |
 | EXIT push alerts | Code merged and switched off |
 | Grading | Live on both networks |
+
+Of the six rejected mainnet orders, two were paid. They failed on 12 November when the judge model then in use stopped returning answers, and the contract refunded both automatically; the judge has run on Qwen since. The other four were unpaid watch orders, which the desk opens for itself on vaults it monitors, so there was nothing to refund.
 
 ![The Guardian page on Monad after the live exit: the rule at 80% and 60 minutes, and the EXIT that met it](docs/images/guardian-monad.png)
 
 Mainnet addresses:
 
-| Chain | Rein oracle | Guardian | Menu |
+| Chain | Rein oracle | Guardian | Vaults it judges |
 | --- | --- | --- | --- |
 | Monad | `0x6Ef1ca2A0c8B918429b78d8E9C8A8fc5F9970F1F` | `0x9BF96419e891A8509C8D49d5ec92AA730eBCC0FF` | 2 vaults (Clearstar, August) |
 | Base | `0xd535a4068265b383976d92718e3E650b5183b6Ab` | `0xe941433777B80eB559BaA2929C5b332e6E49a7d3` | 14 Morpho vaults |
 
-Testnet oracles: Monad testnet `0x16b998475d3c2b7FB5b794406701167039fD841A`, Base Sepolia `0xd535a4068265b383976d92718e3E650b5183b6Ab`, both judging Rein's own mirror vaults on mock USDC. All addresses are in [shared/deployments.ts](shared/deployments.ts).
+Testnet oracles: Monad testnet `0x16b998475d3c2b7FB5b794406701167039fD841A`, Base Sepolia `0xd535a4068265b383976d92718e3E650b5183b6Ab` (the same address as on Base). Both judge Rein's own mirror vaults: test vaults on mock USDC that copy a real vault's APY and utilization. All addresses are in [shared/deployments.ts](shared/deployments.ts).
 
 Running cost: about $0.01 per Monad verdict and well under a cent per Base post in gas, plus about $0.0001 for the model. Deploying and running everything so far cost under $1 in gas and fees; about 3 NEAR is held as contract storage, which comes back when the contracts are removed.
 
 ## How good the verdicts are
 
 The Ledger scores each verdict's risk forecast against what happened to the vault afterwards, using the Brier score, where lower is better. `pnpm baseline <ledger URL>` reproduces these tables. On 13 November:
-
-![The mainnet Ledger: Brier score 0.338 after 7 graded calls](docs/images/ledger.png)
 
 | Forecast | Mainnet (7 calls) | Testnet (8 calls) |
 | --- | ---: | ---: |
