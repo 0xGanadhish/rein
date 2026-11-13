@@ -9,9 +9,8 @@ export default function X402Docs() {
       <h1>x402 payments</h1>
       <p>
         x402 lets an HTTP or remote MCP client buy a judgement without a NEAR signing key. Rein uses PingPay’s x402 v2
-        exact-payment flow through NEAR Intents. It is mainnet-only, and mainnet is not deployed yet. Settlement is{' '}
-        <strong>upfront</strong>: money moves before the judgement runs, not after delivery. This is not escrow or a
-        card authorization.
+        exact-payment flow through NEAR Intents. It is mainnet-only. Settlement is <strong>upfront</strong>: money moves
+        before the judgement runs, not after delivery. This is not escrow or a card authorization.
       </p>
       <h2>Quote, deposit, settle, judge</h2>
       <ol>

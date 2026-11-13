@@ -14,7 +14,7 @@ export default async function JudgeDocs() {
       <p>
         Open <Link href="/judge">Judge</Link>, choose the NEAR network and a supported EVM vault, and read the current
         policy before paying. A judgement buys a new oracle post, not a deposit, withdrawal or continuous monitoring
-        subscription. Mainnet purchasing must wait until deployment; testnet mirror vaults use test assets.
+        subscription. Mainnet judges real Monad and Base vaults; testnet mirror vaults use test assets.
       </p>
       <h2>Price and admission</h2>
       {desk ? (

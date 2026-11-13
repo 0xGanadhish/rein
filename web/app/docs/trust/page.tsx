@@ -9,8 +9,8 @@ export default function TrustDocs() {
       <h1>Trust and limits</h1>
       <p>
         Rein makes a judgement inspectable and grades a defined outcome. It does not prove that a vault is safe,
-        eliminate operator trust or guarantee an exit. Mainnet is not deployed yet; configured addresses, code and
-        sample receipts are not evidence of a live service.
+        eliminate operator trust or guarantee an exit. Mainnet is live on Monad and Base; each receipt links the onchain
+        records it relies on, so check those rather than this page.
       </p>
       <h2>What is enforced</h2>
       <ul>
