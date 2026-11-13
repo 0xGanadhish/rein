@@ -13,6 +13,10 @@ export interface Deployment {
   oracles: Partial<Record<DeskChain, Address | null>>;
   /** Vaults the desk takes orders on, per chain. */
   menu: Partial<Record<DeskChain, Address[]>>;
+  /** Guardian per chain; owners arm it on their own vault position. Null until it's deployed there. */
+  guardians: Partial<Record<DeskChain, Address | null>>;
+  /** USDC per chain: the asset of that chain's menu vaults. */
+  usdc: Partial<Record<DeskChain, Address>>;
 }
 
 /**
@@ -41,6 +45,8 @@ export const DEPLOYMENTS: Record<'mainnet' | 'testnet', Deployment> = {
         '0x9a410Af861d07545A1E7a53aCF86e570A6F32FA8',
       ],
     },
+    guardians: {},
+    usdc: {},
   },
   mainnet: {
     desk: 'rein-desk.near',
@@ -70,6 +76,14 @@ export const DEPLOYMENTS: Record<'mainnet' | 'testnet', Deployment> = {
         '0x1e9e47583f15D45a10Df48c0b1846E0492c795D7',
         '0x618495ccC4e751178C4914b1E939C0fe0FB07b9b',
       ],
+    },
+    guardians: {
+      monad: '0x9BF96419e891A8509C8D49d5ec92AA730eBCC0FF',
+      base: '0xe941433777B80eB559BaA2929C5b332e6E49a7d3',
+    },
+    usdc: {
+      monad: '0x754704Bc059F8C67012fEd69BC8A327a5aafb603',
+      base: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
     },
   },
 };
