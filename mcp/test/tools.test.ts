@@ -101,10 +101,43 @@ it('verdict_record_maps_ledger_row', async () => {
   expect((await call('order_status', { order_id: 7 })).structuredContent).toMatchObject({
     verdict: 'HOLD',
     posted_tx: null,
-    oracle: null,
+    oracle: DEPLOYMENTS.mainnet.oracles.base,
     state_hash: null,
     valid_until: null,
     explorer_url: null,
     grade: null,
   });
+});
+
+const CLEARSTAR = '0xE1BcA19baA63894D374578320551633320436523';
+const OWNER = '0x00000000000000000000000000000000000000bb';
+it('guardian_transactions_returns_unsigned_deposit_steps', async () => {
+  const { reader, payer, call } = fixture();
+  const result = await call('guardian_transactions', {
+    action: 'deposit',
+    chain: 'monad',
+    vault: CLEARSTAR,
+    owner: OWNER,
+    amount_usdc: '0.25',
+  });
+  const data = result.structuredContent as { guardian: string; transactions: { step: string }[] };
+  expect(result.isError).toBeUndefined();
+  expect(data.transactions.map((t) => t.step)).toEqual(['approve_usdc', 'deposit']);
+  expect(data.guardian).toBe(DEPLOYMENTS.mainnet.guardians.monad);
+  expect(payer.buy).not.toHaveBeenCalled();
+  for (const fn of Object.values(reader)) expect(fn).not.toHaveBeenCalled();
+});
+it('guardian_transactions_rejects_unknown_vault_and_testnet', async () => {
+  const { call } = fixture();
+  const testnet = await call('guardian_transactions', { action: 'disarm', chain: 'base-sepolia', vault: CLEARSTAR });
+  expect(testnet.isError).toBe(true);
+  expect(testnet.structuredContent).not.toHaveProperty('transactions');
+  const offMenu = await call('guardian_transactions', {
+    action: 'disarm',
+    chain: 'monad',
+    vault: '0xbeef0786756810478b88982DE00F3CD7fdB8e7c7',
+  });
+  expect(offMenu.isError).toBe(true);
+  expect(offMenu.structuredContent).not.toHaveProperty('transactions');
+  expect(offMenu.content[0].text).toBe('vault is not on the monad menu');
 });
