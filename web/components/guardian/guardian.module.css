@@ -267,6 +267,80 @@
   border-radius: var(--radius-sm);
 }
 
+.chains {
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 18px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+}
+.chains a {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  color: var(--mute);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.chains a[aria-current='page'] {
+  background: var(--ink);
+  color: var(--bone);
+}
+.chains a:focus-visible {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 2px;
+}
+.depositRow {
+  margin-top: 36px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+.depositLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 220px;
+  font-size: 13px;
+  color: var(--mute);
+}
+.amount {
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.amount:focus-visible {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 2px;
+}
+.depositButton {
+  height: 44px;
+  padding: 0 22px;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.depositButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .armRow {
   margin-top: 36px;
   padding-top: 28px;

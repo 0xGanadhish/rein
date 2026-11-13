@@ -6,7 +6,7 @@ const jar = new Map<string, string>();
 vi.mock('next/headers', () => ({
   cookies: async () => ({ get: (name: string) => (jar.has(name) ? { name, value: jar.get(name) } : undefined) }),
 }));
-const { publicConfig } = await import('./config');
+const { configFor, publicConfig } = await import('./config');
 
 afterEach(() => {
   jar.clear();
@@ -42,4 +42,13 @@ describe('network switch', () => {
     expect((await publicConfig()).network).toBe('testnet');
     expect(middleware(new NextRequest('https://reinfi.xyz/ledger?network=devnet')).headers.get('location')).toBeNull();
   });
+});
+
+it('guardians_and_rpcs_per_chain', () => {
+  const monad = '0x9BF96419e891A8509C8D49d5ec92AA730eBCC0FF';
+  const cfg = configFor('mainnet', { GUARDIAN_MONAD: monad } as unknown as NodeJS.ProcessEnv);
+  expect(cfg.guardians).toEqual({ base: null, monad });
+  expect(cfg.rpcs.monad).toBe('https://rpc.monad.xyz');
+  expect(cfg.rpcs.base).toBe('https://mainnet.base.org');
+  expect(configFor('mainnet', { GUARDIAN_MONAD: 'nope' } as unknown as NodeJS.ProcessEnv).guardians.monad).toBeNull();
 });
