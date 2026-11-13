@@ -11,6 +11,8 @@ Rein is a risk desk for agents, and it runs on a NEAR contract. An agent that ma
 
 A verdict is advice. It is not a guarantee and it does not protect a position by itself.
 
+![Rein's home page on mainnet](docs/images/home.png)
+
 ## The problem
 
 An agent that holds stablecoins in yield vaults cannot tell when a vault is turning risky, and neither can the person it works for. A model can give an opinion, but then the buyer has to trust whoever runs the model. The operator could change the answer, post it for a different vault, replay an old EXIT later, or take the payment and deliver nothing.
@@ -48,9 +50,13 @@ Steps 1 to 5 need no wallet, no key and no funds.
 7. **Follow a mainnet Guardian exit.** Run `curl https://api.reinfi.xyz/v1/orders/13`. See an EXIT at 8500 bps on Monad's Clearstar USDC vault, then follow the table below to the exit transaction that returned the position to its owner.
 8. **Buy one in the browser.** Open <https://www.reinfi.xyz/judge?network=testnet>, connect a NEAR testnet wallet, pick a vault and pay. See the order move from open to delivered, then open its receipt.
 
+   ![Picking a vault to judge on the Judge page](docs/images/judge.png)
+
 ## Follow the proof for one order
 
 Order 13 on mainnet, paid in USDC from the operator's own NEAR account on 13 November, judged Monad's Clearstar USDC vault while one wallet had armed Guardian on it:
+
+![The receipt for mainnet order 13: EXIT at 85% confidence on Clearstar Earn USDC](docs/images/orders_13.png)
 
 | Stage | What to check | Where |
 | --- | --- | --- |
@@ -96,6 +102,8 @@ As of 13 November 2026.
 | EXIT push alerts | Code merged and switched off |
 | Grading | Live on both networks |
 
+![The Guardian page on Monad after the live exit: the rule at 80% and 60 minutes, and the EXIT that met it](docs/images/guardian-monad.png)
+
 Mainnet addresses:
 
 | Chain | Rein oracle | Guardian | Menu |
@@ -110,6 +118,8 @@ Running cost: about $0.01 per Monad verdict and well under a cent per Base post 
 ## How good the verdicts are
 
 The Ledger scores each verdict's risk forecast against what happened to the vault afterwards, using the Brier score, where lower is better. `pnpm baseline <ledger URL>` reproduces these tables. On 13 November:
+
+![The mainnet Ledger: Brier score 0.338 after 7 graded calls](docs/images/ledger.png)
 
 | Forecast | Mainnet (7 calls) | Testnet (8 calls) |
 | --- | ---: | ---: |
