@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { DEPLOYMENTS } from '../../shared/deployments';
+import type { GuardianChain } from '../../shared/guardianTx';
 import { isNetwork, type Network } from './ledger';
 
 /** What the browser needs to know about this deployment. Read on the server, passed down as props. */
@@ -7,10 +8,10 @@ export interface PublicConfig {
   network: Network;
   /** The desk contract on NEAR; null until it's deployed on this network. */
   desk: string | null;
-  /** GuardianV2 on Base; null until it's deployed. */
-  guardian: `0x${string}` | null;
-  /** Base RPC the browser reads Guardian and vault state from. */
-  baseRpc: string;
+  /** GuardianV2 per chain, from GUARDIAN_BASE and GUARDIAN_MONAD; null when unset or not an address. */
+  guardians: Record<GuardianChain, `0x${string}` | null>;
+  /** RPC per chain the browser reads Guardian and vault state from. */
+  rpcs: Record<GuardianChain, string>;
   /** Sample data from fixtures/ instead of the desk and the Worker. */
   sample: boolean;
   /** This network's Worker: the Ledger, receipts, orders and agents' x402 requests. */
@@ -34,12 +35,12 @@ export function defaultNetwork(env: NodeJS.ProcessEnv = process.env): Network {
  */
 export function configFor(network: Network, env: NodeJS.ProcessEnv = process.env): PublicConfig {
   const NET = network.toUpperCase();
-  const guardian = env.GUARDIAN_BASE;
+  const address = (v: string | undefined) => (v && /^0x[0-9a-fA-F]{40}$/.test(v) ? (v as `0x${string}`) : null);
   return {
     network,
     desk: env[`DESK_ACCOUNT_${NET}`] || DEPLOYMENTS[network].desk,
-    guardian: guardian && /^0x[0-9a-fA-F]{40}$/.test(guardian) ? (guardian as `0x${string}`) : null,
-    baseRpc: env.BASE_RPC || 'https://mainnet.base.org',
+    guardians: { base: address(env.GUARDIAN_BASE), monad: address(env.GUARDIAN_MONAD) },
+    rpcs: { base: env.BASE_RPC || 'https://mainnet.base.org', monad: env.MONAD_RPC || 'https://rpc.monad.xyz' },
     sample: env.DATA_SOURCE === 'fixtures',
     api: env[`REIN_API_URL_${NET}`] || DEPLOYMENTS[network].api || null,
     exitWorker: env.EXIT_WORKER_LIVE === 'true',

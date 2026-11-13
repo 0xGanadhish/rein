@@ -11,8 +11,10 @@ import {
   type Address,
   type EIP1193Provider,
 } from 'viem';
-import { base } from 'viem/chains';
+import { base, monad } from 'viem/chains';
 import { MoveAfterExit } from '@/components/orders/MoveAfterExit';
+import { DEPLOYMENTS } from '../../../shared/deployments';
+import { armTxs, depositTxs, disarmTxs, type GuardianChain, type UnsignedTx } from '../../../shared/guardianTx';
 import { utcStamp } from '@/lib/format';
 import s from './guardian.module.css';
 
@@ -34,25 +36,24 @@ const MAX_AGE_MIN = 60;
 const guardianAbi = parseAbi([
   'function rules(address owner, address vault) view returns (bool enabled, uint16 minConfidenceBps, uint32 maxAge, uint64 enabledAt)',
   'function approvedVault(address vault) view returns (bool)',
-  'function enable(address vault, uint16 minConfidenceBps, uint32 maxAge)',
-  'function disable(address vault)',
 ]);
 const vaultAbi = parseAbi([
   'function balanceOf(address owner) view returns (uint256)',
   'function convertToAssets(uint256 shares) view returns (uint256)',
   'function allowance(address owner, address spender) view returns (uint256)',
-  'function approve(address spender, uint256 amount) returns (bool)',
   'function decimals() view returns (uint8)',
 ]);
 
-// Native Base USDC, verified against 1Click's public token catalog.
-const BASE_USDC: Address = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
+const CHAINS = { base, monad };
+const LABELS: Record<GuardianChain, string> = { base: 'Base', monad: 'Monad' };
 
 interface Position {
   shares: bigint;
   decimals: number;
   assets: bigint;
   allowance: bigint;
+  /** The owner's USDC allowance to the vault, so a covered deposit skips the approve. */
+  usdcAllowance: bigint;
   approved: boolean;
   armed: boolean;
   ruleEnabled: boolean;
@@ -63,6 +64,7 @@ const SAMPLE: Position = {
   decimals: 18,
   assets: 1_000_000_000n,
   allowance: 0n,
+  usdcAllowance: 0n,
   approved: true,
   armed: false,
   ruleEnabled: false,
@@ -75,6 +77,7 @@ const usdc = (v: bigint) =>
   Number(formatUnits(v, 6)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function GuardianPanel({
+  chain,
   vaults,
   initial,
   guardian,
@@ -83,6 +86,7 @@ export function GuardianPanel({
   exitWorker,
   api,
 }: {
+  chain: GuardianChain;
   vaults: GuardVault[];
   initial: Address | undefined;
   guardian: Address | null;
@@ -95,20 +99,25 @@ export function GuardianPanel({
   const [vault, setVault] = useState<Address | undefined>(initial);
   const [conf, setConf] = useState(90);
   const [age, setAge] = useState(10);
+  const [amount, setAmount] = useState('');
   const [owner, setOwner] = useState<Address | null>(null);
   const [pos, setPos] = useState<Position | null>(sample ? SAMPLE : null);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const reader = useMemo(() => createPublicClient({ chain: base, transport: http(rpc) }), [rpc]);
+  const viemChain = CHAINS[chain];
+  const label = LABELS[chain];
+  const usdcAddress = DEPLOYMENTS.mainnet.usdc[chain]!;
+  const reader = useMemo(() => createPublicClient({ chain: viemChain, transport: http(rpc) }), [viemChain, rpc]);
   const v = vaults.find((x) => x.vault === vault);
 
   const load = useCallback(async () => {
     if (sample || !guardian || !owner || !vault) return;
     try {
-      const [shares, decimals, allowance, approved, rule] = await Promise.all([
+      const [shares, decimals, allowance, usdcAllowance, approved, rule] = await Promise.all([
         reader.readContract({ address: vault, abi: vaultAbi, functionName: 'balanceOf', args: [owner] }),
         reader.readContract({ address: vault, abi: vaultAbi, functionName: 'decimals' }),
         reader.readContract({ address: vault, abi: vaultAbi, functionName: 'allowance', args: [owner, guardian] }),
+        reader.readContract({ address: usdcAddress, abi: vaultAbi, functionName: 'allowance', args: [owner, vault] }),
         reader.readContract({ address: guardian, abi: guardianAbi, functionName: 'approvedVault', args: [vault] }),
         reader.readContract({ address: guardian, abi: guardianAbi, functionName: 'rules', args: [owner, vault] }),
       ]);
@@ -124,13 +133,14 @@ export function GuardianPanel({
       const [enabled, minBps, maxAge] = rule;
       const usdcBalance =
         enabled && shares === 0n
-          ? await reader.readContract({ address: BASE_USDC, abi: vaultAbi, functionName: 'balanceOf', args: [owner] })
+          ? await reader.readContract({ address: usdcAddress, abi: vaultAbi, functionName: 'balanceOf', args: [owner] })
           : 0n;
       setPos({
         shares,
         decimals,
         assets,
         allowance,
+        usdcAllowance,
         approved,
         armed: enabled && allowance >= shares && shares > 0n,
         ruleEnabled: enabled,
@@ -141,9 +151,9 @@ export function GuardianPanel({
         setAge(Math.max(MIN_AGE_MIN, Math.round(maxAge / 60)));
       }
     } catch {
-      setMsg('Base couldn’t be read just now.');
+      setMsg(`${label} couldn’t be read just now.`);
     }
-  }, [sample, guardian, owner, vault, reader]);
+  }, [sample, guardian, owner, vault, reader, usdcAddress, label]);
 
   useEffect(() => {
     void load();
@@ -151,10 +161,10 @@ export function GuardianPanel({
 
   async function wallet() {
     const eth = injected();
-    if (!eth) throw new Error('No browser wallet found. Install one that supports Base.');
-    const client = createWalletClient({ chain: base, transport: custom(eth) });
+    if (!eth) throw new Error(`No browser wallet found. Install one that supports ${label}.`);
+    const client = createWalletClient({ chain: viemChain, transport: custom(eth) });
     const [account] = await client.requestAddresses();
-    if ((await client.getChainId()) !== base.id) await client.switchChain({ id: base.id });
+    if ((await client.getChainId()) !== viemChain.id) await client.switchChain({ id: viemChain.id });
     return { client, account };
   }
 
@@ -167,59 +177,51 @@ export function GuardianPanel({
     }
   }
 
-  async function arm() {
-    if (!guardian || !vault || !pos) return;
+  /** Build the steps, then send each from the owner's wallet and wait for it before the next. */
+  async function send(build: (account: Address) => UnsignedTx[]) {
     setMsg(null);
     try {
       const { client, account } = await wallet();
-      if (pos.allowance < pos.shares) {
-        setBusy('Approve Guardian to redeem your shares…');
-        const h = await client.writeContract({
-          account,
-          address: vault,
-          abi: vaultAbi,
-          functionName: 'approve',
-          args: [guardian, pos.shares],
-        });
-        await reader.waitForTransactionReceipt({ hash: h });
+      for (const tx of build(account)) {
+        setBusy(`${tx.summary}…`);
+        const hash = await client.sendTransaction({ account, to: tx.to, data: tx.data });
+        await reader.waitForTransactionReceipt({ hash });
       }
-      setBusy('Sign the rule…');
-      const h = await client.writeContract({
-        account,
-        address: guardian,
-        abi: guardianAbi,
-        functionName: 'enable',
-        args: [vault, conf * 100, age * 60],
-      });
-      await reader.waitForTransactionReceipt({ hash: h });
       await load();
+      return true;
     } catch (e) {
       setMsg(e instanceof Error ? e.message.split('\n')[0] : 'The transaction didn’t go through.');
+      return false;
     } finally {
       setBusy(null);
     }
   }
 
+  async function deposit() {
+    if (!vault || !pos) return;
+    const ok = await send((account) =>
+      depositTxs({ chain, vault, owner: account, amount: amount.trim(), allowance: pos.usdcAllowance }),
+    );
+    if (ok) setAmount('');
+  }
+
+  async function arm() {
+    if (!guardian || !vault || !pos) return;
+    await send(() =>
+      armTxs({
+        chain,
+        vault,
+        shares: pos.shares,
+        shareAllowance: pos.allowance,
+        minConfidenceBps: conf * 100,
+        maxAgeS: age * 60,
+      }),
+    );
+  }
+
   async function disarm() {
     if (!guardian || !vault) return;
-    setMsg(null);
-    try {
-      const { client, account } = await wallet();
-      setBusy('Turning Guardian off…');
-      const h = await client.writeContract({
-        account,
-        address: guardian,
-        abi: guardianAbi,
-        functionName: 'disable',
-        args: [vault],
-      });
-      await reader.waitForTransactionReceipt({ hash: h });
-      await load();
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message.split('\n')[0] : 'The transaction didn’t go through.');
-    } finally {
-      setBusy(null);
-    }
+    await send(() => disarmTxs({ chain, vault }));
   }
 
   const t = (conf - MIN_CONF) / (MAX_CONF - MIN_CONF);
@@ -228,7 +230,7 @@ export function GuardianPanel({
   const blocked = sample
     ? 'Sample data: arming is off.'
     : !guardian
-      ? 'Guardian isn’t deployed on Base yet.'
+      ? `Guardian isn’t deployed on ${label} yet.`
       : !owner
         ? null
         : pos && !pos.approved
@@ -239,6 +241,13 @@ export function GuardianPanel({
 
   return (
     <>
+      <nav className={s.chains} aria-label="Chain">
+        {(['base', 'monad'] as const).map((c) => (
+          <a key={c} href={`/guardian?chain=${c}`} aria-current={c === chain ? 'page' : undefined}>
+            {LABELS[c]}
+          </a>
+        ))}
+      </nav>
       <div className={s.head}>
         <div>
           <label className={s.pickLabel} htmlFor="gv">
@@ -276,10 +285,10 @@ export function GuardianPanel({
               </span>
             </>
           ) : owner ? (
-            <span className={s.sub}>Reading Base…</span>
+            <span className={s.sub}>Reading {label}…</span>
           ) : (
             <button type="button" className={s.connect} onClick={() => void connect()} disabled={!guardian}>
-              Connect wallet on Base
+              Connect wallet on {label}
             </button>
           )}
         </div>
@@ -364,6 +373,29 @@ export function GuardianPanel({
               </span>
             </label>
           </div>
+
+          {owner && !sample && (
+            <div className={s.depositRow}>
+              <label className={s.depositLabel}>
+                Deposit USDC into this vault
+                <input
+                  className={s.amount}
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                className={s.depositButton}
+                onClick={() => void deposit()}
+                disabled={!pos || !amount.trim() || !!busy}
+              >
+                Deposit
+              </button>
+            </div>
+          )}
 
           <div className={s.armRow}>
             <code className={s.call}>
@@ -474,7 +506,7 @@ export function GuardianPanel({
         <MoveAfterExit
           key={`${owner}:${vault}:${pos.usdcBalance}`}
           api={api}
-          chain="base"
+          chain={chain}
           amount={pos.usdcBalance}
           owner={owner}
         />
