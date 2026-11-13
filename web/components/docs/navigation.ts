@@ -55,7 +55,7 @@ export const DOC_PAGES: DocPage[] = [
   {
     href: '/docs/mcp',
     title: 'MCP server',
-    description: 'Five tools over local stdio or remote HTTP.',
+    description: 'Six tools over local stdio or remote HTTP.',
     group: 'Developers',
   },
   {

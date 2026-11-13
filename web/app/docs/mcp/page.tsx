@@ -9,11 +9,11 @@ export default function McpDocs() {
     <>
       <h1>MCP server</h1>
       <p>
-        Rein exposes five tools with structured results and a short text summary. Browse for free, buy deliberately, and
+        Rein exposes six tools with structured results and a short text summary. Browse for free, buy deliberately, and
         resume an existing order instead of paying again. The local package runs from a clone; it is not a published npm
-        install. Remote MCP is available only after the matching Worker deployment; mainnet is not deployed yet.
+        install. Remote MCP is live on mainnet and testnet.
       </p>
-      <h2>The five tools</h2>
+      <h2>The six tools</h2>
       <dl>
         <dt>
           <code>list_vaults</code>
@@ -51,6 +51,17 @@ export default function McpDocs() {
         <dd>
           Optional <code>chain</code> and <code>limit</code> within the tool schema’s bounds. Returns public graded
           posts and scores without payment.
+        </dd>
+        <dt>
+          <code>guardian_transactions</code>
+        </dt>
+        <dd>
+          Required <code>action</code> (<code>deposit</code>, <code>arm</code> or <code>disarm</code>),{' '}
+          <code>chain</code> (<code>base</code> or <code>monad</code>) and <code>vault</code>; <code>owner</code>,{' '}
+          <code>amount_usdc</code>, <code>shares</code>, <code>min_confidence_bps</code> (8000–9900) and{' '}
+          <code>max_age_s</code> (60–3600) as the action needs. Returns unsigned mainnet transactions to send in order
+          from the owner’s wallet. No payment; Rein never signs or holds funds. See the{' '}
+          <Link href="/docs/guardian">Guardian guide</Link>.
         </dd>
       </dl>
       <p>
@@ -100,15 +111,16 @@ export default function McpDocs() {
       <h2>Remote HTTP: no NEAR key</h2>
       <pre>
         {JSON.stringify(
-          { mcpServers: { 'rein-remote': { type: 'http', url: `${DEPLOYMENTS.testnet.api}/mcp` } } },
+          { mcpServers: { 'rein-remote': { type: 'http', url: `${DEPLOYMENTS.mainnet.api}/mcp` } } },
           null,
           2,
         )}
       </pre>
       <p>
-        This testnet URL is for free browsing once the Worker route is deployed. Remote mode never needs or accepts your
-        NEAR signing key. Mainnet x402 requires a deployed mainnet Worker and a mainnet menu vault, not a mirror. Each
-        POST is stateless streamable HTTP with no session ID and shares the quote/nudge per-IP limiter.
+        This is the mainnet URL; testnet is at <code>{`${DEPLOYMENTS.testnet.api}/mcp`}</code>. Browsing is free on
+        both. Remote mode never needs or accepts your NEAR signing key. x402 purchases are mainnet-only and need a
+        mainnet menu vault, not a mirror. Each POST is stateless streamable HTTP with no session ID and shares the
+        quote/nudge per-IP limiter.
       </p>
       <p>
         Call <code>get_verdict</code> without payment to receive <code>{'{payment_required: true, accepts}'}</code>. Use

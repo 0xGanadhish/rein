@@ -9,14 +9,13 @@ export default function ApiDocs() {
     <>
       <h1>HTTP API</h1>
       <p>
-        The Worker serves JSON reads, deposit quotes, judgement payments, browser alerts and MCP. Mainnet is not
-        deployed yet. Use the matching network’s endpoint; each Worker has its own database.
+        The Worker serves JSON reads, deposit quotes, judgement payments, browser alerts and MCP on mainnet and testnet.
+        Use the matching network’s endpoint; each Worker has its own database.
       </p>
       <ul>
         {Object.entries(DEPLOYMENTS).map(([network, deployment]) => (
           <li key={network}>
             {network}: <code>{deployment.api}</code>
-            {network === 'mainnet' ? ' (after the mainnet deploy)' : ''}
           </li>
         ))}
       </ul>
@@ -220,7 +219,7 @@ export default function ApiDocs() {
         Stateless streamable HTTP MCP: send MCP JSON-RPC initialization/tool requests using the protocol’s content and
         accept headers. Responses are MCP JSON-RPC/tool content or the negotiated stream, not the REST order envelope.
         Each POST gets a fresh server; there is no session ID. Other methods return JSON 405. The shared per-IP limiter
-        applies. See <Link href="/docs/mcp">the five tools and configuration</Link>.
+        applies. See <Link href="/docs/mcp">the six tools and configuration</Link>.
       </p>
     </>
   );

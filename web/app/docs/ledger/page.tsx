@@ -42,10 +42,7 @@ export default function LedgerDocs() {
           ))}
         </tbody>
       </table>
-      <p>
-        These are the configured chain windows, not a claim that mainnet contracts are deployed. The deployed oracle’s
-        immutable window values are authoritative.
-      </p>
+      <p>These are the configured chain windows. The deployed oracle’s immutable window values are authoritative.</p>
       <p>
         Sampling keeps the lowest observed share price, assets and liquidity ratio independently, not a single
         best-looking snapshot. A failed metrics read marks the sample broken. If nobody samples, resolution takes a
