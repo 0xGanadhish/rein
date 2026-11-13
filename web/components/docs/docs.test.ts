@@ -1,7 +1,10 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, test } from 'vitest';
+import { DEPLOYMENTS } from '../../../shared/deployments';
+import GuardianDocs from '../../app/docs/guardian/page';
 
 const web = fileURLToPath(new URL('../..', import.meta.url));
 const text = (path: string) => readFileSync(join(web, path), 'utf8');
@@ -25,4 +28,12 @@ test('docs_api_lists_every_worker_route', () => {
   if (/mountMcp\(app,/.test(source)) routes.add('/mcp');
   const api = text('app/docs/api/page.tsx');
   for (const route of routes) expect(api, route).toContain(route);
+});
+
+test('guardian_docs_list_live_guardians_and_tool', () => {
+  const html = renderToStaticMarkup(GuardianDocs());
+  for (const guardian of Object.values(DEPLOYMENTS.mainnet.guardians)) expect(html).toContain(guardian);
+  expect(Object.keys(DEPLOYMENTS.mainnet.guardians).sort()).toEqual(['base', 'monad']);
+  expect(html).toContain('guardian_transactions');
+  expect(html).not.toContain('Mainnet is not deployed yet');
 });
