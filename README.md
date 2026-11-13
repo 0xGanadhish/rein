@@ -154,7 +154,7 @@ On mainnet, Rein has so far done worse than a coin flip and worse than the fixed
 | Oracle, Guardian and adapters | `forge test --no-match-contract Fork` from `evm/` |
 | Baseline self-check | `pnpm baseline --check` |
 
-[docs/reference.md](docs/reference.md#local-verification) has the sandbox, fork and browser tests.
+[docs/reference.md](docs/reference.md#local-verification) has the desk sandbox tests, which need the wasm builds, and the live Base fork tests.
 
 ## Built with
 
