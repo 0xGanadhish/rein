@@ -112,10 +112,10 @@ that during an extended outage, and relies on RPC receipt/state visibility rathe
 
 GuardianV2 is deployed on mainnet, and the mainnet Worker watches both:
 
-| Chain       | Guardian                                     | Deployment block |
-| ----------- | -------------------------------------------- | ---------------- |
-| Monad (143) | `0x9BF96419e891A8509C8D49d5ec92AA730eBCC0FF` | 121835622        |
-| Base (8453) | `0xe941433777B80eB559BaA2929C5b332e6E49a7d3` | 56623990         |
+| Chain | Guardian | Deployment block |
+| --- | --- | --- |
+| Monad (143) | `0x9BF96419e891A8509C8D49d5ec92AA730eBCC0FF` | 121835622 |
+| Base (8453) | `0xe941433777B80eB559BaA2929C5b332e6E49a7d3` | 56623990 |
 
 Testnet has no Guardian. Automatic exits are **disabled by default** (`GUARDIANS = "{}"`). Deploy GuardianV2 on Rein's oracle,
 approve the menu vaults, and apply migrations through `worker/migrations/0007_exits.sql` before enabling them.
@@ -150,6 +150,7 @@ Before turning on the web's `EXIT_WORKER_LIVE` flag, the matching deployed contr
 funded executor, configuration and migration must be live, log indexing must be caught up, and the running
 cron must have demonstrated an opted-in exit with funds reaching the owner and receipt/gas records in D1.
 Code availability alone is not automatic protection; partial exits can leave funds locked.
+
 
 ### Ledger, inputs and operational health
 
@@ -232,14 +233,15 @@ delay that invocation's grading.
   evaluation closes absent conditions, retaining history; recurrence starts a new episode. Unreadable
   evaluations do not declare previous conditions recovered. Cron and health requests both evaluate incidents.
 
+
 ### Chains
 
-| NEAR desk network | EVM chain     | Chain ID | Default post gas limit |
-| ----------------- | ------------- | -------: | ---------------------: |
-| Testnet           | Monad testnet |    10143 |                400,000 |
-| Testnet           | Base Sepolia  |    84532 |                400,000 |
-| Mainnet           | Monad         |      143 |              1,000,000 |
-| Mainnet           | Base          |     8453 |              1,000,000 |
+| NEAR desk network | EVM chain | Chain ID | Default post gas limit |
+|---|---|---:|---:|
+| Testnet | Monad testnet | 10143 | 400,000 |
+| Testnet | Base Sepolia | 84532 | 400,000 |
+| Mainnet | Monad | 143 | 1,000,000 |
+| Mainnet | Base | 8453 | 1,000,000 |
 
 Both testnets use their own mock USDC and mirror vaults, a one-hour resolution window and no sampling.
 Base Sepolia uses the same fee cap as Base. Worker RPC settings include `RPC_BASE_SEPOLIA`; oracle addresses
@@ -292,7 +294,7 @@ No additional treasury variable is needed. In protocol terms, unquoted `payTo` i
    `refundDeadline`, and a `depositMemo` where required. Persist these privately before depositing.
    Send funds on the advertised origin network; this starts the swap automatically.
 4. Retry with the **original unquoted** `accepted` entry and `payload: {"type":"deposit",
-"operationToken":"...","depositAddress":"...","txHash":"..."}`; include `depositMemo` if quoted.
+   "operationToken":"...","depositAddress":"...","txHash":"..."}`; include `depositMemo` if quoted.
    The Worker calls `/settle` with its recorded terms, then starts the judgement only after success.
    Pending operations return 202; retry the same payment, do not fund a new quote.
    A rejected deposit proof does not burn the operation: correct the proof and retry with the same token.
@@ -332,6 +334,7 @@ node --experimental-strip-types scripts/x402-buyer.ts <worker-url> monad <vault>
 
 Live confirmation is still required for the organization's treasury routing, actual receipts, quote/token
 expiry, and swap-failure refunds/fees. A successful swap is not reversed when a Rein judgement fails.
+
 
 ## Local verification
 

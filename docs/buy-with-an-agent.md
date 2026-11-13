@@ -4,11 +4,11 @@ Rein sells a signed HOLD, EXIT or MOVE verdict and posts it to an EVM oracle. Br
 
 ## Networks and availability
 
-| Setting        | Testnet                          | Mainnet                                    |
-| -------------- | -------------------------------- | ------------------------------------------ |
-| Worker         | `https://api-testnet.reinfi.xyz` | `https://api.reinfi.xyz`, not deployed yet |
-| NEAR desk      | `rein-desk.testnet`              | `rein-desk.near`, not deployed yet         |
-| Verdict chains | `monad-testnet`, `base-sepolia`  | `monad`, `base`                            |
+| Setting | Testnet | Mainnet |
+| --- | --- | --- |
+| Worker | `https://api-testnet.reinfi.xyz` | `https://api.reinfi.xyz`, not deployed yet |
+| NEAR desk | `rein-desk.testnet` | `rein-desk.near`, not deployed yet |
+| Verdict chains | `monad-testnet`, `base-sepolia` | `monad`, `base` |
 
 Local MCP runs from a clone, not a published npm package. Remote `/mcp` is live on the testnet Worker. x402 is mainnet only: a testnet remote server can expose free tools, but cannot sell testnet x402 verdicts.
 
@@ -56,13 +56,13 @@ Restart the MCP connection. You should see six tools: `list_vaults`, `latest_ver
 Ask the client to invoke `list_vaults` with:
 
 ```json
-{ "chain": "monad-testnet" }
+{"chain":"monad-testnet"}
 ```
 
 See the current menu, price and spacing. Then, if the account is funded and you approve the spend, invoke `get_verdict` once:
 
 ```json
-{ "chain": "monad-testnet", "vault": "0xA32cF682DA4A62c056fD631eE91dfE3C713EF1DB" }
+{"chain":"monad-testnet","vault":"0xA32cF682DA4A62c056fD631eE91dfE3C713EF1DB"}
 ```
 
 The local payer attaches the current `price_near` to `request_judgement`. Admission can refuse an unavailable vault, active order, spacing violation or kill switch. A delivered result includes `order_id`, verdict, confidence/risk and available proof fields. A grade is `null` until resolved, and unavailable proof fields remain `null`.
@@ -70,7 +70,7 @@ The local payer attaches the current `price_near` to `request_judgement`. Admiss
 An order wait is capped at four minutes. If the result is `{ "pending": true, "order_id": 123, "status": "signed" }`, do **not** buy again. Invoke `order_status` with the returned ID:
 
 ```json
-{ "order_id": 123 }
+{"order_id":123}
 ```
 
 NEAR escrow is released on delivery; failed posts authorize automatic refunds. Failed transfers remain owed and can require a claim. A Worker outage can delay recovery until expiry plus grace; see the receipt for status rather than assuming funds have arrived.
@@ -101,16 +101,15 @@ For a paid mainnet call, replace the URL with `https://api.reinfi.xyz/mcp` once 
 1. Call `get_verdict` without `payment`, for example:
 
    ```json
-   { "chain": "monad", "vault": "0xE1BcA19baA63894D374578320551633320436523" }
+   {"chain":"monad","vault":"0xE1BcA19baA63894D374578320551633320436523"}
    ```
 
    See `payment_required: true` and `accepts`. This is a quote requirement, not a charge.
-
 2. Have your x402-capable wallet/client choose an advertised offer. The wire format is x402 v2, `scheme: exact`, `assetTransferMethod: near-intents`, and `paymentFlow: upfront`. Encode the returned resource and original unquoted accepted entry with a quote payload containing your origin-chain `refundTo`. Pass the base64 JSON as the tool's `payment` string. See quoted deposit terms, including the operation token, deposit address, amount, expiry and any memo. Keep the operation token private: it is a bearer credential.
 3. Only after checking the terms, send the quoted funds using your wallet. Rein does not send them for you. Call the same tool with `payment` encoding the original unquoted accepted entry and deposit proof (`type: deposit`, `operationToken`, `depositAddress`, `txHash`, and `depositMemo` if required):
 
    ```json
-   { "chain": "monad", "vault": "0xE1BcA19baA63894D374578320551633320436523", "payment": "<base64-x402-v2-payment>" }
+   {"chain":"monad","vault":"0xE1BcA19baA63894D374578320551633320436523","payment":"<base64-x402-v2-payment>"}
    ```
 
    See the verdict record once delivered. If settlement is pending, the result contains `pending: true`, `payment_ref`, and `order_id: null`. Request the verdict again with **the same payment**; do not make another deposit. Reusing it does not incur a second charge. Once there is an order ID, resume with `order_status`.
