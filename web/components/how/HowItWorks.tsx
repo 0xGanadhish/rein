@@ -73,7 +73,7 @@ export function HowItWorks() {
           You pay the desk contract on NEAR. Its agent reads the vault and asks a model running in a TEE. The contract
           checks the signed answer, then NEAR Chain Signatures sign the post to the oracle on the vault’s chain.
         </p>
-        <HowFlow />
+        <HowFlow checks={CHECKS.map((c) => c.title)} />
       </div>
 
       <section aria-labelledby="checks" className={s.section}>
