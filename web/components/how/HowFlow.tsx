@@ -1,3 +1,6 @@
+'use client';
+
+import { useState, type KeyboardEvent } from 'react';
 import s from './how.module.css';
 
 const W = 820;
@@ -10,15 +13,24 @@ const LANES = [
 ];
 const [YOU, DESK, AGENT, MODEL, CHAIN] = LANES.map((l) => l.x);
 
-type Msg = { y: number; from: number; to: number; label: string; kind?: 'reply' | 'signal'; labelX?: number };
+type Msg = {
+  step: number;
+  y: number;
+  from: number;
+  to: number;
+  label: string;
+  kind?: 'reply' | 'signal';
+  labelX?: number;
+};
 const MSGS: Msg[] = [
-  { y: 100, from: YOU, to: DESK, label: '1 · pay for a call' },
-  { y: 148, from: DESK, to: AGENT, label: '2 · order opens' },
-  { y: 196, from: AGENT, to: CHAIN, label: '3 · read the vault at a pinned block' },
-  { y: 244, from: AGENT, to: MODEL, label: '4 · approved prompt + reading' },
-  { y: 292, from: MODEL, to: AGENT, label: '5 · signed answer', kind: 'reply' },
-  { y: 340, from: AGENT, to: DESK, label: '6 · deliver the answer' },
+  { step: 1, y: 100, from: YOU, to: DESK, label: '1 · pay for a call' },
+  { step: 2, y: 148, from: DESK, to: AGENT, label: '2 · order opens' },
+  { step: 3, y: 196, from: AGENT, to: CHAIN, label: '3 · read the vault at a pinned block' },
+  { step: 4, y: 244, from: AGENT, to: MODEL, label: '4 · approved prompt + reading' },
+  { step: 5, y: 292, from: MODEL, to: AGENT, label: '5 · signed answer', kind: 'reply' },
+  { step: 6, y: 340, from: AGENT, to: DESK, label: '6 · deliver the answer' },
   {
+    step: 8,
     y: 468,
     from: DESK,
     to: CHAIN,
@@ -29,10 +41,34 @@ const MSGS: Msg[] = [
 ];
 const H = 580;
 
+const STEPS = [
+  'You, or your agent, pay the desk contract on NEAR for a call on one vault.',
+  'The desk opens the order. Only Rein’s agent can answer it, and only once.',
+  'The agent reads the vault at a pinned block. The reading names this order, chain and vault, and is at most five minutes old.',
+  'The agent puts the reading into the approved prompt: the model, system prompt, temperature, token limit and output format the owner fixed on the desk.',
+  'The model runs in a NEAR AI TEE and signs the exact request and response.',
+  'The agent delivers the signed answer to the desk.',
+  'The desk runs seven checks before anything is signed. If any fails, the order is refunded.',
+  'If all pass, NEAR Chain Signatures sign the post, and it lands on Rein’s oracle on the vault’s chain.',
+  'Later readings of the vault grade the call on the public Ledger, starting from no record.',
+];
+
 /** One order, start to finish, as a sequence diagram across the parties involved. */
-export function HowFlow() {
+export function HowFlow({ checks }: { checks: string[] }) {
+  const [step, setStep] = useState(1);
+  const last = STEPS.length;
+  const go = (n: number) => setStep(Math.min(last, Math.max(1, n)));
+  const cls = (n: number) => `${s.flowStep} ${n === step ? '' : n < step ? s.flowPast : s.flowFuture}`;
+  const pick = (n: number) => ({ className: cls(n), onClick: () => go(n) });
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'ArrowRight') go(step + 1);
+    else if (e.key === 'ArrowLeft') go(step - 1);
+    else return;
+    e.preventDefault();
+  };
+
   return (
-    <figure className={s.flow}>
+    <figure className={s.flow} onKeyDown={onKey}>
       <div className={s.flowScroll}>
         <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby="flow-title flow-desc" className={s.flowSvg}>
           <title id="flow-title">How one order moves through Rein</title>
@@ -84,7 +120,7 @@ export function HowFlow() {
             const dir = m.to > m.from ? 1 : -1;
             const signal = m.kind === 'signal';
             return (
-              <g key={m.label}>
+              <g key={m.label} {...pick(m.step)}>
                 <line
                   x1={m.from + dir * 6}
                   y1={m.y}
@@ -105,36 +141,73 @@ export function HowFlow() {
           })}
 
           {/* 7: the checks, with the refund branch */}
-          <rect x={DESK - 66} y={370} width={132} height={60} rx={10} className={s.flowCheck} />
-          <text x={DESK} y={395} className={s.flowCheckTitle}>
-            7 · seven checks
-          </text>
-          <text x={DESK} y={413} className={s.flowActorSub}>
-            listed below
-          </text>
-          <line x1={DESK - 72} y1={400} x2={YOU + 6} y2={400} className={s.flowMsgReply} markerEnd="url(#flow-arrow)" />
-          <text x={(YOU + DESK - 66) / 2} y={391} className={s.flowLabel}>
-            any fail
-          </text>
-          <text x={(YOU + DESK - 66) / 2} y={418} className={s.flowLabel}>
-            → refund
-          </text>
-          <text x={DESK + 74} y={455} className={s.flowLabelStart}>
-            all pass
-          </text>
+          <g {...pick(7)}>
+            <rect x={DESK - 66} y={370} width={132} height={60} rx={10} className={s.flowCheck} />
+            <text x={DESK} y={395} className={s.flowCheckTitle}>
+              7 · seven checks
+            </text>
+            <text x={DESK} y={413} className={s.flowActorSub}>
+              before signing
+            </text>
+            <line
+              x1={DESK - 72}
+              y1={400}
+              x2={YOU + 6}
+              y2={400}
+              className={s.flowMsgReply}
+              markerEnd="url(#flow-arrow)"
+            />
+            <text x={(YOU + DESK - 66) / 2} y={391} className={s.flowLabel}>
+              any fail
+            </text>
+            <text x={(YOU + DESK - 66) / 2} y={418} className={s.flowLabel}>
+              → refund
+            </text>
+            <text x={DESK + 74} y={455} className={s.flowLabelStart}>
+              all pass
+            </text>
+          </g>
 
           {/* 9: grading */}
-          <rect x={CHAIN - 74} y={496} width={148} height={60} rx={10} className={s.flowActor} />
-          <text x={CHAIN} y={521} className={s.flowCheckTitle}>
-            9 · graded later
-          </text>
-          <text x={CHAIN} y={539} className={s.flowActorSub}>
-            on the public Ledger
-          </text>
+          <g {...pick(9)}>
+            <rect x={CHAIN - 74} y={496} width={148} height={60} rx={10} className={s.flowActor} />
+            <text x={CHAIN} y={521} className={s.flowCheckTitle}>
+              9 · graded later
+            </text>
+            <text x={CHAIN} y={539} className={s.flowActorSub}>
+              on the public Ledger
+            </text>
+          </g>
         </svg>
       </div>
-      <figcaption className={s.flowCaption}>
-        One order, top to bottom. The desk never posts an answer it hasn’t checked, and it never holds your shares.
+      <div className={s.flowControls}>
+        <button type="button" onClick={() => go(step - 1)} disabled={step === 1} className={s.flowBtn}>
+          <span aria-hidden="true">←</span> Back
+        </button>
+        <span className={s.flowCount}>
+          Step {step} of {last}
+        </span>
+        {step < last ? (
+          <button type="button" onClick={() => go(step + 1)} className={s.flowBtnInk}>
+            Next <span aria-hidden="true">→</span>
+          </button>
+        ) : (
+          <button type="button" onClick={() => go(1)} className={s.flowBtnInk}>
+            Start over
+          </button>
+        )}
+      </div>
+      <figcaption className={s.flowCaption} aria-live="polite">
+        <p>
+          <b>{step}.</b> {STEPS[step - 1]}
+        </p>
+        {step === 7 && (
+          <ol aria-label="The seven checks" className={s.flowChecks}>
+            {checks.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ol>
+        )}
       </figcaption>
     </figure>
   );

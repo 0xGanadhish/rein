@@ -87,8 +87,76 @@
 }
 .flowCaption {
   margin-top: 10px;
-  font-size: 13px;
+  min-height: 3em;
+  font-size: 15px;
+  color: var(--ink-2);
+}
+.flowCaption p {
+  margin: 0;
+}
+.flowCaption b {
+  color: var(--signal-ink);
+}
+.flowChecks {
+  margin: 10px 0 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+}
+.flowControls {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.flowCount {
+  margin-right: auto;
+  font-family: var(--mono);
+  font-size: 12px;
   color: var(--mute);
+  order: -1;
+}
+.flowBtn,
+.flowBtnInk {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+.flowBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.flowBtnInk {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.flowBtn:focus-visible,
+.flowBtnInk:focus-visible {
+  outline: 2px solid var(--cobalt);
+  outline-offset: 2px;
+}
+.flowStep {
+  cursor: pointer;
+  transition: opacity 0.25s var(--ease);
+}
+.flowPast {
+  opacity: 0.4;
+}
+.flowFuture {
+  opacity: 0.08;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flowStep {
+    transition: none;
+  }
 }
 .flowActor {
   fill: var(--bone);
