@@ -19,8 +19,6 @@
 <a href="docs/reference.md">Reference</a>
 </p>
 
-<img src="docs/images/orders_13.png" alt="Receipt for mainnet order 13: EXIT at 85% confidence on Clearstar Earn USDC" width="720">
-
 </div>
 
 > [!TIP]
