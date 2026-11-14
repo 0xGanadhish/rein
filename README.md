@@ -181,7 +181,7 @@ The Ledger scores each verdict's risk forecast against what happened to the vaul
 | Base rate, known only in hindsight                                       |             0.099 |             0.173 |
 | Coin flip                                                                |             0.250 |             0.250 |
 
-On mainnet, Rein has so far done worse than a coin flip and worse than the fixed rule. Nine calls is far too few to say much either way, and the testnet calls are on Rein's own mirror vaults. The table is here so anyone can rerun it as the sample grows.
+On testnet, Rein's 0.093 is the best of the four, though those calls are on Rein's own mirror vaults. On mainnet, nine graded calls is too small a sample to judge the model by yet. The point of the Ledger is that the record is public: anyone can rerun this table with `pnpm baseline` as more calls are graded.
 
 ## Trust limits
 
@@ -195,6 +195,44 @@ On mainnet, Rein has so far done worse than a coin flip and worse than the fixed
 - Guardian exits need the owner to opt in, a fresh verdict, enough vault liquidity and a funded executor. A partial exit can leave funds in the vault.
 - The Worker finds Guardian opt-ins from `Enabled` logs. On Base it reads them through three free public RPC endpoints in rotation, because Base makes five blocks a second; if all three refuse at once, discovery waits for the next minute's run.
 - The one live mainnet exit so far was for an owner who is also Rein's executor wallet.
+
+## FAQ
+
+### Who built this?
+
+One person. Rein is a solo project.
+
+### Which parts were written before November?
+
+The risk oracle, the vault adapters and the grading code come from Tare, my earlier Monad project, and arrive in the first commit with its source commit named. The NEAR contract, the Worker, the MCP server, the site and the oracle's replay and expiry checks were written during the hackathon. [Built with](#built-with) has the details.
+
+### Were AI coding agents used?
+
+Yes, most of the code, tests and documentation came out of sessions with Claude Code. I set the design, read the diffs, and merged a change only once its tests passed. The suites are listed under [Tests](#tests).
+
+### Could the operator post a verdict the model never gave?
+
+The contract refuses it. It recovers the signer of every answer and rejects any key the owner has not approved, then builds the oracle calldata itself. The Worker's key reaches eight contract methods and cannot sign an EVM transaction. Each attempt, with its error, is in [Attacks the contracts refuse](#attacks-the-contracts-refuse).
+
+### Does Rein ever hold a depositor's USDC?
+
+Never. Guardian is opt-in per owner, and its `exit` redeems shares straight to that owner's address.
+
+### What does the TEE signature not cover?
+
+The inputs. It ties an answer to a model and a document, but the document is built from RPC reads the contract cannot verify. [Trust limits](#trust-limits) lists this and the other gaps.
+
+### What does one verdict cost, and what if it fails?
+
+0.5 USDC or 0.15 NEAR on mainnet, 0.1 NEAR on testnet. Payment through the contract sits in escrow and comes back in full if the post fails. An x402 payment settles up front, so a failed judgement earns a free retry instead of a refund.
+
+### Can I pay without a NEAR account?
+
+Through x402, yes: USDC from another chain, routed by NEAR Intents. The browser flow and the MCP `get_verdict` tool both use a NEAR account.
+
+### Has it been audited?
+
+No. It runs on mainnet with small amounts only.
 
 ## Tests
 
