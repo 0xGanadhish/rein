@@ -1,10 +1,10 @@
-import { createPublicClient, http, keccak256, toBytes, type Address } from 'viem';
+import { createPublicClient, keccak256, toBytes, type Address } from 'viem';
 import type { DeskChain } from '../../shared/desk';
 import { erc4626Abi } from './abis';
 import { handle } from './api';
 import { CHAINS, viemChain } from './broadcast';
 import { NETWORK_CHAINS, type DeskClient, type DeskOrder } from './deskTypes';
-import { rpcFor, type Env, type NearNetwork, type NudgeResult } from './env';
+import { readTransport, rpcFor, type Env, type NearNetwork, type NudgeResult } from './env';
 import { realExitDeps, runExits, type ExitDeps } from './exits';
 import { gradeDue, realGradeDeps, type GradeDeps } from './grade';
 import { checkHealth, readActivity, type HealthDeps, type Health } from './health';
@@ -68,7 +68,7 @@ function realDeps(env: Env, desk: DeskClient): OrderDeps {
     desk,
     journal: new BroadcastJournal(env.DB, env.NEAR_NETWORK),
     async read(c, vault) {
-      const client = createPublicClient({ chain: CHAINS[c], transport: http(rpcFor(env, c), { retryCount: 2 }) });
+      const client = createPublicClient({ chain: CHAINS[c], transport: readTransport(env, c, { retryCount: 2 }) });
       const block = await client.getBlockNumber();
       const [name, stats, prev] = await Promise.all([
         client.readContract({ address: vault as Address, abi: erc4626Abi, functionName: 'name', blockNumber: block }),
@@ -222,7 +222,7 @@ async function realHealthDeps(env: Env): Promise<HealthDeps> {
   return {
     derivedAddress: () => nearDesk(env).derived_address(),
     gasBalance: (chain, address) =>
-      createPublicClient({ chain: CHAINS[chain], transport: http(rpcFor(env, chain)) }).getBalance({
+      createPublicClient({ chain: CHAINS[chain], transport: readTransport(env, chain) }).getBalance({
         address: address as Address,
       }),
     agent: () => agentStatus(env),
