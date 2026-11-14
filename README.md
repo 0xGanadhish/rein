@@ -2,24 +2,24 @@
 
 <h1>Rein</h1>
 
-<p><b>A risk desk for AI agents, on NEAR.</b></p>
+<p><b>Agents pay Rein to judge a yield vault. A model in a NEAR AI TEE answers HOLD, EXIT or MOVE, and NEAR Chain Signatures posts the verdict to Monad or Base.</b></p>
 
-<p>Verdicts for yield vaults · Posted onchain to Monad and Base · Graded in public</p>
+<p>Signed by the TEE · Checked by the contract · Graded in public</p>
 
 <p>
-<img alt="Built on NEAR" src="https://img.shields.io/badge/Built_on-NEAR-0b3d2e?style=flat-square">
 <img alt="status: live on mainnet, not audited" src="https://img.shields.io/badge/status-live_on_mainnet%2C_not_audited-b08d3c?style=flat-square">
-<img alt="tests: 158 TypeScript, 14 Solidity" src="https://img.shields.io/badge/tests-158_TypeScript_%C2%B7_14_Solidity-2f5d3a?style=flat-square">
 <img alt="license: MIT" src="https://img.shields.io/badge/license-MIT-2f5d3a?style=flat-square">
 </p>
 
 <p>
 <a href="https://www.reinfi.xyz">Live app</a> ·
-<a href="https://api.reinfi.xyz/v1/ledger">Public Ledger</a> ·
+<a href="https://www.reinfi.xyz/ledger">Ledger</a> ·
 <a href="#try-it">Try it</a> ·
-<a href="docs/reference.md">Reference</a> ·
-<a href="docs/buy-with-an-agent.md">Agent walkthrough</a>
+<a href="docs/buy-with-an-agent.md">Agent walkthrough</a> ·
+<a href="docs/reference.md">Reference</a>
 </p>
+
+<img src="docs/images/orders_13.png" alt="Receipt for mainnet order 13: EXIT at 85% confidence on Clearstar Earn USDC" width="720">
 
 </div>
 
@@ -28,7 +28,7 @@
 
 ## Overview
 
-Rein is a risk desk for agents, and it runs on a NEAR contract. An agent that manages stablecoins pays it to judge a yield vault, through one MCP tool call or an x402 payment over HTTP. A model inside a NEAR AI Cloud TEE reads the vault's onchain state and answers HOLD, EXIT or MOVE. The contract checks the model's signature, then NEAR Chain Signatures signs a transaction that posts the verdict to an oracle on Monad or Base. Every verdict is graded later on a public Ledger. A person can buy the same verdict in the browser.
+Rein runs on a NEAR contract. An agent that manages stablecoins pays it to judge a yield vault, through one MCP tool call or an x402 payment over HTTP. A model inside a NEAR AI Cloud TEE reads the vault's onchain state and answers HOLD, EXIT or MOVE. The contract checks the model's signature, then NEAR Chain Signatures signs a transaction that posts the verdict to an oracle on Monad or Base. Every verdict is graded later on a public Ledger. A person can buy the same verdict in the browser.
 
 Guardian is an optional contract on Monad and Base that acts on a verdict. A depositor sets a rule: a minimum confidence and a maximum verdict age. When a fresh EXIT on their vault meets the rule, anyone can call `exit`, and the position is redeemed straight back to its owner. Guardian never holds funds.
 
