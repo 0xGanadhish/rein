@@ -1,4 +1,5 @@
 import { TARE_SITE } from '@/lib/tare';
+import { HowFlow } from './HowFlow';
 import s from './how.module.css';
 
 const CHECKS: { title: string; body: string }[] = [
@@ -72,6 +73,7 @@ export function HowItWorks() {
           You pay the desk contract on NEAR. Its agent reads the vault and asks a model running in a TEE. The contract
           checks the signed answer, then NEAR Chain Signatures sign the post to the oracle on the vault’s chain.
         </p>
+        <HowFlow />
       </div>
 
       <section aria-labelledby="checks" className={s.section}>
