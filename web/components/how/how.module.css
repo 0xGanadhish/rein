@@ -67,3 +67,90 @@
   color: var(--ink);
   text-underline-offset: 3px;
 }
+
+/* The order flow: a sequence diagram, scrolls sideways on narrow screens. */
+.flow {
+  margin: 40px 0 0;
+}
+.flowScroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+}
+.flowSvg {
+  display: block;
+  width: 100%;
+  min-width: 680px;
+  height: auto;
+  font-family: var(--sans);
+}
+.flowCaption {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--mute);
+}
+.flowActor {
+  fill: var(--bone);
+  stroke: var(--line);
+}
+.flowActorName {
+  text-anchor: middle;
+  font-size: 13px;
+  font-weight: 650;
+  fill: var(--ink);
+}
+.flowActorSub {
+  text-anchor: middle;
+  font-size: 11px;
+  fill: var(--mute);
+}
+.flowLife {
+  stroke: var(--line);
+  stroke-dasharray: 3 4;
+}
+.flowMsg,
+.flowMsgReply,
+.flowMsgSignal {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+.flowMsgReply {
+  stroke-dasharray: 5 4;
+}
+.flowMsgSignal {
+  stroke: var(--signal);
+  stroke-width: 2;
+}
+.flowHeadInk {
+  fill: var(--ink);
+}
+.flowHeadSignal {
+  fill: var(--signal);
+}
+.flowLabel,
+.flowLabelSignal,
+.flowLabelStart {
+  text-anchor: middle;
+  font-size: 12px;
+  fill: var(--ink-2);
+}
+.flowLabelStart {
+  text-anchor: start;
+  fill: var(--mute);
+}
+.flowLabelSignal {
+  fill: var(--signal-ink);
+  font-weight: 600;
+}
+.flowCheck {
+  fill: var(--paper);
+  stroke: var(--signal);
+  stroke-width: 1.5;
+}
+.flowCheckTitle {
+  text-anchor: middle;
+  font-size: 13px;
+  font-weight: 650;
+  fill: var(--ink);
+}
