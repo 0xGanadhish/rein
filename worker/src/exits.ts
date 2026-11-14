@@ -19,7 +19,7 @@ import type { DeskChain } from '../../shared/desk';
 import { guardianAbi, oracleAbi } from './abis';
 import { CHAINS, ORACLES } from './broadcast';
 import { NETWORK_CHAINS } from './deskTypes';
-import { rpcFor, type Env, type NearNetwork } from './env';
+import { rpcFor, readTransport, type Env, type NearNetwork } from './env';
 
 export const PARTIAL_FOLLOWUP_S = 30;
 // eth_getLogs block-range caps: rpc.monad.xyz rejects more than 100 blocks. Base scans use LOG_RPCS, which all
@@ -79,7 +79,7 @@ export function realExitDeps(env: Env): ExitDeps {
   const client = (chain: DeskChain) =>
     createPublicClient({
       chain: CHAINS[chain],
-      transport: http(rpcFor(env, chain), { retryCount: 0, timeout: 5_000 }),
+      transport: readTransport(env, chain, { retryCount: 0, timeout: 5_000 }),
     });
   const guardian = (chain: DeskChain) => {
     const c = configured[chain];

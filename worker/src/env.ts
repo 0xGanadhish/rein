@@ -1,3 +1,4 @@
+import { fallback, http, type Transport } from 'viem';
 import type { DeskChain, DeskOrderStatus } from '../../shared/desk';
 
 export type NearNetwork = 'testnet' | 'mainnet';
@@ -48,4 +49,26 @@ export function rpcFor(env: Env, chain: DeskChain): string {
   }[chain];
   if (!url) throw new Error(`no RPC configured for ${chain}`);
   return url;
+}
+
+// Public Monad RPCs that answered 15 of 15 probe reads. The configured RPC_MONAD stays first. They back read-only
+// clients up when it rate-limits a cron burst; transaction sends keep using the configured RPC alone, so a send is
+// never retried against a second node.
+const MONAD_READ_BACKUPS = [
+  'https://rpc1.monad.xyz',
+  'https://rpc2.monad.xyz',
+  'https://rpc3.monad.xyz',
+  'https://rpc-mainnet.monadinfra.com',
+  'https://monad-mainnet.drpc.org',
+];
+
+/** Transport for read-only calls: the configured RPC, with backups on Monad mainnet. */
+export function readTransport(
+  env: Env,
+  chain: DeskChain,
+  options: { retryCount?: number; timeout?: number } = {},
+): Transport {
+  const urls = [rpcFor(env, chain), ...(chain === 'monad' ? MONAD_READ_BACKUPS : [])];
+  if (urls.length === 1) return http(urls[0], options);
+  return fallback(urls.map((url) => http(url, { ...options, retryCount: 0 })));
 }

@@ -1,9 +1,9 @@
-import { createPublicClient, http, type Address, type Hex } from 'viem';
+import { createPublicClient, type Address, type Hex } from 'viem';
 import type { DeskChain, DeskOrder } from '../../shared/desk';
 import { oracleAbi } from './abis';
 import { CHAINS, ORACLES } from './broadcast';
 import { NETWORK_CHAINS, type DeskClient } from './deskTypes';
-import { rpcFor, type Env, type NearNetwork } from './env';
+import { readTransport, type Env, type NearNetwork } from './env';
 import { inputCheck } from './inputCheck';
 import { queueAlerts } from './alerts';
 import { queueExits } from './exits';
@@ -44,7 +44,7 @@ export function realMirrorDeps(env: Env, desk: DeskClient): MirrorDeps {
       if (!address) return null;
       const client = createPublicClient({
         chain: CHAINS[chain],
-        transport: http(rpcFor(env, chain), { retryCount: 2 }),
+        transport: readTransport(env, chain, { retryCount: 2 }),
       });
       return {
         postCount: () => client.readContract({ address, abi: oracleAbi, functionName: 'postCount' }),
